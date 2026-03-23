@@ -56,13 +56,21 @@ Examples:
 /* ── Version ── */
 
 function printVersion() {
-  try {
-    const pkgPath = fileURLToPath(new URL('../package.json', import.meta.url))
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
-    console.log(`diagramkit v${pkg.version}`)
-  } catch {
-    console.log('diagramkit (unknown version)')
+  // Try both paths: ../package.json (source) and ../../package.json (dist/cli/)
+  const candidates = [
+    new URL('../package.json', import.meta.url),
+    new URL('../../package.json', import.meta.url),
+  ]
+  for (const url of candidates) {
+    try {
+      const pkg = JSON.parse(readFileSync(fileURLToPath(url), 'utf-8'))
+      if (pkg.name === 'diagramkit') {
+        console.log(`diagramkit v${pkg.version}`)
+        return
+      }
+    } catch {}
   }
+  console.log('diagramkit (unknown version)')
 }
 
 /* ── Arg parsing ── */
@@ -145,25 +153,19 @@ async function main() {
         })
 
         // Write output files
-        const { writeFileSync } = await import('fs')
         const path = await import('path')
         const { ensureDiagramsDir } = await import('../src/manifest')
         const { loadConfig } = await import('../src/config')
+        const { stripDiagramExtension, writeRenderResult } = await import('../src/output')
         const config = loadConfig(configOverrides, path.dirname(resolvedTarget))
-        const ext = result.format
-        const name = path.basename(resolvedTarget).replace(/\.[^.]+$/, '')
         const outDir = getFlagValue('output')
           ? resolve(getFlagValue('output')!)
           : ensureDiagramsDir(path.dirname(resolvedTarget), config)
+        const name = stripDiagramExtension(path.basename(resolvedTarget))
+        const written = writeRenderResult(name, outDir, result)
 
-        if (result.light) {
-          const outPath = path.join(outDir, `${name}-light.${ext}`)
-          writeFileSync(outPath, result.light)
-          console.log(`  Written: ${outPath}`)
-        }
-        if (result.dark) {
-          const outPath = path.join(outDir, `${name}-dark.${ext}`)
-          writeFileSync(outPath, result.dark)
+        for (const fileName of written) {
+          const outPath = path.join(outDir, fileName)
           console.log(`  Written: ${outPath}`)
         }
       } finally {

@@ -1,8 +1,22 @@
-import { mkdirSync, rmSync, writeFileSync } from 'fs'
-import { join } from 'path'
+/**
+ * User scenario:
+ * Incremental rendering should only rebuild when sources, theme, or format changed, and it must
+ * never delete source files or fresh outputs just because manifest settings changed.
+ *
+ * What this file verifies:
+ * - output and manifest directories resolve correctly for default, custom, and same-folder modes
+ * - manifest files round-trip with custom names
+ * - staleness responds to content, format, and theme changes
+ * - manifest updates record the exact expected output filenames
+ * - orphan cleanup stays safe when manifest tracking is disabled or when outputs live beside sources
+ */
+
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
+import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import {
+  cleanOrphans,
   ensureDiagramsDir,
   getDiagramsDir,
   hashFile,
@@ -17,119 +31,169 @@ describe('manifest', () => {
   let testDir: string
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `diagramkit-test-${Date.now()}`)
-    mkdirSync(testDir, { recursive: true })
+    testDir = mkdtempSync(join(tmpdir(), 'diagramkit-manifest-test-'))
   })
 
   afterEach(() => {
     rmSync(testDir, { recursive: true, force: true })
   })
 
-  describe('getDiagramsDir', () => {
-    it('returns .diagrams subdirectory', () => {
+  function createDiagram(name = 'test.mermaid', content = 'flowchart TD\nA-->B'): DiagramFile {
+    const filePath = join(testDir, name)
+    writeFileSync(filePath, content)
+    return {
+      path: filePath,
+      name: name.replace(/\.mermaid$/, ''),
+      dir: testDir,
+      ext: '.mermaid',
+    }
+  }
+
+  describe('directory helpers', () => {
+    it('returns the default hidden output directory', () => {
       expect(getDiagramsDir('/some/path')).toBe('/some/path/.diagrams')
     })
-  })
 
-  describe('ensureDiagramsDir', () => {
-    it('creates .diagrams directory', () => {
-      const dir = ensureDiagramsDir(testDir)
-      expect(dir).toBe(join(testDir, '.diagrams'))
+    it('respects custom output directory names and same-folder mode', () => {
+      expect(getDiagramsDir('/some/path', { outputDir: '_renders' })).toBe('/some/path/_renders')
+      expect(getDiagramsDir('/some/path', { sameFolder: true })).toBe('/some/path')
+    })
+
+    it('creates the computed output directory', () => {
+      const dir = ensureDiagramsDir(testDir, { outputDir: '_renders' })
+      expect(dir).toBe(join(testDir, '_renders'))
     })
   })
 
   describe('readManifest / writeManifest', () => {
-    it('returns empty manifest for new directory', () => {
-      const manifest = readManifest(testDir)
-      expect(manifest).toEqual({ version: 1, diagrams: {} })
+    it('returns an empty manifest for a new directory', () => {
+      expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
     })
 
-    it('round-trips manifest data', () => {
+    it('round-trips manifest data with a custom manifest filename', () => {
       const manifest = {
         version: 1 as const,
         diagrams: {
           'test.mermaid': {
             hash: 'sha256:abc123',
             generatedAt: '2026-01-01T00:00:00.000Z',
-            outputs: ['test-light.svg', 'test-dark.svg'],
+            outputs: ['test-light.png'],
+            format: 'png' as const,
+            theme: 'light' as const,
           },
         },
       }
-      writeManifest(testDir, manifest)
-      expect(readManifest(testDir)).toEqual(manifest)
+
+      writeManifest(testDir, manifest, {
+        manifestFile: 'custom.manifest.json',
+      })
+      expect(readManifest(testDir, { manifestFile: 'custom.manifest.json' })).toEqual(manifest)
     })
   })
 
   describe('hashFile', () => {
-    it('produces sha256 hash prefix', () => {
-      const filePath = join(testDir, 'test.mermaid')
-      writeFileSync(filePath, 'graph LR; A-->B')
-      const hash = hashFile(filePath)
-      expect(hash).toMatch(/^sha256:[0-9a-f]{16}$/)
+    it('produces a short sha256 hash prefix', () => {
+      const file = createDiagram()
+      expect(hashFile(file.path)).toMatch(/^sha256:[0-9a-f]{16}$/)
     })
 
     it('produces different hashes for different content', () => {
-      const file1 = join(testDir, 'a.mermaid')
-      const file2 = join(testDir, 'b.mermaid')
-      writeFileSync(file1, 'graph LR; A-->B')
-      writeFileSync(file2, 'graph TD; C-->D')
-      expect(hashFile(file1)).not.toBe(hashFile(file2))
+      const file1 = createDiagram('a.mermaid', 'flowchart TD\nA-->B')
+      const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
+      expect(hashFile(file1.path)).not.toBe(hashFile(file2.path))
     })
   })
 
   describe('isStale', () => {
-    it('returns true for files not in manifest', () => {
-      const filePath = join(testDir, 'test.mermaid')
-      writeFileSync(filePath, 'graph LR; A-->B')
-
-      const file: DiagramFile = {
-        path: filePath,
-        name: 'test',
-        dir: testDir,
-        ext: '.mermaid',
-      }
+    it('returns true for files not in the manifest', () => {
+      const file = createDiagram()
       expect(isStale(file)).toBe(true)
     })
 
-    it('returns false for unchanged files with existing outputs', () => {
-      const filePath = join(testDir, 'test.mermaid')
-      writeFileSync(filePath, 'graph LR; A-->B')
-
-      const file: DiagramFile = {
-        path: filePath,
-        name: 'test',
-        dir: testDir,
-        ext: '.mermaid',
-      }
-
-      // Create manifest and output files
+    it('returns false for unchanged files whose expected outputs still exist', () => {
+      const file = createDiagram()
       updateManifest([file])
+
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'test-light.svg'), '<svg width="10" height="10"/>')
+      writeFileSync(join(outDir, 'test-dark.svg'), '<svg width="10" height="10"/>')
+
+      expect(isStale(file, 'svg', undefined, 'both')).toBe(false)
+    })
+
+    it('returns true when content, format, or theme changes', () => {
+      const file = createDiagram()
+      updateManifest([file], 'svg', undefined, 'both')
+
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'test-light.svg'), '<svg width="10" height="10"/>')
+      writeFileSync(join(outDir, 'test-dark.svg'), '<svg width="10" height="10"/>')
+
+      expect(isStale(file, 'png', undefined, 'both')).toBe(true)
+      expect(isStale(file, 'svg', undefined, 'light')).toBe(true)
+
+      writeFileSync(file.path, 'flowchart TD\nB-->C')
+      expect(isStale(file, 'svg', undefined, 'both')).toBe(true)
+    })
+  })
+
+  describe('updateManifest', () => {
+    it('records theme-specific output names and metadata', () => {
+      const file = createDiagram('flow.mermaid')
+      updateManifest([file], 'png', undefined, 'light')
+
+      expect(readManifest(testDir)).toEqual({
+        version: 1,
+        diagrams: {
+          'flow.mermaid': {
+            hash: hashFile(file.path),
+            generatedAt: expect.any(String),
+            outputs: ['flow-light.png'],
+            format: 'png',
+            theme: 'light',
+          },
+        },
+      })
+    })
+  })
+
+  describe('cleanOrphans', () => {
+    it('does nothing when manifest tracking is disabled', () => {
+      const file = createDiagram()
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'test-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'test-dark.svg'), '<svg/>')
 
-      expect(isStale(file)).toBe(false)
+      cleanOrphans([file], { useManifest: false })
+
+      expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
+      expect(existsSync(join(outDir, 'test-light.svg'))).toBe(true)
+      expect(existsSync(join(outDir, 'test-dark.svg'))).toBe(true)
     })
 
-    it('returns true when content changes', () => {
-      const filePath = join(testDir, 'test.mermaid')
-      writeFileSync(filePath, 'graph LR; A-->B')
+    it('removes outputs for deleted sources but keeps source files in same-folder mode', () => {
+      const file = createDiagram()
+      const companionFile = createDiagram('keep.mermaid', 'flowchart TD\nX-->Y')
 
-      const file: DiagramFile = {
-        path: filePath,
-        name: 'test',
-        dir: testDir,
-        ext: '.mermaid',
-      }
+      updateManifest([file, companionFile], 'svg', { sameFolder: true }, 'both')
+      writeFileSync(join(testDir, 'test-light.svg'), '<svg/>')
+      writeFileSync(join(testDir, 'test-dark.svg'), '<svg/>')
+      writeFileSync(join(testDir, 'keep-light.svg'), '<svg/>')
+      writeFileSync(join(testDir, 'keep-dark.svg'), '<svg/>')
+      writeFileSync(join(testDir, 'notes.txt'), 'keep me')
 
-      updateManifest([file])
-      const outDir = ensureDiagramsDir(testDir)
-      writeFileSync(join(outDir, 'test-light.svg'), '<svg/>')
-      writeFileSync(join(outDir, 'test-dark.svg'), '<svg/>')
+      rmSync(file.path)
+      cleanOrphans([companionFile], { sameFolder: true })
 
-      // Change content
-      writeFileSync(filePath, 'graph TD; C-->D')
-      expect(isStale(file)).toBe(true)
+      const manifest = readManifest(testDir, { sameFolder: true })
+      expect(manifest.diagrams['test.mermaid']).toBeUndefined()
+      expect(manifest.diagrams['keep.mermaid']).toBeDefined()
+      expect(existsSync(join(testDir, 'test-light.svg'))).toBe(false)
+      expect(existsSync(join(testDir, 'test-dark.svg'))).toBe(false)
+      expect(existsSync(join(testDir, 'keep-light.svg'))).toBe(true)
+      expect(existsSync(join(testDir, 'keep-dark.svg'))).toBe(true)
+      expect(existsSync(join(testDir, 'keep.mermaid'))).toBe(true)
+      expect(existsSync(join(testDir, 'notes.txt'))).toBe(true)
     })
   })
 })

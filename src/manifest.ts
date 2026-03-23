@@ -1,7 +1,8 @@
 import { createHash } from 'crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
-import type { DiagramFile, DiagramkitConfig, OutputFormat } from './types'
+import { getExpectedOutputNames } from './output'
+import type { DiagramFile, DiagramkitConfig, OutputFormat, Theme } from './types'
 
 /* ── Constants ── */
 
@@ -15,6 +16,7 @@ export type ManifestEntry = {
   generatedAt: string
   outputs: string[]
   format?: OutputFormat
+  theme?: Theme
 }
 
 export type Manifest = {
@@ -89,6 +91,7 @@ export function isStale(
   file: DiagramFile,
   format?: OutputFormat,
   config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
 ): boolean {
   // When manifest is disabled, always consider stale
   if (config?.useManifest === false) return true
@@ -101,7 +104,8 @@ export function isStale(
   if (!entry || entry.hash !== hash) return true
 
   // Format change triggers re-render
-  if (format && entry.format && entry.format !== format) return true
+  if (format && entry.format !== format) return true
+  if (theme && entry.theme !== theme) return true
 
   // Check that output files exist
   const outDir = getDiagramsDir(file.dir, config)
@@ -114,9 +118,10 @@ export function filterStaleFiles(
   force: boolean,
   format?: OutputFormat,
   config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
 ): DiagramFile[] {
   if (force) return files
-  return files.filter((f) => isStale(f, format, config))
+  return files.filter((f) => isStale(f, format, config, theme))
 }
 
 /* ── Manifest update ── */
@@ -126,6 +131,7 @@ export function updateManifest(
   files: DiagramFile[],
   format: OutputFormat = 'svg',
   config?: Partial<DiagramkitConfig>,
+  theme: Theme = 'both',
 ): void {
   // When manifest is disabled, skip writing entirely
   if (config?.useManifest === false) return
@@ -136,8 +142,6 @@ export function updateManifest(
     byDir.get(f.dir)!.push(f)
   }
 
-  const ext = format === 'svg' ? 'svg' : format
-
   for (const [dir, dirFiles] of byDir) {
     const manifest = readManifest(dir, config)
     for (const f of dirFiles) {
@@ -145,8 +149,9 @@ export function updateManifest(
       manifest.diagrams[name] = {
         hash: hashFile(f.path),
         generatedAt: new Date().toISOString(),
-        outputs: [`${f.name}-light.${ext}`, `${f.name}-dark.${ext}`],
+        outputs: getExpectedOutputNames(f.name, format, theme),
         format,
+        theme,
       }
     }
 
@@ -161,6 +166,8 @@ export function updateManifest(
  * Scans each output folder and removes entries whose source file is gone.
  */
 export function cleanOrphans(files: DiagramFile[], config?: Partial<DiagramkitConfig>): void {
+  if (config?.useManifest === false) return
+
   const manifestFile = config?.manifestFile ?? 'diagrams.manifest.json'
   const dirs = new Set(files.map((f) => f.dir))
 
@@ -182,6 +189,10 @@ export function cleanOrphans(files: DiagramFile[], config?: Partial<DiagramkitCo
     }
 
     if (changed) writeManifest(dir, manifest, config)
+
+    // In same-folder mode we can only safely remove files that were explicitly tracked by the manifest.
+    // Sweeping "unknown" files would delete sources and unrelated project files.
+    if (config?.sameFolder) continue
 
     // Clean outputs not referenced by the manifest
     const outDir = getDiagramsDir(dir, config)

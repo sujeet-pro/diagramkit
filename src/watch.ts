@@ -3,7 +3,7 @@ import { basename, dirname, join } from 'path'
 import { loadConfig } from './config'
 import { getAllExtensions, getExtensionMap, getMatchedExtension } from './extensions'
 import { updateManifest } from './manifest'
-import { createRenderers } from './renderers'
+import { renderDiagramFileToDisk } from './renderer'
 import type { DiagramFile, DiagramType, WatchOptions } from './types'
 
 function toDiagramFile(
@@ -29,6 +29,7 @@ export function watchDiagrams(opts: WatchOptions): () => void {
   const dir = opts.dir
   const config = loadConfig(opts.config, dir)
   const format = opts.renderOptions?.format ?? config.defaultFormat
+  const theme = opts.renderOptions?.theme ?? config.defaultTheme
   const extensionMap = getExtensionMap(config.extensionMap)
   const allExts = getAllExtensions(extensionMap)
 
@@ -43,19 +44,22 @@ export function watchDiagrams(opts: WatchOptions): () => void {
     ignored: new RegExp(`node_modules|${outputDirPattern}|dist|dev`),
   })
 
-  const renderers = createRenderers()
-
   const handle = async (path: string) => {
     const file = toDiagramFile(path, extensionMap)
     if (!file) return
 
-    const renderer = renderers.find((r) => r.extensions.includes(file.ext))
-    if (!renderer) return
-
     try {
-      await renderer.renderSingle(file, { format, config })
+      await renderDiagramFileToDisk(file, {
+        format,
+        theme,
+        scale: opts.renderOptions?.scale,
+        quality: opts.renderOptions?.quality,
+        contrastOptimize: opts.renderOptions?.contrastOptimize,
+        mermaidDarkTheme: opts.renderOptions?.mermaidDarkTheme,
+        config,
+      })
       if (config.useManifest) {
-        updateManifest([file], format, config)
+        updateManifest([file], format, config, theme)
       }
       opts.onChange?.(path)
     } catch (err: any) {

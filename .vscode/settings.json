@@ -1,0 +1,41 @@
+{
+  // Disable built-in TypeScript formatting — OXC handles it
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxc": "explicit"
+  },
+
+  // OXC formatter config (matches vite.config.ts fmt section)
+  "oxc.lint.enable": true,
+  "oxc.format.enable": true,
+
+  // Disable Prettier and ESLint to avoid conflicts
+  "prettier.enable": false,
+  "eslint.enable": false,
+
+  // Per-language formatter overrides
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+
+  // File associations
+  "files.associations": {
+    ".diagramkitrc.json": "json"
+  }
+}

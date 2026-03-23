@@ -1,0 +1,19 @@
+<mxfile host="diagramkit" modified="2026-03-23T00:00:00.000Z" type="device">
+  <diagram id="page-1" name="Page-1">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Client" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="Service" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="320" y="100" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#4d4d4d;fontSize=12;" edge="1" source="2" target="3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
