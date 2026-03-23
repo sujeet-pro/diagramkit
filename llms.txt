@@ -1,0 +1,54 @@
+# diagramkit
+
+> Diagram rendering CLI & library. Converts .mermaid, .excalidraw, and .drawio files to SVG/PNG/JPEG/WebP with automatic light/dark mode support.
+
+## Quick Start
+
+npm install diagramkit playwright mermaid
+npx playwright install chromium
+diagramkit render .
+
+## Supported Formats
+
+Input: .mermaid (.mmd, .mmdc), .excalidraw, .drawio (.drawio.xml, .dio)
+Output: SVG (default), PNG, JPEG, WebP
+
+## CLI
+
+diagramkit render <file-or-dir> [--format svg|png|jpeg|webp] [--theme light|dark|both] [--watch] [--force]
+diagramkit render <file-or-dir> [--scale <number>] [--quality <number>] [--no-contrast] [--type <type>] [--output <dir>]
+diagramkit warmup
+
+## Output Convention
+
+Rendered images go to .diagrams/ next to source files:
+  source.mermaid -> .diagrams/source-light.svg + .diagrams/source-dark.svg
+
+## JS API
+
+import { render, renderFile, renderAll, watchDiagrams, convertSvg, loadConfig, warmup, dispose } from 'diagramkit'
+
+render(source: string, type: DiagramType, options?: RenderOptions): Promise<RenderResult>
+renderFile(filePath: string, options?: RenderOptions): Promise<RenderResult>
+renderAll(options?: BatchOptions): Promise<void>
+watchDiagrams(options: WatchOptions): () => void
+convertSvg(svg: Buffer | string, options: ConvertOptions): Promise<Buffer>
+loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string): DiagramkitConfig
+
+## Configuration
+
+Config file: .diagramkitrc.json (walks up directory tree)
+Global config: ~/.config/diagramkit/config.json
+Merge order: defaults -> global -> local -> overrides
+
+## Dependencies
+
+Required: playwright, mermaid
+Optional: @excalidraw/excalidraw + react + react-dom (for .excalidraw), sharp (for PNG/JPEG/WebP)
+
+## Links
+
+- API Types: src/types.ts
+- CLI: cli/bin.ts
+- Docs: docs/
+- Skills: skills/claude-code/diagramkit.md

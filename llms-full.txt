@@ -1,0 +1,316 @@
+# diagramkit — Full Reference
+
+> Diagram rendering CLI & library. Converts .mermaid, .excalidraw, and .drawio files to SVG/PNG/JPEG/WebP with automatic light/dark mode support and WCAG color contrast optimization.
+
+## Installation
+
+Required dependencies (mermaid diagrams):
+  npm install diagramkit playwright mermaid
+  npx playwright install chromium
+
+For excalidraw support (optional):
+  npm install @excalidraw/excalidraw react react-dom
+
+For raster output — PNG, JPEG, WebP (optional):
+  npm install sharp
+
+## CLI Reference
+
+### Commands
+
+  diagramkit render <file-or-dir> [options]    Render diagram file(s) to images
+  diagramkit warmup                            Pre-install Playwright chromium browser
+  diagramkit --version                         Show version
+  diagramkit --help                            Show help
+
+### Render Options
+
+  --format <svg|png|jpeg|webp>     Output format (default: svg)
+  --theme <light|dark|both>        Theme variants to render (default: both)
+  --scale <number>                 Scale factor for raster output (default: 2)
+  --quality <number>               JPEG/WebP quality 1-100 (default: 90)
+  --force                          Re-render all, ignore manifest cache
+  --watch                          Watch for file changes and re-render
+  --no-contrast                    Disable dark SVG contrast optimization
+  --type <mermaid|excalidraw|drawio>  Filter to specific diagram type
+  --output <dir>                   Custom output directory (default: .diagrams sibling)
+
+### Examples
+
+  diagramkit render .                              Render all in cwd
+  diagramkit render flow.mermaid                   Single file
+  diagramkit render ./docs --format png --scale 3  High-res PNGs
+  diagramkit render . --watch                      Watch mode
+  diagramkit render . --format webp --quality 85   WebP output
+  diagramkit render . --type drawio                Only draw.io files
+  diagramkit render . --theme dark --no-contrast   Raw dark output
+
+## JavaScript API
+
+### Core Functions
+
+  render(source: string, type: DiagramType, options?: RenderOptions): Promise<RenderResult>
+    Render a diagram from source content string.
+
+  renderFile(filePath: string, options?: RenderOptions): Promise<RenderResult>
+    Render a diagram from a file path on disk. Detects type from extension.
+
+  renderAll(options?: BatchOptions): Promise<void>
+    Batch render all diagrams in a directory tree. Outputs go to .diagrams/ folders.
+
+  watchDiagrams(options: WatchOptions): () => void
+    Watch for diagram file changes and re-render. Returns cleanup function.
+
+### Conversion
+
+  convertSvg(svg: Buffer | string, options: ConvertOptions): Promise<Buffer>
+    Convert SVG to raster format (PNG/JPEG/WebP) using sharp.
+    sharp is dynamically imported — only required when called.
+
+### Configuration
+
+  loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string): DiagramkitConfig
+    Load merged config: defaults -> global (~/.config/diagramkit/config.json)
+    -> local (.diagramkitrc.json, walks up) -> overrides.
+
+  getDefaultConfig(): DiagramkitConfig
+    Returns default configuration values.
+
+### Extension Mapping
+
+  getExtensionMap(overrides?: Record<string, DiagramType>): Record<string, DiagramType>
+    Get the full extension-to-type mapping, merged with optional overrides.
+
+  getDiagramType(filename: string, map?): DiagramType | null
+    Resolve diagram type from a filename. Tests longest extensions first.
+
+  getMatchedExtension(filename: string, map?): string | null
+    Get the matched extension string from a filename.
+
+  getAllExtensions(map?): string[]
+    Return all known extensions.
+
+  getExtensionsForType(type: DiagramType, map?): string[]
+    Return extensions that map to a given diagram type.
+
+### Discovery
+
+  findDiagramFiles(dir: string, config?): DiagramFile[]
+    Recursively find all diagram source files. Skips hidden dirs and node_modules.
+
+  filterByType(files: DiagramFile[], type: DiagramType, config?): DiagramFile[]
+    Filter diagram files by resolved diagram type.
+
+### Manifest
+
+  hashFile(filePath: string): string
+    SHA-256 content hash (first 16 hex chars), prefixed with "sha256:".
+
+  isStale(file: DiagramFile, format?, config?): boolean
+    Check if a file has changed since last render.
+
+  filterStaleFiles(files: DiagramFile[], force: boolean, format?, config?): DiagramFile[]
+    Filter to only files that need re-rendering.
+
+  updateManifest(files: DiagramFile[], format?, config?): void
+    Update manifests after successful renders. Groups by directory.
+
+  cleanOrphans(files: DiagramFile[], config?): void
+    Remove orphaned outputs for deleted source files.
+
+  readManifest(sourceDir: string, config?): Manifest
+  writeManifest(sourceDir: string, manifest: Manifest, config?): void
+  ensureDiagramsDir(sourceDir: string, config?): string
+  getDiagramsDir(sourceDir: string, config?): string
+
+### Color Utilities
+
+  postProcessDarkSvg(svg: string): string
+    Fix dark SVG contrast by darkening high-luminance fills while preserving hue.
+
+  hexToRgb(hex: string): [number, number, number]
+  rgbToHsl(r: number, g: number, b: number): [number, number, number]
+  hslToHex(h: number, s: number, l: number): string
+  relativeLuminance(r: number, g: number, b: number): number
+
+### Browser Lifecycle
+
+  warmup(): Promise<void>
+    Pre-warm the browser pool (launches Chromium).
+
+  dispose(): Promise<void>
+    Explicitly dispose the browser pool and close Chromium.
+
+## TypeScript Interfaces
+
+### DiagramType
+  type DiagramType = 'mermaid' | 'excalidraw' | 'drawio'
+
+### OutputFormat
+  type OutputFormat = 'svg' | 'png' | 'jpeg' | 'webp'
+
+### Theme
+  type Theme = 'light' | 'dark' | 'both'
+
+### DiagramFile
+  interface DiagramFile {
+    path: string       // Absolute path to source file
+    name: string       // Filename without extension
+    dir: string        // Directory containing the file
+    ext: string        // File extension (e.g. .mermaid, .mmd, .excalidraw, .drawio)
+  }
+
+### RenderOptions
+  interface RenderOptions {
+    format?: OutputFormat           // Default: 'svg'
+    theme?: Theme                   // Default: 'both'
+    quality?: number                // JPEG/WebP quality 1-100. Default: 90
+    scale?: number                  // Scale for raster output. Default: 2
+    contrastOptimize?: boolean      // Dark SVG contrast fix. Default: true
+    mermaidDarkTheme?: Record<string, string>  // Custom dark theme variables
+    config?: Partial<DiagramkitConfig>
+  }
+
+### RenderResult
+  interface RenderResult {
+    light?: Buffer     // Light theme output (SVG string as Buffer, or raster binary)
+    dark?: Buffer      // Dark theme output
+    format: OutputFormat
+    width?: number     // SVG width in pixels (SVG output only)
+    height?: number    // SVG height in pixels (SVG output only)
+  }
+
+### BatchOptions
+  interface BatchOptions extends RenderOptions {
+    dir?: string           // Root directory to scan. Default: cwd()
+    force?: boolean        // Force re-render, ignoring manifest. Default: false
+    type?: DiagramType     // Filter to specific diagram type
+  }
+
+### WatchOptions
+  interface WatchOptions {
+    dir: string                              // Root directory to watch
+    onChange?: (file: string) => void         // Callback after render
+    renderOptions?: RenderOptions
+    config?: Partial<DiagramkitConfig>
+  }
+
+### ConvertOptions
+  interface ConvertOptions {
+    format: 'png' | 'jpeg' | 'webp'
+    density?: number       // Scale multiplier for SVG rasterization. Default: 2
+    quality?: number       // JPEG/WebP quality 1-100. Default: 90
+  }
+
+### DiagramkitConfig
+  interface DiagramkitConfig {
+    outputDir: string          // Output folder name. Default: '.diagrams'
+    manifestFile: string       // Manifest filename. Default: 'diagrams.manifest.json'
+    useManifest: boolean       // Enable incremental builds. Default: true
+    sameFolder: boolean        // Place outputs next to source. Default: false
+    defaultFormat: OutputFormat // Default output format. Default: 'svg'
+    defaultTheme: Theme        // Default theme. Default: 'both'
+    extensionMap?: Record<string, DiagramType>  // Custom extension overrides
+  }
+
+### DiagramRenderer (internal)
+  interface DiagramRenderer {
+    name: string
+    extensions: string[]
+    renderBatch(files: DiagramFile[], options?: RendererOptions): Promise<void>
+    renderSingle(file: DiagramFile, options?: RendererOptions): Promise<void>
+    dispose?(): Promise<void>
+  }
+
+### RendererOptions (internal)
+  interface RendererOptions {
+    force?: boolean
+    format?: OutputFormat
+    config?: DiagramkitConfig
+  }
+
+### Manifest (internal)
+  type Manifest = { version: 1, diagrams: Record<string, ManifestEntry> }
+  type ManifestEntry = { hash: string, generatedAt: string, outputs: string[], format?: OutputFormat }
+
+## Architecture
+
+### Browser Pool
+Single Chromium instance managed by BrowserPool (src/pool.ts):
+- Lazy initialization: browser launches on first acquire()
+- Reference counting: acquire() increments, release() decrements
+- Idle timeout: 5 seconds after last release, browser closes automatically
+- Coalesced launches: concurrent acquire() calls share one launch promise
+- 4 dedicated pages: mermaid-light, mermaid-dark, excalidraw, drawio
+- Mermaid needs separate light/dark pages because mermaid.initialize() is global
+- Excalidraw and drawio handle dark mode per-render call
+- Process cleanup on SIGINT/SIGTERM/exit
+
+### Manifest System
+SHA-256 content hashing for incremental rebuilds (src/manifest.ts):
+- Each .diagrams/ folder has a diagrams.manifest.json
+- Entries map source filename to hash, timestamp, output filenames, and format
+- isStale() checks: hash mismatch, format change, or missing output files
+- cleanOrphans() removes outputs for deleted source files
+- Manifest disabled when config.useManifest is false
+
+### Extension Aliases
+Defined in src/extensions.ts. Longest-match-first resolution:
+  .mermaid, .mmd, .mmdc       -> mermaid
+  .excalidraw                  -> excalidraw
+  .drawio, .drawio.xml, .dio  -> drawio
+Custom overrides via config.extensionMap (merged with built-in map).
+
+### Configuration
+Loaded by src/config.ts with merge order:
+  1. Built-in defaults (getDefaultConfig)
+  2. Global config: ~/.config/diagramkit/config.json (or $XDG_CONFIG_HOME)
+  3. Local config: .diagramkitrc.json (walks up directory tree)
+  4. Programmatic overrides
+
+### Dark Mode Contrast
+postProcessDarkSvg() in src/color/contrast.ts:
+- Scans inline style="fill:#hex" attributes in SVG
+- Computes WCAG 2.0 relative luminance for each fill color
+- Colors with luminance > 0.4 are darkened to lightness 0.25
+- Hue and saturation (capped at 0.6) are preserved
+- Ensures readable contrast against dark backgrounds
+- Applied automatically to mermaid dark renders and drawio dark renders
+
+### Output Convention
+Rendered images placed in .diagrams/ hidden folder next to source files:
+  source.mermaid -> .diagrams/source-light.svg + .diagrams/source-dark.svg
+Configurable via config.outputDir or config.sameFolder.
+
+### Watch Mode
+Uses chokidar (src/watch.ts) to watch for .mermaid and .excalidraw file changes.
+On change/add: re-renders affected file, updates manifest, calls onChange callback.
+Returns cleanup function to stop watching.
+
+### Renderers
+Three renderer classes implementing DiagramRenderer interface:
+- MermaidRenderer: uses BrowserPool mermaid pages with Playwright evaluate()
+- ExcalidrawRenderer: uses rolldown-bundled IIFE loaded into BrowserPool page
+- DrawioRenderer: uses rolldown-bundled IIFE that parses mxGraphModel XML to SVG
+All use atomic writes (.tmp + rename) for drawio; mermaid/excalidraw write directly.
+Individual file failures do not abort a batch render.
+
+## Claude Code Skills
+
+### diagramkit (skills/claude-code/diagramkit.md)
+Skill for AI-assisted diagram generation and rendering. Covers:
+- CLI quick reference (render, warmup, watch, force)
+- Output convention (.diagrams/ folder structure)
+- Markdown linking with <picture> element for light/dark switching
+- Mermaid authoring best practices (semantic IDs, node limits, neutral colors)
+- Excalidraw authoring best practices (standard JSON format, spacing)
+- Format and theme option tables
+- Dark mode contrast behavior explanation
+
+## Testing
+
+- Framework: vitest
+- Unit tests: src/__tests__/manifest.test.ts, src/__tests__/color.test.ts
+- Run: npm test (vitest run) or npm run test:watch (vitest)
+- Type checking: npm run typecheck (tsc --noEmit)
+- Build: npm run build (vite build)
