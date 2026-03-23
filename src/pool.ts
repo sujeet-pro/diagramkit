@@ -115,8 +115,9 @@ export class BrowserPool {
     )
 
     // Load mermaid from node_modules
-    const mermaidPath = import.meta.resolve('mermaid/dist/mermaid.js')
-    await page.addScriptTag({ url: mermaidPath })
+    const { fileURLToPath } = await import('url')
+    const mermaidPath = fileURLToPath(import.meta.resolve('mermaid/dist/mermaid.js'))
+    await page.addScriptTag({ path: mermaidPath })
 
     // Wait for mermaid to be available
     await page.waitForFunction(() => typeof (globalThis as any).mermaid !== 'undefined', null, {
@@ -152,11 +153,11 @@ export class BrowserPool {
     if (this.excalidrawBundle) return this.excalidrawBundle
 
     try {
-      const { fileURLToPath } = await import('url')
-      const entryPath = fileURLToPath(new URL('./renderers/excalidraw-entry.ts', import.meta.url))
+      const entryPath = await resolveRendererEntryPath('excalidraw-entry')
+      if (!entryPath) return null
 
       const { rolldown } = await import('rolldown')
-      const bundle = await rolldown({ input: entryPath, logLevel: 'warn' })
+      const bundle = await rolldown({ input: entryPath, logLevel: 'silent' })
       const { output } = await bundle.generate({ format: 'iife' })
       this.excalidrawBundle = output[0].code
       return this.excalidrawBundle
@@ -192,11 +193,11 @@ export class BrowserPool {
     if (this.drawioBundle) return this.drawioBundle
 
     try {
-      const { fileURLToPath } = await import('url')
-      const entryPath = fileURLToPath(new URL('./renderers/drawio-entry.ts', import.meta.url))
+      const entryPath = await resolveRendererEntryPath('drawio-entry')
+      if (!entryPath) return null
 
       const { rolldown } = await import('rolldown')
-      const bundle = await rolldown({ input: entryPath, logLevel: 'warn' })
+      const bundle = await rolldown({ input: entryPath, logLevel: 'silent' })
       const { output } = await bundle.generate({ format: 'iife' })
       this.drawioBundle = output[0].code
       return this.drawioBundle
@@ -214,6 +215,27 @@ export class BrowserPool {
     })
     return page
   }
+}
+
+async function resolveRendererEntryPath(
+  entryName: 'drawio-entry' | 'excalidraw-entry',
+): Promise<string | null> {
+  const { existsSync } = await import('fs')
+  const { fileURLToPath } = await import('url')
+
+  const candidates = [
+    new URL(`./renderers/${entryName}.ts`, import.meta.url),
+    new URL(`./renderers/${entryName}.mjs`, import.meta.url),
+    new URL(`../src/renderers/${entryName}.ts`, import.meta.url),
+    new URL(`../src/renderers/${entryName}.mjs`, import.meta.url),
+  ]
+
+  for (const candidate of candidates) {
+    const path = fileURLToPath(candidate)
+    if (existsSync(path)) return path
+  }
+
+  return null
 }
 
 // Singleton pool instance

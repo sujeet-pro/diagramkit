@@ -47,13 +47,31 @@ src/
     convert.ts        hex/rgb/hsl conversions
     luminance.ts      WCAG relative luminance
     contrast.ts       postProcessDarkSvg() — fix dark mode contrast
+  output.ts           Output naming, atomic writes, extension stripping
   __tests__/
     manifest.test.ts  Manifest unit tests
+    config.test.ts    Configuration merging unit tests
+    extensions.test.ts Extension resolution unit tests
+    discovery.test.ts File discovery unit tests
+    output.test.ts    Output naming unit tests
     color.test.ts     Color utility unit tests
-docs/                 Documentation
+    convert.test.ts   SVG-to-raster conversion unit tests
+  test-utils/
+    e2e.ts            Shared e2e helpers (fixtures, CLI runner, validators)
+  e2e/
+    api-render.e2e.test.ts   API rendering e2e tests
+    cli-render.e2e.test.ts   CLI rendering e2e tests
+    fixtures/                Sample diagrams for testing
+docs/                 Documentation (VitePress)
 skills/
-  Codex/
+  claude-code/
     diagramkit.md     LLM skill for diagram generation and rendering
+    diagrams.md       Engine selection orchestrator
+    diagram-mermaid.md  Mermaid authoring guide
+    diagram-excalidraw.md  Excalidraw authoring guide
+    diagram-drawio.md Draw.io authoring guide
+    image-convert.md  SVG-to-raster conversion guide
+    references/       Excalidraw JSON format, arrows, colors, examples, validation
 ```
 
 ## Commands
@@ -100,12 +118,12 @@ postProcessDarkSvg(svg)           // Color contrast fix
 
 ## Dependencies
 
-- `playwright` (peer) — headless Chromium
-- `mermaid` (peer) — loaded into browser page
+- `playwright` — headless Chromium for all rendering
+- `mermaid` — loaded into browser page for mermaid diagrams
 - `chokidar` — file watching
-- `sharp` (optional) — SVG-to-raster conversion (PNG/JPEG/WebP)
-- `@excalidraw/excalidraw` + `react` + `react-dom` (optional peers) — for .excalidraw files
-- `rolldown` (dev) — bundles excalidraw/drawio browser entry points as IIFE
+- `@excalidraw/excalidraw` + `react` + `react-dom` — excalidraw rendering (bundled to IIFE at runtime)
+- `rolldown` — bundles excalidraw/drawio browser entry points as IIFE at runtime
+- `sharp` (optional peer) — SVG-to-raster conversion (PNG/JPEG/WebP); only needed for raster output
 
 ## Extension aliases
 
@@ -119,6 +137,6 @@ postProcessDarkSvg(svg)           // Color contrast fix
 | `.drawio.xml` | drawio      |
 | `.dio`        | drawio      |
 
-## Codex skills
+## Claude Code skills
 
-- **skills/Codex/diagramkit.md** — Diagram generation and rendering skill. Covers CLI usage, output conventions, markdown linking patterns (`<picture>` for light/dark), mermaid/excalidraw authoring tips, format/theme options, and dark mode contrast behavior.
+- **skills/claude-code/diagramkit.md** — Diagram generation and rendering skill. Covers CLI usage, output conventions, markdown linking patterns (`<picture>` for light/dark), mermaid/excalidraw authoring tips, format/theme options, and dark mode contrast behavior.

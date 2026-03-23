@@ -7,6 +7,8 @@ export default defineConfig({
       'color/index': 'src/color/index.ts',
       convert: 'src/convert.ts',
       'cli/bin': 'cli/bin.ts',
+      'renderers/drawio-entry': 'src/renderers/drawio-entry.ts',
+      'renderers/excalidraw-entry': 'src/renderers/excalidraw-entry.ts',
     },
     format: 'esm',
     dts: true,
@@ -16,6 +18,8 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.ts'],
+    pool: 'forks',
+    fileParallelism: true,
   },
   lint: {
     rules: {

@@ -1,0 +1,42 @@
+{
+  "formatter": {
+    "external": {
+      "command": "npx",
+      "arguments": ["vp", "check", "--fix", "{buffer_path}"]
+    }
+  },
+  "format_on_save": "on",
+  "languages": {
+    "TypeScript": {
+      "formatter": {
+        "external": {
+          "command": "npx",
+          "arguments": ["vp", "check", "--fix", "{buffer_path}"]
+        }
+      }
+    },
+    "JavaScript": {
+      "formatter": {
+        "external": {
+          "command": "npx",
+          "arguments": ["vp", "check", "--fix", "{buffer_path}"]
+        }
+      }
+    },
+    "JSON": {
+      "formatter": {
+        "external": {
+          "command": "npx",
+          "arguments": ["vp", "check", "--fix", "{buffer_path}"]
+        }
+      }
+    }
+  },
+  "lsp": {
+    "eslint": {
+      "settings": {
+        "enable": false
+      }
+    }
+  }
+}

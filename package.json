@@ -1,6 +1,6 @@
 {
   "name": "diagramkit",
-  "version": "0.2.0",
+  "version": "0.0.1",
   "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, and .drawio to SVG/PNG/JPEG/WebP with light/dark mode support",
   "keywords": [
     "cli",
@@ -18,9 +18,18 @@
     "svg",
     "webp"
   ],
+  "homepage": "https://projects.sujeet.pro/diagramkit/",
+  "bugs": {
+    "url": "https://github.com/sujeet-pro/diagramkit/issues"
+  },
   "license": "MIT",
+  "author": "Sujeet",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sujeet-pro/diagramkit.git"
+  },
   "bin": {
-    "diagramkit": "./dist/cli/bin.js"
+    "diagramkit": "./dist/cli/bin.mjs"
   },
   "files": [
     "dist",
@@ -29,29 +38,31 @@
     "llms-full.txt"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "bun": "./src/index.ts",
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
     },
     "./color": {
       "bun": "./src/color/index.ts",
-      "import": "./dist/color/index.js",
-      "types": "./dist/color/index.d.ts"
+      "import": "./dist/color/index.mjs",
+      "types": "./dist/color/index.d.mts"
     },
     "./convert": {
       "bun": "./src/convert.ts",
-      "import": "./dist/convert.js",
-      "types": "./dist/convert.d.ts"
+      "import": "./dist/convert.mjs",
+      "types": "./dist/convert.d.mts"
     }
   },
   "scripts": {
     "build": "vp pack",
     "build:docs": "npm run docs:build",
     "test": "vp test run",
+    "test:unit": "vp test run src/__tests__ --pool forks --fileParallelism",
+    "test:e2e": "vp test run src/e2e --pool forks --fileParallelism",
     "test:watch": "vp test",
     "check": "vp check",
     "check:fix": "vp check --fix",
@@ -77,6 +88,14 @@
     "typescript": "^5.9.0",
     "vite-plus": "^0.1.13",
     "vitepress": "^1.6.0"
+  },
+  "peerDependencies": {
+    "sharp": "^0.33.0"
+  },
+  "peerDependenciesMeta": {
+    "sharp": {
+      "optional": true
+    }
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.13",

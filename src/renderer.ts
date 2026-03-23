@@ -4,10 +4,17 @@ import { postProcessDarkSvg } from './color/contrast'
 import { loadConfig } from './config'
 import { filterByType, findDiagramFiles } from './discovery'
 import { getDiagramType } from './extensions'
-import { cleanOrphans, filterStaleFiles, updateManifest } from './manifest'
+import { cleanOrphans, ensureDiagramsDir, filterStaleFiles, updateManifest } from './manifest'
+import { writeRenderResult } from './output'
 import { getPool } from './pool'
-import { createRenderers } from './renderers'
-import type { BatchOptions, DiagramType, RenderOptions, RenderResult } from './types'
+import type {
+  BatchOptions,
+  DiagramFile,
+  DiagramType,
+  DiagramkitConfig,
+  RenderOptions,
+  RenderResult,
+} from './types'
 
 /**
  * Render a single diagram from source content.
@@ -159,6 +166,19 @@ export async function renderFile(
 }
 
 /**
+ * Render one discovered diagram file and persist the variants to disk.
+ * This is shared by batch rendering, watch mode, and CLI single-file flows.
+ */
+export async function renderDiagramFileToDisk(
+  file: DiagramFile,
+  options: RenderOptions & { config?: DiagramkitConfig; outDir?: string } = {},
+): Promise<string[]> {
+  const result = await renderFile(file.path, options)
+  const outDir = options.outDir ?? ensureDiagramsDir(file.dir, options.config)
+  return writeRenderResult(file.name, outDir, result)
+}
+
+/**
  * Render all diagrams in a directory tree.
  * Outputs go to sibling .diagrams/ hidden folders (configurable via config).
  */
@@ -166,6 +186,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
   const contentDir = opts.dir ?? process.cwd()
   const config = loadConfig(opts.config, contentDir)
   const format = opts.format ?? config.defaultFormat
+  const theme = opts.theme ?? config.defaultTheme
 
   const allFiles = findDiagramFiles(contentDir, config)
 
@@ -179,7 +200,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
     filtered = filterByType(filtered, opts.type, config)
   }
 
-  const stale = filterStaleFiles(filtered, opts.force ?? false, format, config)
+  const stale = filterStaleFiles(filtered, opts.force ?? false, format, config, theme)
 
   if (stale.length === 0) {
     console.log(`All ${filtered.length} diagrams up-to-date (skipped)`)
@@ -190,13 +211,34 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
       )
     }
 
-    const renderers = createRenderers()
-    for (const renderer of renderers) {
-      const batch = stale.filter((f) => renderer.extensions.includes(f.ext))
-      await renderer.renderBatch(batch, { force: opts.force, format, config })
+    let rendered = 0
+    const successful: DiagramFile[] = []
+
+    for (const file of stale) {
+      try {
+        await renderDiagramFileToDisk(file, {
+          format,
+          theme,
+          quality: opts.quality,
+          scale: opts.scale,
+          contrastOptimize: opts.contrastOptimize,
+          mermaidDarkTheme: opts.mermaidDarkTheme,
+          config,
+        })
+        successful.push(file)
+        rendered++
+      } catch (err: any) {
+        console.warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
+      }
     }
 
-    updateManifest(stale, format, config)
+    if (successful.length > 0) {
+      updateManifest(successful, format, config, theme)
+    }
+
+    console.log(
+      `Rendered ${rendered}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${format}`,
+    )
   }
 
   cleanOrphans(allFiles, config)
