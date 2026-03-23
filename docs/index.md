@@ -32,10 +32,13 @@ features:
 
 ```bash
 # Install
-npm add diagramkit mermaid playwright
+npm add diagramkit
 
-# Install the browser engine
+# Install the browser engine once per environment
 npx diagramkit warmup
+
+# Optional: required for PNG, JPEG, and WebP output
+npm add sharp
 
 # Render all diagrams in the current directory
 npx diagramkit render .

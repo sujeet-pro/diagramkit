@@ -30,10 +30,10 @@ diagramkit render .
 # Render a single file
 diagramkit render path/to/diagram.mermaid
 
-# Render as PNG with 2x scale
-diagramkit render . --format png --scale 2
+# Render raster output for email or Confluence
+diagramkit render . --format png --theme light --scale 2
 
-# Render as WebP with custom quality
+# Render as WebP when a compressed raster image is required
 diagramkit render . --format webp --quality 85
 
 # Watch for changes
@@ -92,19 +92,21 @@ content/posts/my-post/
 
 ## Supported Output Formats
 
-| Format | Flag                     | Notes                                         |
-| ------ | ------------------------ | --------------------------------------------- |
-| SVG    | `--format svg` (default) | Vector, smallest file size, best for web      |
-| PNG    | `--format png`           | Raster, transparent background, good for docs |
-| JPEG   | `--format jpeg`          | Raster, white background, good for slides     |
-| WebP   | `--format webp`          | Raster, best compression, modern browsers     |
+| Format | Flag                     | Notes                                                 |
+| ------ | ------------------------ | ----------------------------------------------------- |
+| SVG    | `--format svg` (default) | Vector, preferred default for most workflows          |
+| PNG    | `--format png`           | Raster, use when email/Confluence need images         |
+| JPEG   | `--format jpeg`          | Raster, white background, use for email embeds        |
+| WebP   | `--format webp`          | Raster, modern option when a raster asset is required |
 
 ### Format Selection Guide
 
 | Use Case                                | Recommended Format   |
 | --------------------------------------- | -------------------- |
 | Web / GitHub / markdown                 | SVG                  |
+| Docs sites / developer docs             | SVG                  |
 | Documentation (Confluence, Google Docs) | PNG or JPEG          |
+| Email / newsletters                     | PNG or JPEG          |
 | Presentations / slides                  | PNG or JPEG          |
 | Maximum compression, modern browsers    | WebP                 |
 | Print / high-DPI displays               | PNG with `--scale 3` |
@@ -142,7 +144,7 @@ diagramkit supports three configuration layers (highest priority first):
 ### 1. CLI Flags (highest priority)
 
 ```bash
-diagramkit render . --format png --theme light --scale 3 --quality 95
+diagramkit render . --theme light --force
 ```
 
 ### 2. Local Config (per-directory)
@@ -199,8 +201,7 @@ const result = await render(mermaidSource, 'mermaid', {
 
 // Render from file
 const result = await renderFile('./diagram.excalidraw', {
-  format: 'png',
-  scale: 2,
+  format: 'svg',
 })
 
 // Batch render directory

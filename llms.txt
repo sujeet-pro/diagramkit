@@ -11,7 +11,9 @@ diagramkit render .
 ## Supported Formats
 
 Input: .mermaid (.mmd, .mmdc), .excalidraw, .drawio (.drawio.xml, .dio)
-Output: SVG (default), PNG, JPEG, WebP
+Output: SVG (default and preferred), PNG, JPEG, WebP
+
+Format guidance: prefer SVG unless the destination explicitly needs raster output, such as email or Confluence.
 
 ## CLI
 

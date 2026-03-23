@@ -61,8 +61,9 @@ skills/
 ```bash
 diagramkit render <file-or-dir>                # Render diagrams
 diagramkit render . --watch                    # Watch mode
-diagramkit render . --format png               # PNG output
-diagramkit render . --format webp --quality 85 # WebP output
+diagramkit render docs/arch.mermaid            # Default SVG output
+diagramkit render . --format png --theme light # Raster for email/Confluence
+diagramkit render . --format webp --quality 85 # WebP output when raster is required
 diagramkit render . --theme dark               # Dark only
 diagramkit render . --force                    # Ignore manifest cache
 diagramkit render . --type mermaid             # Filter by type

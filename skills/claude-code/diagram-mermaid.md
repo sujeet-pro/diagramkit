@@ -32,8 +32,8 @@ Use `diagramkit` for rendering -- NOT `mmdc` or `@mermaid-js/mermaid-cli`:
 # Render a single mermaid file
 diagramkit render diagram.mermaid
 
-# Render with format options
-diagramkit render diagram.mermaid --format png --scale 2
+# Render raster output for email or Confluence
+diagramkit render diagram.mermaid --format png --theme light --scale 2
 
 # Render all mermaid files in a directory
 diagramkit render . --type mermaid
@@ -74,7 +74,7 @@ File header:
 diagramkit render <name>.mermaid --format <format>
 ```
 
-diagramkit automatically produces both light and dark variants. Dark SVGs are post-processed with `postProcessDarkSvg()` to fix contrast issues.
+diagramkit automatically produces both light and dark variants. Default to SVG unless the destination explicitly needs raster output, such as email or Confluence. Dark SVGs are post-processed with `postProcessDarkSvg()` to fix contrast issues.
 
 ### Phase 4: Output
 

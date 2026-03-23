@@ -31,10 +31,11 @@ Any valid Mermaid syntax will render. diagramkit loads the full mermaid library 
 
 ## Installation
 
-Mermaid is a required peer dependency:
+Mermaid support is bundled with diagramkit:
 
 ```bash
-npm add diagramkit mermaid playwright
+npm add diagramkit
+npx diagramkit warmup
 ```
 
 ## Example

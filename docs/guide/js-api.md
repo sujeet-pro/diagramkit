@@ -3,10 +3,12 @@
 diagramkit exports a programmatic API for use in build scripts, custom tooling, and Node.js applications.
 
 ```bash
-npm add diagramkit mermaid playwright
+npm add diagramkit
 ```
 
 All rendering functions are async (they use Playwright internally).
+
+If you need raster output (`png`, `jpeg`, or `webp`), install `sharp` alongside diagramkit.
 
 ## `render(source, type, options?)`
 

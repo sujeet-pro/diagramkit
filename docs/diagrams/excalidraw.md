@@ -10,14 +10,15 @@
 
 ## Installation
 
-Excalidraw support requires optional peer dependencies:
+Excalidraw support is bundled with diagramkit:
 
 ```bash
-npm add @excalidraw/excalidraw react react-dom
+npm add diagramkit
+npx diagramkit warmup
 ```
 
 ::: tip
-Excalidraw peers are optional. If they are not installed, diagramkit will skip `.excalidraw` files with a warning message suggesting the install command.
+If you need raster output (`png`, `jpeg`, or `webp`), install `sharp` separately with `npm add sharp`.
 :::
 
 ## JSON Format
