@@ -32,8 +32,8 @@ Use `diagramkit` for rendering -- NOT `excalidraw-to-svg` or other tools:
 # Render a single excalidraw file
 diagramkit render diagram.excalidraw
 
-# Render with format options
-diagramkit render diagram.excalidraw --format png --scale 2
+# Render raster output for email or Confluence
+diagramkit render diagram.excalidraw --format png --theme light --scale 2
 
 # Render all excalidraw files in a directory
 diagramkit render . --type excalidraw
@@ -134,6 +134,7 @@ diagramkit automatically:
 - Renders both light and dark variants
 - Handles `darkMode` per-call (no separate page needed)
 - Outputs to `.diagrams/` sibling folder
+- Defaults to SVG unless the destination explicitly needs raster output, such as email or Confluence
 
 ### Phase 4: Output
 

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/diagramkit/',
   title: 'diagramkit',
   description: 'Render diagram files to images with light/dark mode support',
   themeConfig: {
@@ -31,7 +32,7 @@ export default defineConfig({
       ],
     },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/user/diagramkit' },
+      { icon: 'github', link: 'https://github.com/sujeet-pro/diagramkit' },
     ],
   },
 })

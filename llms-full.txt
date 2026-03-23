@@ -11,7 +11,7 @@ Required dependencies (mermaid diagrams):
 For excalidraw support (optional):
   npm install @excalidraw/excalidraw react react-dom
 
-For raster output — PNG, JPEG, WebP (optional):
+For raster output — PNG, JPEG, WebP (optional, for targets like email or Confluence):
   npm install sharp
 
 ## CLI Reference
@@ -39,11 +39,18 @@ For raster output — PNG, JPEG, WebP (optional):
 
   diagramkit render .                              Render all in cwd
   diagramkit render flow.mermaid                   Single file
-  diagramkit render ./docs --format png --scale 3  High-res PNGs
+  diagramkit render ./docs                         Default SVG output
+  diagramkit render ./docs --format png --theme light --scale 2  Raster output for email/Confluence
   diagramkit render . --watch                      Watch mode
-  diagramkit render . --format webp --quality 85   WebP output
+  diagramkit render . --format webp --quality 85   WebP output when raster is required
   diagramkit render . --type drawio                Only draw.io files
   diagramkit render . --theme dark --no-contrast   Raw dark output
+
+### Format Guidance
+
+  Prefer SVG by default for rendered diagrams.
+  Use raster formats (PNG/JPEG/WebP) only when the destination explicitly needs them,
+  especially email or Confluence embeds.
 
 ## JavaScript API
 
@@ -304,7 +311,7 @@ Skill for AI-assisted diagram generation and rendering. Covers:
 - Markdown linking with <picture> element for light/dark switching
 - Mermaid authoring best practices (semantic IDs, node limits, neutral colors)
 - Excalidraw authoring best practices (standard JSON format, spacing)
-- Format and theme option tables
+- SVG-first format guidance, with raster reserved for email/Confluence targets
 - Dark mode contrast behavior explanation
 
 ## Testing

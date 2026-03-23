@@ -7,19 +7,19 @@
 
 ## Installation
 
-Install diagramkit along with its required peer dependencies:
+Install diagramkit:
 
 ```bash
-npm add diagramkit mermaid playwright
+npm add diagramkit
 ```
 
-For Excalidraw support, also install the optional peers:
+Mermaid, Excalidraw, and Draw.io support are bundled with the package.
+
+If you need raster output (`png`, `jpeg`, or `webp`), install `sharp` too:
 
 ```bash
-npm add @excalidraw/excalidraw react react-dom
+npm add sharp
 ```
-
-For Draw.io support, no additional dependencies are needed -- the renderer is built in.
 
 ## Browser Setup
 
@@ -29,7 +29,7 @@ diagramkit uses Playwright to run a headless Chromium instance for rendering. In
 npx diagramkit warmup
 ```
 
-This runs `npx playwright install chromium` under the hood. You only need to do this once per environment (local machine, CI runner, etc.).
+This runs `npx playwright install chromium` under the hood. You only need to do this once per environment (local machine, CI runner, CI worker, etc.).
 
 ## First Render
 

@@ -135,6 +135,8 @@ Parse the description, type, and engine arguments. Apply auto-detection rules ab
 - The rendering engine
 - The output format
 
+When `format` is omitted, default to SVG. Only switch to a raster format when the destination explicitly calls for it, especially email or Confluence.
+
 ### Step 2: Delegate to Engine Skill
 
 Based on the selected engine, invoke the appropriate skill:
@@ -162,10 +164,10 @@ diagramkit handles:
 
 ### Step 4: Handle Output Format
 
-- **`format=svg`** (default): diagramkit produces SVG directly. Best for web/markdown.
-- **`format=png`**: diagramkit rasterizes via Playwright screenshot. Good for docs.
-- **`format=jpeg`**: diagramkit rasterizes with white background. Good for slides.
-- **`format=webp`**: diagramkit rasterizes with best compression. Good for modern web.
+- **`format=svg`** (default): diagramkit produces SVG directly. Use this unless the destination needs raster.
+- **`format=png`**: diagramkit rasterizes via Playwright screenshot. Use for email or Confluence when SVG is not appropriate.
+- **`format=jpeg`**: diagramkit rasterizes with white background. Use for email/Confluence when smaller raster files are preferred.
+- **`format=webp`**: diagramkit rasterizes with best compression. Use only when a raster asset is required and the destination supports WebP.
 
 ### Step 5: Report Output
 
@@ -207,7 +209,7 @@ This skill is designed to be called from other skills and workflows:
 - **From PR reviews**: To generate visual summaries of architectural changes.
 - **From research tasks**: To visualize findings and relationships.
 
-When called from another skill, respect the caller's `format` preferences and output directory.
+When called from another skill, respect the caller's `format` preferences and output directory. If no format is specified, choose SVG by default and reserve raster for email/Confluence-style targets.
 
 ## Prerequisites
 

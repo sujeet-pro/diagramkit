@@ -17,7 +17,8 @@ All three extensions are treated identically.
 No additional dependencies are needed for Draw.io support. The renderer is built into diagramkit.
 
 ```bash
-npm add diagramkit mermaid playwright
+npm add diagramkit
+npx diagramkit warmup
 ```
 
 ## XML Format

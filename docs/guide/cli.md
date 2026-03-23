@@ -47,6 +47,10 @@ diagramkit render . --format jpeg
 diagramkit render . --format webp
 ```
 
+::: tip
+PNG, JPEG, and WebP output require `sharp`. Install it with `npm add sharp`.
+:::
+
 ### `--theme <light|dark|both>`
 
 Which theme variants to render. Default: `both`.

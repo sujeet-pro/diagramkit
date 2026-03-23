@@ -59,25 +59,21 @@ diagramkit render . --format webp --quality 85
 Supports both the `--scale` and `--quality` flags.
 
 ::: warning
-WebP support requires the `sharp` library. If sharp is not installed, WebP conversion will fail with a clear error message. Install it with `npm add sharp`.
+PNG, JPEG, and WebP output require the `sharp` library. If `sharp` is not installed,
+raster conversion will fail with a clear error message. Install it with `npm add sharp`.
 :::
 
 ## Raster Conversion Pipeline
 
-For raster formats, diagramkit uses two conversion paths:
+For raster formats, diagramkit renders the diagram to SVG first, then converts that SVG with
+[sharp](https://sharp.pixelplumbing.com/):
 
-### Built-in (Playwright Screenshot)
-
-The primary rendering pipeline uses Playwright's built-in screenshot capability:
 1. Render the diagram to SVG in headless Chromium
-2. Set the viewport to the SVG dimensions multiplied by the scale factor
-3. Screenshot the SVG element directly
+2. Pass the SVG through `sharp` with the requested density and quality settings
+3. Write the raster output for each requested theme
 
-This path is used by the `render()` and `renderFile()` functions when a raster format is specified.
-
-### External (`convertSvg` with sharp)
-
-For standalone SVG-to-raster conversion, the `convertSvg()` function uses [sharp](https://sharp.pixelplumbing.com/):
+The same conversion path is used by `render()`, `renderFile()`, and the standalone `convertSvg()`
+function:
 
 ```typescript
 import { convertSvg } from 'diagramkit/convert'
@@ -88,7 +84,7 @@ const png = await convertSvg(svgBuffer, {
 })
 ```
 
-sharp is dynamically imported and only required when you call this function.
+`sharp` is dynamically imported and only required when you request raster output or call this function directly.
 
 ## Scale and Quality Options
 

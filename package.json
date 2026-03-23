@@ -50,6 +50,7 @@
   },
   "scripts": {
     "build": "vp pack",
+    "build:docs": "npm run docs:build",
     "test": "vp test run",
     "test:watch": "vp test",
     "check": "vp check",
@@ -57,48 +58,25 @@
     "typecheck": "tsc --noEmit",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "prepare": "vp config"
   },
   "dependencies": {
-    "chokidar": "^4.0.3"
-  },
-  "devDependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
-    "@types/node": "^22.15.0",
+    "chokidar": "^4.0.3",
     "mermaid": "^11.6.0",
     "playwright": "^1.52.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "rolldown": "^1.0.0-rc.11",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rolldown": "^1.0.0-rc.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "esbuild": "^0.27.0",
     "sharp": "^0.33.0",
     "typescript": "^5.9.0",
     "vite-plus": "^0.1.13",
     "vitepress": "^1.6.0"
-  },
-  "peerDependencies": {
-    "mermaid": ">=11.0.0",
-    "playwright": ">=1.50.0",
-    "sharp": ">=0.33.0"
-  },
-  "peerDependenciesMeta": {
-    "mermaid": {
-      "optional": false
-    },
-    "playwright": {
-      "optional": false
-    },
-    "sharp": {
-      "optional": true
-    },
-    "@excalidraw/excalidraw": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.13",

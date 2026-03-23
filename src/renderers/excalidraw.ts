@@ -28,10 +28,7 @@ export class ExcalidrawRenderer implements DiagramRenderer {
     try {
       page = await pool.getExcalidrawPage()
     } catch {
-      console.warn(
-        '  Excalidraw rendering unavailable.\n' +
-          '  Install: npm add -D @excalidraw/excalidraw react react-dom',
-      )
+      console.warn('  Excalidraw rendering unavailable — failed to load the bundled renderer.')
       pool.release()
       return
     }
@@ -80,6 +77,7 @@ export class ExcalidrawRenderer implements DiagramRenderer {
     try {
       page = await pool.getExcalidrawPage()
     } catch {
+      console.warn('  Excalidraw rendering unavailable — failed to load the bundled renderer.')
       pool.release()
       return
     }

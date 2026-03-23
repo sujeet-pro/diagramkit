@@ -29,8 +29,8 @@ Use `diagramkit` for rendering -- NOT `draw.io` desktop or other tools:
 # Render a single drawio file
 diagramkit render diagram.drawio
 
-# Render with format options
-diagramkit render diagram.drawio --format png --scale 2
+# Render raster output for email or Confluence
+diagramkit render diagram.drawio --format png --theme light --scale 2
 
 # Render all drawio files in a directory
 diagramkit render . --type drawio
@@ -61,7 +61,7 @@ Write a `.drawio` file following the XML format reference below.
 diagramkit render <name>.drawio --format <format>
 ```
 
-diagramkit automatically produces both light and dark variants.
+diagramkit automatically produces both light and dark variants. Default to SVG unless the destination explicitly needs raster output, such as email or Confluence.
 
 ### Phase 4: Output
 
