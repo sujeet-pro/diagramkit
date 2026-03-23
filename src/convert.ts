@@ -1,0 +1,35 @@
+import type { ConvertOptions } from './types'
+
+/**
+ * Convert an SVG buffer/string to a raster format using sharp.
+ * sharp is dynamically imported — only required when raster output is needed.
+ */
+export async function convertSvg(svg: Buffer | string, options: ConvertOptions): Promise<Buffer> {
+  let sharp: any
+  try {
+    const mod = await import('sharp')
+    sharp = mod.default ?? mod
+  } catch {
+    throw new Error(`sharp is required for ${options.format} output. Install: npm add sharp`)
+  }
+
+  const density = (options.density ?? 2) * 72 // sharp uses DPI, SVG base is 72
+  const quality = options.quality ?? 90
+  const input = Buffer.isBuffer(svg) ? svg : Buffer.from(svg)
+
+  let pipeline = sharp(input, { density })
+
+  switch (options.format) {
+    case 'png':
+      pipeline = pipeline.png()
+      break
+    case 'jpeg':
+      pipeline = pipeline.jpeg({ quality })
+      break
+    case 'webp':
+      pipeline = pipeline.webp({ quality })
+      break
+  }
+
+  return pipeline.toBuffer()
+}

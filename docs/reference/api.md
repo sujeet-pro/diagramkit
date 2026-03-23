@@ -1,0 +1,356 @@
+# API Reference
+
+Complete reference for all public functions exported by `diagramkit`.
+
+## Core Rendering
+
+### `render(source, type, options?)`
+
+Render a diagram from a source string.
+
+```typescript
+function render(
+  source: string,
+  type: DiagramType,
+  options?: RenderOptions,
+): Promise<RenderResult>
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `source` | `string` | Yes | Diagram source (Mermaid syntax, Excalidraw JSON, or Draw.io XML) |
+| `type` | `'mermaid' \| 'excalidraw' \| 'drawio'` | Yes | Diagram engine to use |
+| `options` | [`RenderOptions`](/reference/types#renderoptions) | No | Rendering configuration |
+
+**Returns:** `Promise<RenderResult>` -- see [`RenderResult`](/reference/types#renderresult)
+
+**Behavior:**
+- Acquires the browser pool (launches Chromium if needed)
+- For `theme: 'both'`, renders both variants in sequence
+- For Mermaid, uses separate light/dark pages (due to global `mermaid.initialize()`)
+- For Excalidraw and Draw.io, uses a single page with per-call dark mode flag
+- Applies `postProcessDarkSvg()` to Mermaid dark SVGs when `contrastOptimize` is `true`
+- For raster formats, screenshots the SVG in Chromium at the specified scale
+
+---
+
+### `renderFile(filePath, options?)`
+
+Render a diagram file from disk. Diagram type is inferred from the file extension.
+
+```typescript
+function renderFile(
+  filePath: string,
+  options?: RenderOptions,
+): Promise<RenderResult>
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `filePath` | `string` | Yes | Absolute path to a diagram file |
+| `options` | [`RenderOptions`](/reference/types#renderoptions) | No | Rendering configuration |
+
+**Returns:** `Promise<RenderResult>`
+
+**Extension mapping:** Uses the [built-in extension map](/guide/configuration#extensionmap) to determine the diagram type. File is read synchronously with `readFileSync`.
+
+---
+
+### `renderAll(options?)`
+
+Render all diagrams in a directory tree. Writes output to `.diagrams/` folders.
+
+```typescript
+function renderAll(options?: BatchOptions): Promise<void>
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `options` | [`BatchOptions`](/reference/types#batchoptions) | No | Batch configuration |
+
+**Returns:** `Promise<void>`
+
+**Behavior:**
+1. Discovers all diagram files with `findDiagramFiles()`
+2. Optionally filters by `type`
+3. Checks manifest for staleness (unless `force: true`)
+4. Renders stale files using `MermaidRenderer` and `ExcalidrawRenderer`
+5. Updates manifest
+6. Cleans orphaned outputs
+
+---
+
+### `watchDiagrams(options)`
+
+Watch for diagram file changes and re-render on change or addition.
+
+```typescript
+function watchDiagrams(options: WatchOptions): () => void
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `options` | [`WatchOptions`](/reference/types#watchoptions) | Yes | Watch configuration |
+
+**Returns:** `() => void` -- call this function to stop watching
+
+**Watched patterns:** `**/*.mermaid`, `**/*.excalidraw`
+
+**Ignored:** `node_modules`, `.diagrams`, `dist`, `dev`
+
+---
+
+## Browser Lifecycle
+
+### `warmup()`
+
+Pre-warm the browser pool by launching Chromium.
+
+```typescript
+function warmup(): Promise<void>
+```
+
+Acquires and immediately releases the pool. The browser stays alive due to the 5-second idle timeout, ready for subsequent render calls.
+
+---
+
+### `dispose()`
+
+Explicitly close the browser pool and release all resources.
+
+```typescript
+function dispose(): Promise<void>
+```
+
+Cancels any idle timeout and closes the Chromium instance. Safe to call multiple times.
+
+---
+
+## File Discovery
+
+### `findDiagramFiles(dir, config?)`
+
+Recursively find all diagram source files under a directory.
+
+```typescript
+function findDiagramFiles(
+  dir: string,
+  config?: Partial<DiagramkitConfig>,
+): DiagramFile[]
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `dir` | `string` | Yes | Root directory to scan |
+| `config` | `Partial<DiagramkitConfig>` | No | Config with optional `extensionMap` overrides |
+
+**Returns:** `DiagramFile[]`
+
+**Skips:** Hidden directories (starting with `.`), `node_modules`.
+
+---
+
+### `filterByType(files, type, config?)`
+
+Filter diagram files to a specific diagram type.
+
+```typescript
+function filterByType(
+  files: DiagramFile[],
+  type: DiagramType,
+  config?: Partial<DiagramkitConfig>,
+): DiagramFile[]
+```
+
+---
+
+## Manifest
+
+### `hashFile(filePath)`
+
+Compute a SHA-256 content hash (first 16 hex chars, prefixed with `sha256:`).
+
+```typescript
+function hashFile(filePath: string): string
+// Returns: 'sha256:a1b2c3d4e5f67890'
+```
+
+---
+
+### `isStale(file, format?, config?)`
+
+Check if a diagram file needs re-rendering.
+
+```typescript
+function isStale(
+  file: DiagramFile,
+  format?: OutputFormat,
+  config?: Partial<DiagramkitConfig>,
+): boolean
+```
+
+Returns `true` if:
+- Manifest is disabled (`useManifest: false`)
+- No manifest entry exists for the file
+- Content hash has changed
+- Output format has changed
+- Any expected output file is missing
+
+---
+
+### `filterStaleFiles(files, force, format?, config?)`
+
+Filter to files that need re-rendering.
+
+```typescript
+function filterStaleFiles(
+  files: DiagramFile[],
+  force: boolean,
+  format?: OutputFormat,
+  config?: Partial<DiagramkitConfig>,
+): DiagramFile[]
+```
+
+Returns all files when `force` is `true`, otherwise filters using `isStale()`.
+
+---
+
+### `readManifest(sourceDir, config?)`
+
+Read the manifest from a source directory's output folder.
+
+```typescript
+function readManifest(
+  sourceDir: string,
+  config?: Partial<DiagramkitConfig>,
+): Manifest
+```
+
+Returns `{ version: 1, diagrams: {} }` if no manifest exists. Supports migration from the old `manifest.json` filename.
+
+---
+
+### `writeManifest(sourceDir, manifest, config?)`
+
+Write a manifest to the output folder.
+
+```typescript
+function writeManifest(
+  sourceDir: string,
+  manifest: Manifest,
+  config?: Partial<DiagramkitConfig>,
+): void
+```
+
+---
+
+### `updateManifest(files, format?, config?)`
+
+Update manifests after successful renders, grouped by directory.
+
+```typescript
+function updateManifest(
+  files: DiagramFile[],
+  format?: OutputFormat,
+  config?: Partial<DiagramkitConfig>,
+): void
+```
+
+Skipped entirely when `useManifest` is `false`.
+
+---
+
+### `cleanOrphans(files)`
+
+Remove orphaned outputs and manifest entries for deleted source files.
+
+```typescript
+function cleanOrphans(files: DiagramFile[]): void
+```
+
+---
+
+### `getDiagramsDir(sourceDir, config?)`
+
+Get the output directory path for a given source directory.
+
+```typescript
+function getDiagramsDir(
+  sourceDir: string,
+  config?: Partial<DiagramkitConfig>,
+): string
+```
+
+Returns `sourceDir` when `sameFolder` is `true`, otherwise `sourceDir/outputDir`.
+
+---
+
+### `ensureDiagramsDir(sourceDir, config?)`
+
+Like `getDiagramsDir`, but creates the directory if it does not exist.
+
+```typescript
+function ensureDiagramsDir(
+  sourceDir: string,
+  config?: Partial<DiagramkitConfig>,
+): string
+```
+
+---
+
+## Color Utilities
+
+### `postProcessDarkSvg(svg)`
+
+Apply WCAG contrast optimization to a dark-mode SVG.
+
+```typescript
+function postProcessDarkSvg(svg: string): string
+```
+
+Finds inline `fill:#hex` values with relative luminance > 0.4 and darkens them (lightness set to 0.25, saturation capped at 0.6) while preserving hue.
+
+Exported from both `diagramkit` and `diagramkit/color`.
+
+---
+
+## Renderers
+
+### `createRenderers()`
+
+Create the array of built-in diagram renderers.
+
+```typescript
+function createRenderers(): DiagramRenderer[]
+```
+
+Returns `[MermaidRenderer, ExcalidrawRenderer]`.
+
+### `MermaidRenderer`
+
+Class implementing `DiagramRenderer` for `.mermaid` files.
+
+### `ExcalidrawRenderer`
+
+Class implementing `DiagramRenderer` for `.excalidraw` files.
+
+---
+
+## Subpath Exports
+
+diagramkit provides two package exports:
+
+| Import path | Content |
+|-------------|---------|
+| `diagramkit` | Main API (rendering, discovery, manifest, color) |
+| `diagramkit/color` | Color utilities only (`postProcessDarkSvg`, `hexToRgb`, `rgbToHsl`, `hslToHex`, `relativeLuminance`) |

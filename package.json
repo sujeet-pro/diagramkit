@@ -1,0 +1,111 @@
+{
+  "name": "diagramkit",
+  "version": "0.2.0",
+  "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, and .drawio to SVG/PNG/JPEG/WebP with light/dark mode support",
+  "keywords": [
+    "cli",
+    "dark-mode",
+    "diagram",
+    "draw.io",
+    "drawio",
+    "excalidraw",
+    "jpeg",
+    "light-mode",
+    "mermaid",
+    "png",
+    "rendering",
+    "sharp",
+    "svg",
+    "webp"
+  ],
+  "license": "MIT",
+  "bin": {
+    "diagramkit": "./dist/cli/bin.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "llms.txt",
+    "llms-full.txt"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./color": {
+      "bun": "./src/color/index.ts",
+      "import": "./dist/color/index.js",
+      "types": "./dist/color/index.d.ts"
+    },
+    "./convert": {
+      "bun": "./src/convert.ts",
+      "import": "./dist/convert.js",
+      "types": "./dist/convert.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "typecheck": "tsc --noEmit",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "prepare": "vp config"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3"
+  },
+  "devDependencies": {
+    "@excalidraw/excalidraw": "^0.18.0",
+    "@types/node": "^22.15.0",
+    "mermaid": "^11.6.0",
+    "playwright": "^1.52.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "rolldown": "^1.0.0-rc.11",
+    "sharp": "^0.33.0",
+    "typescript": "^5.9.0",
+    "vite-plus": "^0.1.13",
+    "vitepress": "^1.6.0"
+  },
+  "peerDependencies": {
+    "mermaid": ">=11.0.0",
+    "playwright": ">=1.50.0",
+    "sharp": ">=0.33.0"
+  },
+  "peerDependenciesMeta": {
+    "mermaid": {
+      "optional": false
+    },
+    "playwright": {
+      "optional": false
+    },
+    "sharp": {
+      "optional": true
+    },
+    "@excalidraw/excalidraw": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.13",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.13"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@11.12.0"
+}
