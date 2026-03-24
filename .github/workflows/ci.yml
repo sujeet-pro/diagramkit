@@ -71,6 +71,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build docs
+        run: npm run build:docs
+
       - name: Verify dist output exists
         run: test -d dist
 

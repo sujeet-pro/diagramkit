@@ -63,9 +63,9 @@ const stop = watchDiagrams({
 })
 
 // Stop watching when done
-process.on('SIGINT', () => {
-  stop()
-  dispose()
+process.on('SIGINT', async () => {
+  await stop()
+  await dispose()
 })
 ```
 
@@ -84,9 +84,8 @@ The watcher monitors all supported diagram file extensions:
 It ignores:
 
 - `node_modules/`
-- `.diagrams/` (output directories)
+- `.diagrams/` (or configured output directory)
 - `dist/`
-- `dev/`
 
 ## Behavior Details
 

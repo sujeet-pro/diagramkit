@@ -72,7 +72,7 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
     Batch render all diagrams in a directory tree. Outputs go to .diagrams/ folders.
     Returns { rendered: string[], skipped: string[], failed: string[] }.
 
-  watchDiagrams(options: WatchOptions): () => void
+  watchDiagrams(options: WatchOptions): () => Promise<void>
     Watch for diagram file changes and re-render. Returns cleanup function.
 
 ### Conversion
@@ -302,7 +302,7 @@ Individual file failures do not abort a batch render.
 
 ## Claude Code Skills
 
-### diagramkit (agent_skills/diagramkit.md)
+### diagramkit (agent_skills/diagramkit/SKILL.md)
 Skill for AI-assisted diagram generation and rendering. Covers:
 - CLI quick reference (render, warmup, watch, force)
 - Output convention (.diagrams/ folder structure)

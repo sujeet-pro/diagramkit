@@ -194,6 +194,9 @@ interface BatchOptions extends RenderOptions {
 
   /** Filter to specific diagram type */
   type?: DiagramType
+
+  /** Optional logger for library consumers to control output */
+  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
 }
 ```
 
@@ -202,6 +205,7 @@ interface BatchOptions extends RenderOptions {
 | `dir` | `string` | `process.cwd()` | Root directory to scan |
 | `force` | `boolean` | `false` | Ignore manifest, re-render everything |
 | `type` | `DiagramType` | all types | Filter to a specific engine |
+| `logger` | `{ log, warn }` | `console` | Custom logger for controlling output |
 | *(inherited)* | | | All fields from `RenderOptions` |
 
 ---

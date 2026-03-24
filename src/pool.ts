@@ -93,6 +93,7 @@ export class BrowserPool {
     try {
       const { chromium } = await import('playwright')
       this.browser = await chromium.launch()
+      // Required to inject IIFE bundles and mermaid scripts. Pages must never navigate to external URLs.
       this.context = await this.browser.newContext({ bypassCSP: true })
     } catch (err: any) {
       const msg = err.message ?? ''
@@ -144,7 +145,7 @@ export class BrowserPool {
     )
 
     // Load mermaid from node_modules
-    const { fileURLToPath } = await import('url')
+    const { fileURLToPath } = await import('node:url')
     const mermaidPath = fileURLToPath(import.meta.resolve('mermaid/dist/mermaid.js'))
     await page.addScriptTag({ path: mermaidPath })
 
@@ -245,9 +246,17 @@ export class BrowserPool {
 const CACHE_DIR = 'node_modules/.cache/diagramkit'
 
 async function buildOrReadCachedBundle(name: string, entryPath: string): Promise<string> {
-  const { createHash } = await import('crypto')
-  const { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } = await import('fs')
-  const { join } = await import('path')
+  const { createHash } = await import('node:crypto')
+  const {
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    renameSync,
+    unlinkSync,
+    writeFileSync,
+  } = await import('node:fs')
+  const { join } = await import('node:path')
 
   // Cache key = SHA-256 of entry file content (changes when source or deps change after rebuild)
   const entryContent = readFileSync(entryPath)
@@ -267,6 +276,22 @@ async function buildOrReadCachedBundle(name: string, entryPath: string): Promise
   // Write atomically to cache
   try {
     mkdirSync(CACHE_DIR, { recursive: true })
+
+    // Remove stale cache files for this entry before writing the new one
+    const prefix = `${name}-`
+    const suffix = '.iife.js'
+    for (const entry of readdirSync(CACHE_DIR)) {
+      if (
+        entry.startsWith(prefix) &&
+        entry.endsWith(suffix) &&
+        entry !== `${name}-${hash}${suffix}`
+      ) {
+        try {
+          unlinkSync(join(CACHE_DIR, entry))
+        } catch {}
+      }
+    }
+
     const tmp = cacheFile + '.tmp'
     writeFileSync(tmp, code)
     renameSync(tmp, cacheFile)
@@ -280,8 +305,8 @@ async function buildOrReadCachedBundle(name: string, entryPath: string): Promise
 async function resolveRendererEntryPath(
   entryName: 'drawio-entry' | 'excalidraw-entry',
 ): Promise<string | null> {
-  const { existsSync } = await import('fs')
-  const { fileURLToPath } = await import('url')
+  const { existsSync } = await import('node:fs')
+  const { fileURLToPath } = await import('node:url')
 
   const candidates = [
     new URL(`./renderers/${entryName}.ts`, import.meta.url),

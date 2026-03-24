@@ -1,10 +1,40 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { convertSvg } from './convert'
 
 const minimalSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>'
 
 describe('convertSvg', () => {
+  it('throws when sharp is not available', async () => {
+    vi.doMock('sharp', () => {
+      throw new Error('Cannot find module')
+    })
+    // Re-import to pick up the mock
+    const { convertSvg: convertWithoutSharp } = await import('./convert')
+    await expect(convertWithoutSharp(minimalSvg, { format: 'png' })).rejects.toThrow(
+      'sharp is required',
+    )
+    vi.doUnmock('sharp')
+  })
+
+  it('throws for density of 0', async () => {
+    await expect(convertSvg(minimalSvg, { format: 'png', density: 0 })).rejects.toThrow(
+      'density must be between 0 and 10',
+    )
+  })
+
+  it('throws for negative density', async () => {
+    await expect(convertSvg(minimalSvg, { format: 'png', density: -1 })).rejects.toThrow(
+      'density must be between 0 and 10',
+    )
+  })
+
+  it('throws for density exceeding 10', async () => {
+    await expect(convertSvg(minimalSvg, { format: 'png', density: 11 })).rejects.toThrow(
+      'density must be between 0 and 10',
+    )
+  })
+
   it('converts SVG string to PNG buffer', async () => {
     const result = await convertSvg(minimalSvg, { format: 'png' })
     expect(Buffer.isBuffer(result)).toBe(true)

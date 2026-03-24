@@ -11,9 +11,9 @@
  * - orphan cleanup stays safe when manifest tracking is disabled or when outputs live beside sources
  */
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import {
   cleanOrphans,
@@ -69,6 +69,38 @@ describe('manifest', () => {
   describe('readManifest / writeManifest', () => {
     it('returns an empty manifest for a new directory', () => {
       expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
+    })
+
+    it('reads from legacy manifest.json when diagrams.manifest.json does not exist', () => {
+      const outDir = ensureDiagramsDir(testDir)
+      const legacyManifest = {
+        version: 1 as const,
+        diagrams: {
+          'old.mermaid': {
+            hash: 'sha256:legacy123456789',
+            generatedAt: '2025-01-01T00:00:00.000Z',
+            outputs: ['old-light.svg'],
+            format: 'svg' as const,
+            theme: 'light' as const,
+          },
+        },
+      }
+      writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(legacyManifest))
+
+      expect(readManifest(testDir)).toEqual(legacyManifest)
+    })
+
+    it('returns default manifest when manifest file contains invalid JSON', () => {
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'diagrams.manifest.json'), 'not json{{')
+
+      expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
+    })
+
+    it('throws when manifestFile resolves outside the output directory', () => {
+      expect(() => readManifest(testDir, { manifestFile: '../../etc/passwd' })).toThrow(
+        /resolves outside the output directory/,
+      )
     })
 
     it('round-trips manifest data with a custom manifest filename', () => {

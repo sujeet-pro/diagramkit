@@ -32,7 +32,13 @@ export { convertSvg } from './convert'
 /* ── File operations ── */
 
 export { filterByType, findDiagramFiles } from './discovery'
-export { getDiagramsDir, ensureDiagramsDir, isStale, readManifest } from './manifest'
+export {
+  getDiagramsDir,
+  ensureDiagramsDir,
+  filterStaleFiles,
+  isStale,
+  readManifest,
+} from './manifest'
 
 /* ── Color utilities ── */
 

@@ -56,7 +56,7 @@ To add support for a new diagram format (e.g. PlantUML):
 3. **Renderer branch** — add an `else if (type === 'plantuml')` branch in `src/renderer.ts:render()`
 4. **Pool page** — add a `getPlantumlPage()` method to `BrowserPool` in `src/pool.ts`, following the excalidraw/drawio pattern if the renderer needs a bundled IIFE, or the mermaid pattern if it loads a script directly
 5. **Browser entry** (if needed) — create `src/renderers/plantuml-entry.ts` with a `__renderPlantuml()` global, add it to `vite.config.ts` pack entries
-6. **Class renderer** — create `src/renderers/plantuml.ts` implementing `DiagramRenderer`, export from `src/renderers/index.ts`
+6. **Renderer logic** — add the rendering logic as an `else if` branch in `src/renderer.ts` (there is no class-based renderer pattern or `src/renderers/index.ts`)
 7. **Tests** — add extension tests, a fixture file, and e2e test coverage
 8. **Docs & skills** — add `docs/diagrams/plantuml.md` and `agent_skills/diagram-plantuml.md`
 
@@ -90,6 +90,7 @@ src/
   renderers/
     excalidraw-entry.ts  Browser IIFE for excalidraw exportToSvg
     drawio-entry.ts      Browser IIFE for draw.io mxGraphModel parsing
+    excalidraw.d.ts      Type declarations for @excalidraw/excalidraw
     browser-env.d.ts     Minimal DOM types for browser entry files
   color/
     index.ts          Color utility barrel
@@ -164,7 +165,7 @@ renderFile(filePath, options?)    // Render from file → RenderResult
 renderAll(options?)               // Batch render directory → RenderAllResult { rendered, skipped, failed }
 renderDiagramFileToDisk(file, options?) // Render single file + write to disk. Useful for custom watch implementations.
 watchDiagrams(options)            // Watch mode with debounce
-convertSvg(svg, options)          // SVG to PNG/JPEG/WebP via sharp. Imported from 'diagramkit/convert', not the main entrypoint.
+convertSvg(svg, options)          // SVG to PNG/JPEG/WebP via sharp. Available from both 'diagramkit' and 'diagramkit/convert'.
 loadConfig(overrides?, dir?)      // Merged config: defaults -> global -> local -> overrides
 getExtensionMap(overrides?)       // Get extension-to-type mapping
 warmup() / dispose()              // Browser lifecycle
@@ -179,7 +180,7 @@ atomicWrite(path, content)        // Atomic .tmp + rename write
 - Sync FS for file reading (readFileSync)
 - No CLI framework — manual arg parsing
 - Comments explain reasoning, not what code does
-- Section headers: `/* -- Name -- */`
+- Section headers: `/* ── Name ── */`
 - Dynamic imports for optional deps (sharp)
 - Atomic writes in renderers: .tmp + rename
 - Test files: unit tests colocated with source (`src/*.test.ts`), e2e tests in `e2e/`

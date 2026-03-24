@@ -88,7 +88,7 @@ Excalidraw handles dark mode natively through its `exportToSvg` API. When render
 Both variants are rendered in the same browser page (unlike Mermaid, which requires separate pages). The Excalidraw library handles color adjustments internally.
 
 ::: info
-The WCAG contrast post-processing (`--no-contrast` flag) applies to Mermaid and Draw.io diagrams. Excalidraw handles dark mode natively via its own library.
+The WCAG contrast post-processing (`--no-contrast` flag) applies to Mermaid diagrams only. Excalidraw handles dark mode natively, and Draw.io handles dark mode color adjustments in-browser.
 :::
 
 ## Architecture

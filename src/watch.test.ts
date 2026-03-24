@@ -38,6 +38,7 @@ vi.mock('./renderer', () => ({
 }))
 
 vi.mock('./manifest', () => ({
+  hashFile: vi.fn(() => 'sha256:mockhash1234'),
   updateManifest: vi.fn(),
 }))
 

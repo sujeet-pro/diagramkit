@@ -1,5 +1,5 @@
-import { existsSync, readdirSync } from 'fs'
-import { basename, dirname, join } from 'path'
+import { existsSync, readdirSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import {
   getDiagramType,
   getExtensionMap,

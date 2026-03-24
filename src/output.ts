@@ -1,6 +1,6 @@
-import { randomBytes } from 'crypto'
-import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
-import { basename, join } from 'path'
+import { randomBytes } from 'node:crypto'
+import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { getExtensionMap, getMatchedExtension } from './extensions'
 import type { DiagramType, OutputFormat, RenderResult, Theme } from './types'
 

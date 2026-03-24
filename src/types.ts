@@ -104,19 +104,3 @@ export interface ConvertOptions {
   /** JPEG/WebP quality (1-100). Default: 90 */
   quality?: number
 }
-
-/* ── Internal renderer interface ── */
-
-export interface DiagramRenderer {
-  name: string
-  extensions: string[]
-  renderBatch(files: DiagramFile[], options?: RendererOptions): Promise<void>
-  renderSingle(file: DiagramFile, options?: RendererOptions): Promise<void>
-  dispose?(): Promise<void>
-}
-
-export interface RendererOptions {
-  force?: boolean
-  format?: OutputFormat
-  config?: Partial<DiagramkitConfig>
-}

@@ -11,9 +11,9 @@
  * These tests keep configuration behavior honest without needing to spin up a browser.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { getDefaultConfig, loadConfig, loadGlobalConfig, loadLocalConfig } from './config'
 

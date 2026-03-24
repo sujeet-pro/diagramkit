@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, statSync } from 'fs'
-import { dirname, resolve } from 'path'
-import { fileURLToPath } from 'url'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 
@@ -181,11 +181,11 @@ async function commandWarmup() {
   try {
     // Use playwright's own install mechanism rather than npx for reliability in global installs
     const playwrightPath = fileURLToPath(import.meta.resolve('playwright/cli'))
-    const { execFileSync } = await import('child_process')
+    const { execFileSync } = await import('node:child_process')
     execFileSync(process.execPath, [playwrightPath, 'install', 'chromium'], { stdio: 'inherit' })
   } catch {
     // Fallback to npx if direct resolution fails — execFileSync avoids shell injection
-    const { execFileSync } = await import('child_process')
+    const { execFileSync } = await import('node:child_process')
     execFileSync('npx', ['playwright', 'install', 'chromium'], { stdio: 'inherit' })
   }
   console.log('Done.')
@@ -198,7 +198,7 @@ async function commandInit() {
     return
   }
 
-  const { writeFileSync } = await import('fs')
+  const { writeFileSync } = await import('node:fs')
   const config = {
     outputDir: '.diagrams',
     manifestFile: 'diagrams.manifest.json',
@@ -213,8 +213,8 @@ async function commandInit() {
 
 async function commandInstallSkills() {
   const isGlobal = args.includes('--global')
-  const { mkdirSync, cpSync } = await import('fs')
-  const { join } = await import('path')
+  const { mkdirSync, cpSync } = await import('node:fs')
+  const { join } = await import('node:path')
 
   // Find agent_skills directory relative to this package
   const pkgCandidates = [
@@ -353,7 +353,7 @@ async function commandRender() {
 
       // Write output files
       const [path, { ensureDiagramsDir }, { stripDiagramExtension, writeRenderResult }] =
-        await Promise.all([import('path'), import('../src/manifest'), import('../src/output')])
+        await Promise.all([import('node:path'), import('../src/manifest'), import('../src/output')])
       const outDir = customOutput
         ? resolve(customOutput)
         : ensureDiagramsDir(path.dirname(resolvedTarget), resolvedConfig)
@@ -383,8 +383,11 @@ async function commandRender() {
   }
 
   if (dryRun) {
-    const [{ findDiagramFiles, filterByType: filterByTypeFn }, { filterStaleFiles }] =
-      await Promise.all([import('../src/index'), import('../src/manifest')])
+    const {
+      findDiagramFiles,
+      filterByType: filterByTypeFn,
+      filterStaleFiles,
+    } = await import('../src/index')
     let files = findDiagramFiles(resolvedTarget, resolvedConfig)
     if (type) files = filterByTypeFn(files, type, resolvedConfig)
     const stale = filterStaleFiles(files, force, format, resolvedConfig, theme)
