@@ -5,7 +5,7 @@
  * `renderAll()`, asserts the output files and manifest, then cleans up.
  */
 
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { dispose, render, renderAll, renderFile } from '../src/index'
@@ -348,5 +348,44 @@ describe('API rendering e2e', () => {
 
     // .dio alias should render
     expectSvgFile(join(outDir, 'diagram-light.svg'))
+  }, 120_000)
+
+  it('renders files discovered through a custom extensionMap override', async () => {
+    const workspace = createWorkspace('e2e-api-custom-extension')
+    writeFileSync(join(workspace, 'flow.custom-diagram'), 'graph TD; A-->B')
+
+    await renderAll({
+      dir: workspace,
+      format: 'svg',
+      theme: 'light',
+      config: {
+        useManifest: false,
+        extensionMap: { '.custom-diagram': 'mermaid' },
+      },
+    })
+
+    expectSvgFile(join(workspace, '.diagrams', 'flow-light.svg'))
+  }, 120_000)
+
+  it('cleans nested orphan outputs even when the tree no longer contains any diagrams', async () => {
+    const workspace = createWorkspace('e2e-api-empty-tree-cleanup')
+
+    rmSync(join(workspace, 'architecture.mmd'))
+    rmSync(join(workspace, 'whiteboard.excalidraw'))
+    rmSync(join(workspace, 'system.drawio.xml'))
+
+    const nestedDir = join(workspace, 'nested')
+    mkdirSync(nestedDir, { recursive: true })
+    writeFileSync(join(nestedDir, 'flow.mermaid'), 'graph TD; A-->B')
+
+    await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
+    expectSvgFile(join(nestedDir, '.diagrams', 'flow-light.svg'))
+
+    rmSync(join(nestedDir, 'flow.mermaid'))
+    await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
+
+    expectNotExists(join(nestedDir, '.diagrams', 'flow-light.svg'))
+    expectNotExists(join(nestedDir, '.diagrams', 'diagrams.manifest.json'))
+    expectNotExists(join(nestedDir, '.diagrams'))
   }, 120_000)
 })

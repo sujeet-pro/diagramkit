@@ -11,7 +11,7 @@
  * - orphan cleanup stays safe when manifest tracking is disabled or when outputs live beside sources
  */
 
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
@@ -212,6 +212,31 @@ describe('manifest', () => {
       expect(existsSync(join(outDir, 'test-light.svg'))).toBe(true)
       expect(existsSync(join(outDir, 'test-dark.svg'))).toBe(true)
       expect(existsSync(join(outDir, 'stale-light.svg'))).toBe(false)
+    })
+
+    it('finds manifest directories from the root and removes empty output folders when the last source is deleted', () => {
+      const nestedDir = join(testDir, 'docs')
+      mkdirSync(nestedDir, { recursive: true })
+      const filePath = join(nestedDir, 'flow.mermaid')
+      writeFileSync(filePath, 'flowchart TD\nA-->B')
+
+      const file: DiagramFile = {
+        path: filePath,
+        name: 'flow',
+        dir: nestedDir,
+        ext: '.mermaid',
+      }
+
+      updateManifest([file], 'svg', undefined, 'light')
+      const outDir = ensureDiagramsDir(nestedDir)
+      writeFileSync(join(outDir, 'flow-light.svg'), '<svg/>')
+
+      rmSync(filePath)
+      cleanOrphans([], undefined, [testDir])
+
+      expect(existsSync(join(outDir, 'flow-light.svg'))).toBe(false)
+      expect(existsSync(join(outDir, 'diagrams.manifest.json'))).toBe(false)
+      expect(existsSync(outDir)).toBe(false)
     })
   })
 

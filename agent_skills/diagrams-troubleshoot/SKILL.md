@@ -1,6 +1,6 @@
 ---
-name: troubleshoot
-description: Diagnose and fix common diagramkit issues including Playwright setup, rendering failures, manifest corruption, and CI/CD problems
+name: diagrams-troubleshoot
+description: Diagnose and fix common diagramkit issues including Playwright setup, rendering failures, manifest corruption, CI/CD problems, mermaid syntax errors, excalidraw JSON validation, and draw.io XML parsing
 user_invocable: true
 arguments:
   - name: issue
@@ -223,10 +223,10 @@ before_script:
 
 ### Custom Output Directory
 
-If using `--output`, ensure the target directory is writable:
+If using `--output` for a single-file render, ensure the target directory is writable:
 
 ```bash
-diagramkit render . --output ./rendered
+diagramkit render flow.mermaid --output ./rendered
 # requires write permission on ./rendered and its parent
 ```
 
@@ -693,7 +693,7 @@ If you commit rendered output, cache the `.diagrams/` folder and manifest:
     key: diagrams-${{ hashFiles('**/*.mermaid', '**/*.excalidraw', '**/*.drawio') }}
 ```
 
-See the `/ci-cd` skill for complete CI/CD configuration examples.
+See the `/diagrams-ci-cd` skill for complete CI/CD configuration examples.
 
 ---
 
@@ -716,4 +716,4 @@ When none of the above sections match your issue:
 
 ## Composability
 
-This skill is standalone. It is invoked directly by the user with `/troubleshoot` when something goes wrong. It may also be consulted by other skills when a rendering step fails.
+This skill is standalone. It is invoked directly by the user with `/diagrams-troubleshoot` when something goes wrong. It may also be consulted by other skills when a rendering step fails.

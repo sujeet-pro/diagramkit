@@ -1,6 +1,6 @@
 ---
-name: ci-cd
-description: Set up diagramkit in CI/CD pipelines including GitHub Actions, GitLab CI, Docker, pre-commit hooks, and caching strategies
+name: diagrams-ci-cd
+description: Set up diagramkit diagram rendering in CI/CD pipelines including GitHub Actions, GitLab CI, Docker, pre-commit hooks, and caching strategies for Playwright browsers and rendered output
 user_invocable: true
 arguments:
   - name: platform
@@ -16,7 +16,7 @@ arguments:
 
 # CI/CD Integration
 
-Set up diagramkit rendering in continuous integration and deployment pipelines. This skill covers GitHub Actions, GitLab CI, Docker, pre-commit hooks, and caching strategies.
+Set up diagramkit diagram rendering in continuous integration and deployment pipelines. This skill covers GitHub Actions, GitLab CI, Docker, pre-commit hooks, and caching strategies.
 
 ## Strategy Overview
 
@@ -575,4 +575,4 @@ COPY --from=build /app/docs/.vitepress/dist /usr/share/nginx/html
 
 ## Composability
 
-This skill is standalone. Invoke it with `/ci-cd` when setting up automated diagram rendering. See `/troubleshoot` for debugging CI/CD rendering failures.
+This skill is standalone. Invoke it with `/diagrams-ci-cd` when setting up automated diagram rendering. See `/diagrams-troubleshoot` for debugging CI/CD rendering failures.

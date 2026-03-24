@@ -17,6 +17,7 @@ export function createFixtureWorkspace(prefix: string): string {
   mkdirSync(workspace, { recursive: true })
 
   for (const entry of readdirSync(fixturesDir)) {
+    if (entry.startsWith('.')) continue
     cpSync(join(fixturesDir, entry), join(workspace, entry), { recursive: true })
   }
 

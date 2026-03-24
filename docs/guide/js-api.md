@@ -72,6 +72,8 @@ if (result.dark) {
 
 **Returns:** `Promise<RenderResult>`
 
+If you use custom file extensions, pass them through `options.config.extensionMap` so `renderFile()` can resolve the diagram type correctly.
+
 ## `renderAll(options?)`
 
 Render all diagrams in a directory tree. Outputs are written to `.diagrams/` folders next to each source file. Uses the manifest for incremental builds.

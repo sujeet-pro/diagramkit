@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, statSync } from 'fs'
-import { resolve } from 'path'
+import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 
 const args = process.argv.slice(2)
@@ -35,7 +35,7 @@ Render options:
   --watch                           Watch for changes and re-render
   --no-contrast                     Disable dark SVG contrast optimization
   --type <mermaid|excalidraw|drawio> Filter to specific diagram type
-  --output <dir>                    Custom output directory (single file and directory)
+  --output <dir>                    Custom output directory (single file only)
   --dry-run                         Show what would be rendered without rendering
 
 Configuration options:
@@ -255,8 +255,8 @@ async function commandInstallSkills() {
   console.log(`  /diagram-drawio       — Draw.io source file authoring`)
   console.log(`  /diagramkit           — Render diagrams to images`)
   console.log(`  /image-convert        — SVG to raster conversion`)
-  console.log(`  /troubleshoot         — Diagnose and fix common issues`)
-  console.log(`  /ci-cd                — CI/CD integration guide`)
+  console.log(`  /diagrams-troubleshoot — Diagnose and fix common issues`)
+  console.log(`  /diagrams-ci-cd       — CI/CD integration guide`)
 }
 
 async function commandRender() {
@@ -286,11 +286,8 @@ async function commandRender() {
   warnUnknownFlags()
 
   // Validate flag values
-  const rawFormat = getFlagValue('format') ?? 'svg'
-  const format = validateEnum(rawFormat, VALID_FORMATS, 'format')
-
-  const rawTheme = getFlagValue('theme') ?? 'both'
-  const theme = validateEnum(rawTheme, VALID_THEMES, 'theme')
+  const rawFormat = getFlagValue('format')
+  const rawTheme = getFlagValue('theme')
 
   const rawType = getFlagValue('type')
   const type = rawType ? validateEnum(rawType, VALID_TYPES, 'type') : undefined
@@ -320,8 +317,6 @@ async function commandRender() {
   if (manifestFile) configOverrides.manifestFile = manifestFile
   if (noManifest) configOverrides.useManifest = false
   if (sameFolder) configOverrides.sameFolder = true
-  configOverrides.defaultFormat = format
-  configOverrides.defaultTheme = theme
 
   const resolvedTarget = resolve(target)
 
@@ -332,6 +327,11 @@ async function commandRender() {
 
   // Check if target is a single file
   const stat = statSync(resolvedTarget)
+  const { loadConfig } = await import('../src/config')
+  const configRoot = stat.isFile() ? dirname(resolvedTarget) : resolvedTarget
+  const resolvedConfig = loadConfig(configOverrides, configRoot)
+  const format = validateEnum(rawFormat ?? resolvedConfig.defaultFormat, VALID_FORMATS, 'format')
+  const theme = validateEnum(rawTheme ?? resolvedConfig.defaultTheme, VALID_THEMES, 'theme')
 
   if (stat.isFile()) {
     // Single file render
@@ -348,26 +348,16 @@ async function commandRender() {
         scale,
         quality,
         contrastOptimize: !noContrast,
-        config: configOverrides,
+        config: resolvedConfig,
       })
 
       // Write output files
-      const [
-        path,
-        { ensureDiagramsDir },
-        { loadConfig },
-        { stripDiagramExtension, writeRenderResult },
-      ] = await Promise.all([
-        import('path'),
-        import('../src/manifest'),
-        import('../src/config'),
-        import('../src/output'),
-      ])
-      const config = loadConfig(configOverrides, path.dirname(resolvedTarget))
+      const [path, { ensureDiagramsDir }, { stripDiagramExtension, writeRenderResult }] =
+        await Promise.all([import('path'), import('../src/manifest'), import('../src/output')])
       const outDir = customOutput
         ? resolve(customOutput)
-        : ensureDiagramsDir(path.dirname(resolvedTarget), config)
-      const name = stripDiagramExtension(path.basename(resolvedTarget))
+        : ensureDiagramsDir(path.dirname(resolvedTarget), resolvedConfig)
+      const name = stripDiagramExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap)
       const written = writeRenderResult(name, outDir, result)
 
       if (jsonOutput) {
@@ -385,20 +375,19 @@ async function commandRender() {
   }
 
   // Directory render
+  if (customOutput) {
+    console.error(
+      '--output is only supported for single-file renders. Use --output-dir for directories.',
+    )
+    process.exit(1)
+  }
+
   if (dryRun) {
-    const [
-      { findDiagramFiles, filterByType: filterByTypeFn },
-      { filterStaleFiles },
-      { loadConfig },
-    ] = await Promise.all([
-      import('../src/index'),
-      import('../src/manifest'),
-      import('../src/config'),
-    ])
-    const config = loadConfig(configOverrides, resolvedTarget)
-    let files = findDiagramFiles(resolvedTarget, config)
-    if (type) files = filterByTypeFn(files, type, config)
-    const stale = filterStaleFiles(files, force, format, config, theme)
+    const [{ findDiagramFiles, filterByType: filterByTypeFn }, { filterStaleFiles }] =
+      await Promise.all([import('../src/index'), import('../src/manifest')])
+    let files = findDiagramFiles(resolvedTarget, resolvedConfig)
+    if (type) files = filterByTypeFn(files, type, resolvedConfig)
+    const stale = filterStaleFiles(files, force, format, resolvedConfig, theme)
 
     if (jsonOutput) {
       console.log(
@@ -419,7 +408,7 @@ async function commandRender() {
 
   // Use the logger option to suppress output in quiet mode instead of monkey-patching console
   const noop = () => {}
-  const logger = quiet && !jsonOutput ? { log: noop, warn: noop } : undefined
+  const logger = quiet || jsonOutput ? { log: noop, warn: quiet ? noop : console.warn } : undefined
 
   const { renderAll, dispose } = await import('../src/index')
 
@@ -437,30 +426,6 @@ async function commandRender() {
       config: configOverrides,
       logger,
     })
-
-    if (customOutput && renderResult.rendered.length > 0) {
-      // When --output is provided for directory mode, copy outputs to the specified directory
-      const [path, { mkdirSync, cpSync, readdirSync }, { getDiagramsDir }, { loadConfig }] =
-        await Promise.all([
-          import('path'),
-          import('fs'),
-          import('../src/manifest'),
-          import('../src/config'),
-        ])
-      const outDir = resolve(customOutput)
-      mkdirSync(outDir, { recursive: true })
-      const config = loadConfig(configOverrides, resolvedTarget)
-      const dirs = new Set(renderResult.rendered.map((f) => path.dirname(f)))
-      for (const dir of dirs) {
-        const diagDir = getDiagramsDir(dir, config)
-        if (existsSync(diagDir)) {
-          for (const file of readdirSync(diagDir)) {
-            if (file.endsWith('.tmp') || file.endsWith('.json')) continue
-            cpSync(path.join(diagDir, file), path.join(outDir, file))
-          }
-        }
-      }
-    }
   } finally {
     if (!watchMode) {
       await dispose()

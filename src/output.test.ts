@@ -56,6 +56,12 @@ describe('output helpers', () => {
     expect(stripDiagramExtension('system.drawio.xml')).toBe('system')
   })
 
+  it('strips custom configured extensions using the merged extension map', () => {
+    expect(
+      stripDiagramExtension('architecture.custom-diagram', { '.custom-diagram': 'mermaid' }),
+    ).toBe('architecture')
+  })
+
   it('writes only the rendered variants and creates the target directory', () => {
     const outDir = mkdtempSync(join(tmpdir(), 'diagramkit-output-test-'))
     tempDirs.push(outDir)
