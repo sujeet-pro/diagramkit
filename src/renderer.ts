@@ -118,9 +118,8 @@ export async function render(
           },
           { xml: source, darkMode: true },
         )
-        if (contrastOptimize && darkSvg) {
-          darkSvg = postProcessDarkSvg(darkSvg)
-        }
+        // draw.io entry handles dark mode color adjustments in the browser
+        // via adjustColorForDark() — skip Node-side postProcessDarkSvg to avoid double-darkening
       }
     } else {
       const _exhaustive: never = type

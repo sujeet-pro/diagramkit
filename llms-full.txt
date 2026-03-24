@@ -234,22 +234,6 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
     extensionMap?: Record<string, DiagramType>  // Custom extension overrides
   }
 
-### DiagramRenderer (internal)
-  interface DiagramRenderer {
-    name: string
-    extensions: string[]
-    renderBatch(files: DiagramFile[], options?: RendererOptions): Promise<void>
-    renderSingle(file: DiagramFile, options?: RendererOptions): Promise<void>
-    dispose?(): Promise<void>
-  }
-
-### RendererOptions (internal)
-  interface RendererOptions {
-    force?: boolean
-    format?: OutputFormat
-    config?: Partial<DiagramkitConfig>
-  }
-
 ### Manifest (internal)
   type Manifest = { version: 1, diagrams: Record<string, ManifestEntry> }
   type ManifestEntry = { hash: string, generatedAt: string, outputs: string[], format?: OutputFormat, theme?: Theme }
@@ -296,7 +280,7 @@ postProcessDarkSvg() in src/color/contrast.ts:
 - Colors with luminance > 0.4 are darkened to lightness 0.25
 - Hue and saturation (capped at 0.6) are preserved
 - Ensures readable contrast against dark backgrounds
-- Applied automatically to mermaid dark renders and drawio dark renders
+- Applied automatically to mermaid dark renders (drawio handles dark mode in-browser)
 
 ### Output Convention
 Rendered images placed in .diagrams/ hidden folder next to source files:
@@ -309,11 +293,11 @@ On change/add: re-renders affected file, updates manifest, calls onChange callba
 Returns cleanup function to stop watching.
 
 ### Renderers
-Three renderer classes implementing DiagramRenderer interface:
-- MermaidRenderer: uses BrowserPool mermaid pages with Playwright evaluate()
-- ExcalidrawRenderer: uses rolldown-bundled IIFE loaded into BrowserPool page
-- DrawioRenderer: uses rolldown-bundled IIFE that parses mxGraphModel XML to SVG
-All renderers use atomic writes (.tmp + rename).
+Three diagram types rendered through the unified render() function in renderer.ts:
+- Mermaid: uses BrowserPool mermaid pages (separate light/dark) with Playwright evaluate()
+- Excalidraw: uses rolldown-bundled IIFE loaded into BrowserPool page
+- Draw.io: uses rolldown-bundled IIFE that parses mxGraphModel XML to SVG
+All output uses atomic writes (.tmp + rename).
 Individual file failures do not abort a batch render.
 
 ## Claude Code Skills

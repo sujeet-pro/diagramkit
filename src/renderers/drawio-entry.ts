@@ -123,9 +123,9 @@ function stripHtml(str: string): string {
     .replace(/&#39;/g, "'")
 }
 
-/** sRGB linearization for WCAG luminance — matches the Node-side color/luminance.ts formula. */
+/** sRGB linearization for WCAG luminance — uses 0.04045 threshold (WCAG 2.1, matches Node-side). */
 function srgbLinear(c: number): number {
-  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
 }
 
 function wcagLuminance(r: number, g: number, b: number): number {

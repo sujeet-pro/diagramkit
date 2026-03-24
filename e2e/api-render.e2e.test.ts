@@ -280,6 +280,50 @@ describe('API rendering e2e', () => {
     expect(result2.failed).toHaveLength(0)
   }, 120_000)
 
+  it('render() excalidraw string returns valid SVG', async () => {
+    const json = readFileSync(join(fixturesDir, 'whiteboard.excalidraw'), 'utf-8')
+    const result = await render(json, 'excalidraw', { theme: 'both', format: 'svg' })
+
+    expect(result.light).toBeDefined()
+    expect(result.dark).toBeDefined()
+    expect(result.format).toBe('svg')
+    expect(result.light!.toString('utf-8')).toContain('<svg')
+    expect(result.dark!.toString('utf-8')).toContain('<svg')
+  }, 120_000)
+
+  it('render() drawio string returns valid SVG', async () => {
+    const xml = readFileSync(join(fixturesDir, 'system.drawio.xml'), 'utf-8')
+    const result = await render(xml, 'drawio', { theme: 'light', format: 'svg' })
+
+    expect(result.light).toBeDefined()
+    expect(result.dark).toBeUndefined()
+    expect(result.format).toBe('svg')
+    expect(result.light!.toString('utf-8')).toContain('<svg')
+  }, 120_000)
+
+  it('renderFile() excalidraw returns valid result', async () => {
+    const result = await renderFile(join(fixturesDir, 'whiteboard.excalidraw'), {
+      format: 'svg',
+      theme: 'dark',
+    })
+
+    expect(result.dark).toBeDefined()
+    expect(result.light).toBeUndefined()
+    expect(result.dark!.toString('utf-8')).toContain('<svg')
+  }, 120_000)
+
+  it('renderFile() drawio returns valid result with both themes', async () => {
+    const result = await renderFile(join(fixturesDir, 'system.drawio.xml'), {
+      format: 'svg',
+      theme: 'both',
+    })
+
+    expect(result.light).toBeDefined()
+    expect(result.dark).toBeDefined()
+    expect(result.light!.toString('utf-8')).toContain('<svg')
+    expect(result.dark!.toString('utf-8')).toContain('<svg')
+  }, 120_000)
+
   it('renders files with extension aliases (.mermaid, .dio)', async () => {
     const workspace = createWorkspace('e2e-api-aliases')
 

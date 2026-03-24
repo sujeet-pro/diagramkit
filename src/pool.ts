@@ -184,10 +184,7 @@ export class BrowserPool {
       const entryPath = await resolveRendererEntryPath('excalidraw-entry')
       if (!entryPath) return null
 
-      const { rolldown } = await import('rolldown')
-      const bundle = await rolldown({ input: entryPath, logLevel: 'silent' })
-      const { output } = await bundle.generate({ format: 'iife' })
-      this.excalidrawBundle = output[0].code
+      this.excalidrawBundle = await buildOrReadCachedBundle('excalidraw-entry', entryPath)
       return this.excalidrawBundle
     } catch (err) {
       console.warn('Failed to build excalidraw bundle:', (err as Error).message)
@@ -224,10 +221,7 @@ export class BrowserPool {
       const entryPath = await resolveRendererEntryPath('drawio-entry')
       if (!entryPath) return null
 
-      const { rolldown } = await import('rolldown')
-      const bundle = await rolldown({ input: entryPath, logLevel: 'silent' })
-      const { output } = await bundle.generate({ format: 'iife' })
-      this.drawioBundle = output[0].code
+      this.drawioBundle = await buildOrReadCachedBundle('drawio-entry', entryPath)
       return this.drawioBundle
     } catch (err) {
       console.warn('Failed to build draw.io bundle:', (err as Error).message)
@@ -244,6 +238,43 @@ export class BrowserPool {
     })
     return page
   }
+}
+
+/* ── IIFE bundle disk cache ── */
+
+const CACHE_DIR = 'node_modules/.cache/diagramkit'
+
+async function buildOrReadCachedBundle(name: string, entryPath: string): Promise<string> {
+  const { createHash } = await import('crypto')
+  const { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } = await import('fs')
+  const { join } = await import('path')
+
+  // Cache key = SHA-256 of entry file content (changes when source or deps change after rebuild)
+  const entryContent = readFileSync(entryPath)
+  const hash = createHash('sha256').update(entryContent).digest('hex').slice(0, 12)
+  const cacheFile = join(CACHE_DIR, `${name}-${hash}.iife.js`)
+
+  if (existsSync(cacheFile)) {
+    return readFileSync(cacheFile, 'utf-8')
+  }
+
+  // Build with rolldown
+  const { rolldown } = await import('rolldown')
+  const bundle = await rolldown({ input: entryPath, logLevel: 'silent' })
+  const { output } = await bundle.generate({ format: 'iife' })
+  const code = output[0].code
+
+  // Write atomically to cache
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true })
+    const tmp = cacheFile + '.tmp'
+    writeFileSync(tmp, code)
+    renameSync(tmp, cacheFile)
+  } catch {
+    // Cache write failure is non-fatal — bundle is already in memory
+  }
+
+  return code
 }
 
 async function resolveRendererEntryPath(

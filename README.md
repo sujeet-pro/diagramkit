@@ -112,10 +112,12 @@ Create a `.diagramkitrc.json` in your project root:
 
 ```json
 {
-  "format": "svg",
-  "theme": "both",
-  "scale": 2,
-  "contrast": true
+  "outputDir": ".diagrams",
+  "manifestFile": "diagrams.manifest.json",
+  "useManifest": true,
+  "sameFolder": false,
+  "defaultFormat": "svg",
+  "defaultTheme": "both"
 }
 ```
 

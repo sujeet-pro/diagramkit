@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, statSync } from 'fs'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -336,7 +336,7 @@ async function commandRender() {
   }
 
   // Check if target is a single file
-  const stat = (await import('fs')).statSync(resolvedTarget)
+  const stat = statSync(resolvedTarget)
 
   if (stat.isFile()) {
     // Single file render
@@ -357,10 +357,17 @@ async function commandRender() {
       })
 
       // Write output files
-      const path = await import('path')
-      const { ensureDiagramsDir } = await import('../src/manifest')
-      const { loadConfig } = await import('../src/config')
-      const { stripDiagramExtension, writeRenderResult } = await import('../src/output')
+      const [
+        path,
+        { ensureDiagramsDir },
+        { loadConfig },
+        { stripDiagramExtension, writeRenderResult },
+      ] = await Promise.all([
+        import('path'),
+        import('../src/manifest'),
+        import('../src/config'),
+        import('../src/output'),
+      ])
       const config = loadConfig(configOverrides, path.dirname(resolvedTarget))
       const outDir = customOutput
         ? resolve(customOutput)
@@ -384,9 +391,15 @@ async function commandRender() {
 
   // Directory render
   if (dryRun) {
-    const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/index')
-    const { filterStaleFiles } = await import('../src/manifest')
-    const { loadConfig } = await import('../src/config')
+    const [
+      { findDiagramFiles, filterByType: filterByTypeFn },
+      { filterStaleFiles },
+      { loadConfig },
+    ] = await Promise.all([
+      import('../src/index'),
+      import('../src/manifest'),
+      import('../src/config'),
+    ])
     const config = loadConfig(configOverrides, resolvedTarget)
     let files = findDiagramFiles(resolvedTarget, config)
     if (type) files = filterByTypeFn(files, type, config)
@@ -432,14 +445,15 @@ async function commandRender() {
 
     if (customOutput && renderResult.rendered.length > 0) {
       // When --output is provided for directory mode, copy outputs to the specified directory
-      const path = await import('path')
-      const { mkdirSync, cpSync, readdirSync } = await import('fs')
+      const [path, { mkdirSync, cpSync, readdirSync }, { getDiagramsDir }, { loadConfig }] =
+        await Promise.all([
+          import('path'),
+          import('fs'),
+          import('../src/manifest'),
+          import('../src/config'),
+        ])
       const outDir = resolve(customOutput)
       mkdirSync(outDir, { recursive: true })
-
-      // Find all .diagrams dirs and copy their contents to the output dir
-      const { getDiagramsDir } = await import('../src/manifest')
-      const { loadConfig } = await import('../src/config')
       const config = loadConfig(configOverrides, resolvedTarget)
       const dirs = new Set(renderResult.rendered.map((f) => path.dirname(f)))
       for (const dir of dirs) {
@@ -480,8 +494,9 @@ async function commandRender() {
 
     // Keep process alive, clean up on exit — dispose() must complete before exit to avoid zombie Chromium
     process.on('SIGINT', () => {
-      cleanup()
-      void dispose().finally(() => process.exit(0))
+      void cleanup()
+        .then(() => dispose())
+        .then(() => process.exit(0))
     })
   }
 }
