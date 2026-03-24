@@ -113,3 +113,4 @@ The output folder name, manifest file name, and other options are all [configura
 - [JavaScript API](/guide/js-api) for programmatic usage
 - [Configuration](/guide/configuration) for customizing output behavior
 - [Watch Mode](/guide/watch-mode) for live re-rendering during development
+- [Installing Skills](/guide/install-skills) for Claude Code AI-assisted diagram generation

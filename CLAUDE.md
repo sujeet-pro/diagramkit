@@ -58,7 +58,7 @@ To add support for a new diagram format (e.g. PlantUML):
 5. **Browser entry** (if needed) — create `src/renderers/plantuml-entry.ts` with a `__renderPlantuml()` global, add it to `vite.config.ts` pack entries
 6. **Class renderer** — create `src/renderers/plantuml.ts` implementing `DiagramRenderer`, export from `src/renderers/index.ts`
 7. **Tests** — add extension tests, a fixture file, and e2e test coverage
-8. **Docs & skills** — add `docs/diagrams/plantuml.md` and `skills/claude-code/diagram-plantuml.md`
+8. **Docs & skills** — add `docs/diagrams/plantuml.md` and `agent_skills/diagram-plantuml.md`
 
 The manifest, discovery, output naming, and watch systems all work automatically via the extension map — no changes needed there.
 
@@ -105,20 +105,32 @@ e2e/
   README.md               Lists all e2e test cases
   fixtures/               Sample .mmd, .excalidraw, .drawio.xml for testing
 docs/                 VitePress documentation site
-skills/
-  claude-code/        LLM skills for diagram generation and rendering
-    diagramkit.md     Render diagrams to images (CLI, output convention, config)
-    diagrams.md       Engine selection orchestrator
-    diagram-mermaid.md    Mermaid source file authoring
-    diagram-excalidraw.md Excalidraw source file authoring
-    diagram-drawio.md     Draw.io source file authoring
-    image-convert.md      SVG-to-raster conversion
-    troubleshoot.md       Common errors and fixes
-    ci-cd.md              CI/CD integration guide
-    references/
-      mermaid/            Mermaid diagram type syntax (flowchart, sequence, class, etc.)
-      excalidraw/         Excalidraw JSON format, arrows, colors, examples, validation
-      drawio/             Draw.io shapes and styles references
+agent_skills/         User-installable Claude Code skills (shipped in npm package)
+  diagrams/
+    SKILL.md          Engine selection orchestrator
+  diagramkit/
+    SKILL.md          Render diagrams to images (CLI, output convention, config)
+  diagram-mermaid/
+    SKILL.md          Mermaid source file authoring
+  diagram-excalidraw/
+    SKILL.md          Excalidraw source file authoring
+  diagram-drawio/
+    SKILL.md          Draw.io source file authoring
+  image-convert/
+    SKILL.md          SVG-to-raster conversion
+  troubleshoot/
+    SKILL.md          Common errors and fixes
+  ci-cd/
+    SKILL.md          CI/CD integration guide
+  refs/
+    mermaid/          Mermaid diagram type syntax (flowchart, sequence, class, etc.)
+    excalidraw/       Excalidraw JSON format, arrows, colors, examples, validation
+    drawio/           Draw.io shapes and styles references
+.claude/
+  skills/
+    review-repo/      Project-level skill (for developing diagramkit itself, not shipped)
+      SKILL.md        Full repository review with parallel agent teams
+INSTALL_SKILLS.md     Skill manifest and installation instructions (shipped in npm package)
 ```
 
 ## Commands
@@ -232,16 +244,22 @@ npm run validate    # All checks in sequence (lint + typecheck + build + docs + 
 - **llms-full.txt** — Detailed LLM reference with architecture, API, and internals.
 - When updating the codebase, keep these files in sync with actual behavior.
 
-## Claude Code skills
+## Agent skills (user-installable)
 
-Skills can be installed into a project with `diagramkit install-skills` or globally with `diagramkit install-skills --global`.
+Skills can be installed into a project with `diagramkit install-skills` or globally with `diagramkit install-skills --global`. Each skill lives in its own folder under `agent_skills/<skill-name>/SKILL.md`. Shared references live in `agent_skills/refs/`.
 
-- **skills/claude-code/diagramkit.md** — Quick reference for CLI, output convention, configuration, dark mode.
-- **skills/claude-code/diagrams.md** — Engine selection: when to use mermaid vs excalidraw vs drawio.
-- **skills/claude-code/diagram-mermaid.md** — Mermaid authoring with all 20+ diagram type syntax.
-- **skills/claude-code/diagram-excalidraw.md** — Excalidraw JSON authoring rules and patterns.
-- **skills/claude-code/diagram-drawio.md** — Draw.io XML authoring with shapes, styles, containers.
-- **skills/claude-code/image-convert.md** — SVG-to-raster conversion using diagramkit.
-- **skills/claude-code/troubleshoot.md** — Common errors and fixes for all diagram types.
-- **skills/claude-code/ci-cd.md** — CI/CD integration guide (GitHub Actions, GitLab CI, Docker).
-- **skills/claude-code/references/** — Excalidraw JSON format, arrows, colors, examples, validation. Draw.io shapes and styles.
+- **agent_skills/diagramkit/SKILL.md** — Quick reference for CLI, output convention, configuration, dark mode.
+- **agent_skills/diagrams/SKILL.md** — Engine selection: when to use mermaid vs excalidraw vs drawio.
+- **agent_skills/diagram-mermaid/SKILL.md** — Mermaid authoring with all 20+ diagram type syntax.
+- **agent_skills/diagram-excalidraw/SKILL.md** — Excalidraw JSON authoring rules and patterns.
+- **agent_skills/diagram-drawio/SKILL.md** — Draw.io XML authoring with shapes, styles, containers.
+- **agent_skills/image-convert/SKILL.md** — SVG-to-raster conversion using diagramkit.
+- **agent_skills/troubleshoot/SKILL.md** — Common errors and fixes for all diagram types.
+- **agent_skills/ci-cd/SKILL.md** — CI/CD integration guide (GitHub Actions, GitLab CI, Docker).
+- **agent_skills/refs/** — Shared references for mermaid syntax, excalidraw JSON format, draw.io shapes and styles.
+
+## Project skills (for developing diagramkit)
+
+These skills are for contributors working on diagramkit itself. They live in `.claude/skills/` and are NOT shipped in the npm package.
+
+- **.claude/skills/review-repo/SKILL.md** — Full repository review with parallel agent teams. Covers code quality, tests, architecture, performance, security, docs, CLAUDE.md alignment, and skills. Use `/review-repo` to run.

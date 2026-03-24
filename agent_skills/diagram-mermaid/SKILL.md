@@ -68,31 +68,31 @@ For inline rendering in markdown (light mode only, no dark variant), use a merma
 
 Each type has a dedicated reference file with full syntax, examples, and best practices. Read the appropriate reference before generating a diagram of that type.
 
-| Type         | Directive                          | Reference                            |
-| ------------ | ---------------------------------- | ------------------------------------ |
-| Flowchart    | `flowchart TD`                     | `references/mermaid/flowchart.md`    |
-| Sequence     | `sequenceDiagram`                  | `references/mermaid/sequence.md`     |
-| Class        | `classDiagram`                     | `references/mermaid/class.md`        |
-| State        | `stateDiagram-v2`                  | `references/mermaid/state.md`        |
-| ER           | `erDiagram`                        | `references/mermaid/er.md`           |
-| Gantt        | `gantt`                            | `references/mermaid/gantt.md`        |
-| GitGraph     | `gitGraph`                         | `references/mermaid/gitgraph.md`     |
-| Mindmap      | `mindmap`                          | `references/mermaid/mindmap.md`      |
-| Timeline     | `timeline`                         | `references/mermaid/timeline.md`     |
-| C4           | `C4Context` / `C4Container` / etc. | `references/mermaid/c4.md`           |
-| Architecture | `architecture-beta`                | `references/mermaid/architecture.md` |
-| Kanban       | `kanban`                           | `references/mermaid/kanban.md`       |
-| Quadrant     | `quadrantChart`                    | `references/mermaid/quadrant.md`     |
-| Sankey       | `sankey-beta`                      | `references/mermaid/sankey.md`       |
-| XY Chart     | `xychart-beta`                     | `references/mermaid/xy.md`           |
-| Packet       | `packet-beta`                      | `references/mermaid/packet.md`       |
-| Radar        | `radar-beta`                       | `references/mermaid/radar.md`        |
-| User Journey | `journey`                          | `references/mermaid/journey.md`      |
-| Pie          | `pie`                              | `references/mermaid/pie.md`          |
-| Requirement  | `requirementDiagram`               | `references/mermaid/requirement.md`  |
-| Block        | `block-beta`                       | `references/mermaid/block.md`        |
+| Type         | Directive                          | Reference                      |
+| ------------ | ---------------------------------- | ------------------------------ |
+| Flowchart    | `flowchart TD`                     | `refs/mermaid/flowchart.md`    |
+| Sequence     | `sequenceDiagram`                  | `refs/mermaid/sequence.md`     |
+| Class        | `classDiagram`                     | `refs/mermaid/class.md`        |
+| State        | `stateDiagram-v2`                  | `refs/mermaid/state.md`        |
+| ER           | `erDiagram`                        | `refs/mermaid/er.md`           |
+| Gantt        | `gantt`                            | `refs/mermaid/gantt.md`        |
+| GitGraph     | `gitGraph`                         | `refs/mermaid/gitgraph.md`     |
+| Mindmap      | `mindmap`                          | `refs/mermaid/mindmap.md`      |
+| Timeline     | `timeline`                         | `refs/mermaid/timeline.md`     |
+| C4           | `C4Context` / `C4Container` / etc. | `refs/mermaid/c4.md`           |
+| Architecture | `architecture-beta`                | `refs/mermaid/architecture.md` |
+| Kanban       | `kanban`                           | `refs/mermaid/kanban.md`       |
+| Quadrant     | `quadrantChart`                    | `refs/mermaid/quadrant.md`     |
+| Sankey       | `sankey-beta`                      | `refs/mermaid/sankey.md`       |
+| XY Chart     | `xychart-beta`                     | `refs/mermaid/xy.md`           |
+| Packet       | `packet-beta`                      | `refs/mermaid/packet.md`       |
+| Radar        | `radar-beta`                       | `refs/mermaid/radar.md`        |
+| User Journey | `journey`                          | `refs/mermaid/journey.md`      |
+| Pie          | `pie`                              | `refs/mermaid/pie.md`          |
+| Requirement  | `requirementDiagram`               | `refs/mermaid/requirement.md`  |
+| Block        | `block-beta`                       | `refs/mermaid/block.md`        |
 
-See `references/mermaid/theming.md` for theme configuration and dark mode behavior with diagramkit.
+See `refs/mermaid/theming.md` for theme configuration and dark mode behavior with diagramkit.
 
 ---
 

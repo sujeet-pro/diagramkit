@@ -221,7 +221,7 @@ height = max(abs(p[1]) for p in points)
 
 **Cause**: Colors too close to white or using non-standard palette.
 
-**Fix**: Use the default palette from `references/excalidraw-colors.md`. Avoid fills lighter than `#e7f5ff`. diagramkit's `postProcessDarkSvg()` handles the rest.
+**Fix**: Use the default palette from `refs/excalidraw/colors.md`. Avoid fills lighter than `#e7f5ff`. diagramkit's `postProcessDarkSvg()` handles the rest.
 
 ---
 

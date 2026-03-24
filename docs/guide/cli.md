@@ -45,7 +45,7 @@ diagramkit init
 
 ### `install-skills`
 
-Copy diagramkit Claude Code skills to your project's `.claude/skills/` directory (or `~/.claude/skills/` with `--global`).
+Copy diagramkit agent skills to your project's `.claude/skills/` directory (or `~/.claude/skills/` with `--global`). See [Installing Skills](/guide/install-skills) for details.
 
 ```bash
 diagramkit install-skills

@@ -302,7 +302,7 @@ Individual file failures do not abort a batch render.
 
 ## Claude Code Skills
 
-### diagramkit (skills/claude-code/diagramkit.md)
+### diagramkit (agent_skills/diagramkit.md)
 Skill for AI-assisted diagram generation and rendering. Covers:
 - CLI quick reference (render, warmup, watch, force)
 - Output convention (.diagrams/ folder structure)

@@ -7,7 +7,7 @@
 | `render <file-or-dir>` | Render diagram file(s) to images |
 | `warmup` | Pre-install Playwright Chromium browser |
 | `init` | Create a `.diagramkitrc.json` config file |
-| `install-skills [--global]` | Copy diagramkit skills to `.claude/skills/` (or `~/.claude/skills/` with `--global`) |
+| `install-skills [--global]` | Copy diagramkit agent skills to `.claude/skills/` (or `~/.claude/skills/` with `--global`) |
 | `--help`, `-h` | Show help message |
 | `--version`, `-v` | Show installed version |
 

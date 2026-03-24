@@ -55,4 +55,4 @@ Optional: sharp (for PNG/JPEG/WebP raster output)
 - API Types: src/types.ts
 - CLI: cli/bin.ts
 - Docs: docs/
-- Skills: skills/claude-code/diagramkit.md
+- Skills: agent_skills/diagramkit.md
