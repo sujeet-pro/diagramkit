@@ -80,9 +80,21 @@ export class BrowserPool {
   }
 
   private async launch(): Promise<void> {
-    const { chromium } = await import('playwright')
-    this.browser = await chromium.launch()
-    this.context = await this.browser.newContext({ bypassCSP: true })
+    try {
+      const { chromium } = await import('playwright')
+      this.browser = await chromium.launch()
+      this.context = await this.browser.newContext({ bypassCSP: true })
+    } catch (err: any) {
+      const msg = err.message ?? ''
+      if (msg.includes("Executable doesn't exist") || msg.includes('browserType.launch')) {
+        throw new Error(
+          'Chromium browser not found. Run "diagramkit warmup" to install it.\n' +
+            '  Original error: ' +
+            msg,
+        )
+      }
+      throw err
+    }
   }
 
   /* ── Mermaid pages ── */
@@ -261,14 +273,19 @@ export async function dispose(): Promise<void> {
   }
 }
 
-// Cleanup on process exit
-const cleanup = () => {
+// Async cleanup for SIGINT/SIGTERM — these can await before exiting
+const signalCleanup = async () => {
   if (pool) {
-    void pool.dispose()
+    const p = pool
     pool = null
+    await p.dispose()
   }
+  process.exit(0)
 }
 
-process.on('SIGINT', cleanup)
-process.on('SIGTERM', cleanup)
-process.on('exit', cleanup)
+process.on('SIGINT', () => void signalCleanup())
+process.on('SIGTERM', () => void signalCleanup())
+// 'exit' handler is synchronous — just null the reference, browser dies with parent
+process.on('exit', () => {
+  pool = null
+})

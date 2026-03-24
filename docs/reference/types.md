@@ -289,6 +289,7 @@ type ManifestEntry = {
   generatedAt: string
   outputs: string[]
   format?: OutputFormat
+  theme?: Theme
 }
 ```
 
@@ -298,6 +299,7 @@ type ManifestEntry = {
 | `generatedAt` | `string` | ISO 8601 timestamp |
 | `outputs` | `string[]` | Output filenames, e.g. `['flow-light.svg', 'flow-dark.svg']` |
 | `format` | `OutputFormat` | Output format used for this render |
+| `theme` | `Theme` | Theme variant used for this render |
 
 ---
 
@@ -307,7 +309,7 @@ These types are exported but primarily used internally by the rendering system.
 
 ### `DiagramRenderer`
 
-Interface implemented by each diagram engine (Mermaid, Excalidraw).
+Interface implemented by each diagram engine (Mermaid, Excalidraw, Draw.io).
 
 ```typescript
 interface DiagramRenderer {
@@ -329,6 +331,6 @@ Internal options passed to renderer implementations.
 interface RendererOptions {
   force?: boolean
   format?: OutputFormat
-  config?: DiagramkitConfig
+  config?: Partial<DiagramkitConfig>
 }
 ```

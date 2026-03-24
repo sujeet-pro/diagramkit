@@ -14,6 +14,7 @@ import type { DiagramFile, DiagramkitConfig, DiagramType } from './types'
  */
 export function findDiagramFiles(dir: string, config?: Partial<DiagramkitConfig>): DiagramFile[] {
   const map = getExtensionMap(config?.extensionMap)
+  const outputDir = config?.outputDir ?? '.diagrams'
   const results: DiagramFile[] = []
 
   function walk(d: string) {
@@ -21,7 +22,9 @@ export function findDiagramFiles(dir: string, config?: Partial<DiagramkitConfig>
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = join(d, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+        // Skip hidden dirs, node_modules, and the configured output directory
+        if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === outputDir)
+          continue
         walk(full)
       } else {
         const type = getDiagramType(entry.name, map)

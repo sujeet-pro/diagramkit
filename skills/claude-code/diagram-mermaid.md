@@ -636,6 +636,81 @@ pie showData
 
 ---
 
+### Radar Diagram
+
+**Directive:** `radar-beta`
+
+```mermaid
+radar-beta
+    title Skill Assessment
+    axis-1 "Frontend" 0 --> 10
+    axis-2 "Backend" 0 --> 10
+    axis-3 "DevOps" 0 --> 10
+    axis-4 "Design" 0 --> 10
+    axis-5 "Testing" 0 --> 10
+    "Alice" --> [9, 7, 4, 6, 8]
+    "Bob" --> [5, 9, 8, 3, 6]
+```
+
+Axes define the radar dimensions. Each data series is a named set of values mapping to the axes. Values must fall within the axis range.
+
+---
+
+### Requirement Diagram
+
+**Directive:** `requirementDiagram`
+
+```mermaid
+requirementDiagram
+    requirement high_availability {
+        id: REQ-001
+        text: System shall maintain 99.9% uptime
+        risk: high
+        verifymethod: test
+    }
+    requirement data_encryption {
+        id: REQ-002
+        text: All data at rest shall be encrypted
+        risk: medium
+        verifymethod: inspection
+    }
+    element load_balancer {
+        type: service
+    }
+    element encryption_module {
+        type: module
+    }
+
+    load_balancer - satisfies -> high_availability
+    encryption_module - satisfies -> data_encryption
+```
+
+**Element types:** `requirement`, `functionalRequirement`, `interfaceRequirement`, `performanceRequirement`, `physicalRequirement`, `designConstraint`, `element`.
+
+**Relationship types:** `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces`.
+
+**Risk levels:** `low`, `medium`, `high`.
+
+**Verify methods:** `analysis`, `demonstration`, `inspection`, `test`.
+
+---
+
+### Block Diagram
+
+**Directive:** `block-beta`
+
+```mermaid
+block-beta
+    columns 3
+    a["Frontend"] b["API Gateway"] c["Backend"]
+    space down1<["Request"]>(down) space
+    d["Cache"] e["Database"] f["Queue"]
+```
+
+Block diagrams use a grid layout defined by `columns N`. Elements are placed left-to-right, top-to-bottom. Use `space` for empty cells. Arrows between blocks use `<["label"]>(direction)` syntax with directions: `up`, `down`, `left`, `right`.
+
+---
+
 ## Theming and Configuration
 
 ### Built-in Themes

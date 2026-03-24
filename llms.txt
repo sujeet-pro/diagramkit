@@ -4,8 +4,8 @@
 
 ## Quick Start
 
-npm install diagramkit playwright mermaid
-npx playwright install chromium
+npm add diagramkit
+diagramkit warmup
 diagramkit render .
 
 ## Supported Formats
@@ -32,7 +32,7 @@ import { render, renderFile, renderAll, watchDiagrams, convertSvg, loadConfig, w
 
 render(source: string, type: DiagramType, options?: RenderOptions): Promise<RenderResult>
 renderFile(filePath: string, options?: RenderOptions): Promise<RenderResult>
-renderAll(options?: BatchOptions): Promise<void>
+renderAll(options?: BatchOptions): Promise<RenderAllResult>
 watchDiagrams(options: WatchOptions): () => void
 convertSvg(svg: Buffer | string, options: ConvertOptions): Promise<Buffer>
 loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string): DiagramkitConfig
@@ -45,8 +45,8 @@ Merge order: defaults -> global -> local -> overrides
 
 ## Dependencies
 
-Required: playwright, mermaid
-Optional: @excalidraw/excalidraw + react + react-dom (for .excalidraw), sharp (for PNG/JPEG/WebP)
+All rendering engines (mermaid, excalidraw, draw.io) are bundled dependencies.
+Optional: sharp (for PNG/JPEG/WebP raster output)
 
 ## Links
 

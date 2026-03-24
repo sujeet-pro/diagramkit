@@ -4,15 +4,12 @@
 
 ## Installation
 
-Required dependencies (mermaid diagrams):
-  npm install diagramkit playwright mermaid
-  npx playwright install chromium
-
-For excalidraw support (optional):
-  npm install @excalidraw/excalidraw react react-dom
+All rendering engines (mermaid, excalidraw, draw.io) are bundled:
+  npm add diagramkit
+  diagramkit warmup
 
 For raster output — PNG, JPEG, WebP (optional, for targets like email or Confluence):
-  npm install sharp
+  npm add sharp
 
 ## CLI Reference
 
@@ -20,6 +17,8 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
 
   diagramkit render <file-or-dir> [options]    Render diagram file(s) to images
   diagramkit warmup                            Pre-install Playwright chromium browser
+  diagramkit init                              Create a .diagramkitrc.json config file
+  diagramkit install-skills [--global]         Copy diagramkit skills to .claude/skills/ (or ~/.claude/skills/ with --global)
   diagramkit --version                         Show version
   diagramkit --help                            Show help
 
@@ -34,6 +33,13 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
   --no-contrast                    Disable dark SVG contrast optimization
   --type <mermaid|excalidraw|drawio>  Filter to specific diagram type
   --output <dir>                   Custom output directory (default: .diagrams sibling)
+  --output-dir <name>              Output folder name (default: .diagrams)
+  --manifest-file <name>           Manifest filename (default: diagrams.manifest.json)
+  --no-manifest                    Disable manifest tracking
+  --same-folder                    Output in same folder as source files
+  --dry-run                        Show what would be rendered without rendering
+  --quiet                          Suppress informational output, only show errors
+  --json                           Output results as JSON (for CI/scripting)
 
 ### Examples
 
@@ -62,8 +68,9 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
   renderFile(filePath: string, options?: RenderOptions): Promise<RenderResult>
     Render a diagram from a file path on disk. Detects type from extension.
 
-  renderAll(options?: BatchOptions): Promise<void>
+  renderAll(options?: BatchOptions): Promise<RenderAllResult>
     Batch render all diagrams in a directory tree. Outputs go to .diagrams/ folders.
+    Returns { rendered: string[], skipped: string[], failed: string[] }.
 
   watchDiagrams(options: WatchOptions): () => void
     Watch for diagram file changes and re-render. Returns cleanup function.
@@ -113,10 +120,10 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
   hashFile(filePath: string): string
     SHA-256 content hash (first 16 hex chars), prefixed with "sha256:".
 
-  isStale(file: DiagramFile, format?, config?): boolean
+  isStale(file: DiagramFile, format?, config?, theme?, manifest?): boolean
     Check if a file has changed since last render.
 
-  filterStaleFiles(files: DiagramFile[], force: boolean, format?, config?): DiagramFile[]
+  filterStaleFiles(files: DiagramFile[], force: boolean, format?, config?, theme?): DiagramFile[]
     Filter to only files that need re-rendering.
 
   updateManifest(files: DiagramFile[], format?, config?): void
@@ -233,12 +240,12 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
   interface RendererOptions {
     force?: boolean
     format?: OutputFormat
-    config?: DiagramkitConfig
+    config?: Partial<DiagramkitConfig>
   }
 
 ### Manifest (internal)
   type Manifest = { version: 1, diagrams: Record<string, ManifestEntry> }
-  type ManifestEntry = { hash: string, generatedAt: string, outputs: string[], format?: OutputFormat }
+  type ManifestEntry = { hash: string, generatedAt: string, outputs: string[], format?: OutputFormat, theme?: Theme }
 
 ## Architecture
 
@@ -290,7 +297,7 @@ Rendered images placed in .diagrams/ hidden folder next to source files:
 Configurable via config.outputDir or config.sameFolder.
 
 ### Watch Mode
-Uses chokidar (src/watch.ts) to watch for .mermaid and .excalidraw file changes.
+Uses chokidar (src/watch.ts) to watch for all supported diagram file changes (.mermaid, .mmd, .mmdc, .excalidraw, .drawio, .drawio.xml, .dio).
 On change/add: re-renders affected file, updates manifest, calls onChange callback.
 Returns cleanup function to stop watching.
 
@@ -299,7 +306,7 @@ Three renderer classes implementing DiagramRenderer interface:
 - MermaidRenderer: uses BrowserPool mermaid pages with Playwright evaluate()
 - ExcalidrawRenderer: uses rolldown-bundled IIFE loaded into BrowserPool page
 - DrawioRenderer: uses rolldown-bundled IIFE that parses mxGraphModel XML to SVG
-All use atomic writes (.tmp + rename) for drawio; mermaid/excalidraw write directly.
+All renderers use atomic writes (.tmp + rename).
 Individual file failures do not abort a batch render.
 
 ## Claude Code Skills
@@ -317,7 +324,8 @@ Skill for AI-assisted diagram generation and rendering. Covers:
 ## Testing
 
 - Framework: vitest
-- Unit tests: src/__tests__/manifest.test.ts, src/__tests__/color.test.ts
-- Run: npm test (vitest run) or npm run test:watch (vitest)
+- Unit tests: src/__tests__/manifest.test.ts, src/__tests__/color.test.ts, src/__tests__/convert.test.ts, src/__tests__/extensions.test.ts, src/__tests__/config.test.ts, src/__tests__/discovery.test.ts, src/__tests__/output.test.ts
+- E2E tests: src/e2e/api-render.e2e.test.ts, src/e2e/cli-render.e2e.test.ts
+- Run: npm test (all), npm run test:unit (unit only), npm run test:e2e (e2e only)
 - Type checking: npm run typecheck (tsc --noEmit)
-- Build: npm run build (vite build)
+- Build: npm run build

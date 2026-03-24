@@ -3,7 +3,7 @@ import { basename } from 'path'
 import { postProcessDarkSvg } from './color/contrast'
 import { loadConfig } from './config'
 import { filterByType, findDiagramFiles } from './discovery'
-import { getDiagramType } from './extensions'
+import { getAllExtensions, getDiagramType } from './extensions'
 import { cleanOrphans, ensureDiagramsDir, filterStaleFiles, updateManifest } from './manifest'
 import { writeRenderResult } from './output'
 import { getPool } from './pool'
@@ -15,6 +15,17 @@ import type {
   RenderOptions,
   RenderResult,
 } from './types'
+
+/* ── Batch result ── */
+
+export interface RenderAllResult {
+  /** Files that were successfully rendered */
+  rendered: string[]
+  /** Files that were skipped (up-to-date) */
+  skipped: string[]
+  /** Files that failed to render */
+  failed: string[]
+}
 
 /**
  * Render a single diagram from source content.
@@ -159,7 +170,8 @@ export async function renderFile(
   const name = basename(filePath)
   const type = getDiagramType(name)
   if (!type) {
-    throw new Error(`Unknown diagram type for file: ${name}`)
+    const supported = getAllExtensions().join(', ')
+    throw new Error(`Unknown diagram type for file: "${name}". Supported extensions: ${supported}`)
   }
   const source = readFileSync(filePath, 'utf-8')
   return render(source, type, options)
@@ -181,18 +193,21 @@ export async function renderDiagramFileToDisk(
 /**
  * Render all diagrams in a directory tree.
  * Outputs go to sibling .diagrams/ hidden folders (configurable via config).
+ * Returns a result object listing rendered, skipped, and failed files.
  */
-export async function renderAll(opts: BatchOptions = {}): Promise<void> {
+export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResult> {
   const contentDir = opts.dir ?? process.cwd()
   const config = loadConfig(opts.config, contentDir)
   const format = opts.format ?? config.defaultFormat
   const theme = opts.theme ?? config.defaultTheme
 
+  const result: RenderAllResult = { rendered: [], skipped: [], failed: [] }
+
   const allFiles = findDiagramFiles(contentDir, config)
 
   if (allFiles.length === 0) {
     console.log('No diagram files found.')
-    return
+    return result
   }
 
   let filtered = allFiles
@@ -201,6 +216,12 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
   }
 
   const stale = filterStaleFiles(filtered, opts.force ?? false, format, config, theme)
+
+  // Track skipped files
+  const staleSet = new Set(stale.map((f) => f.path))
+  for (const f of filtered) {
+    if (!staleSet.has(f.path)) result.skipped.push(f.path)
+  }
 
   if (stale.length === 0) {
     console.log(`All ${filtered.length} diagrams up-to-date (skipped)`)
@@ -211,7 +232,6 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
       )
     }
 
-    let rendered = 0
     const successful: DiagramFile[] = []
 
     for (const file of stale) {
@@ -226,9 +246,10 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
           config,
         })
         successful.push(file)
-        rendered++
+        result.rendered.push(file.path)
       } catch (err: any) {
         console.warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
+        result.failed.push(file.path)
       }
     }
 
@@ -237,11 +258,12 @@ export async function renderAll(opts: BatchOptions = {}): Promise<void> {
     }
 
     console.log(
-      `Rendered ${rendered}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${format}`,
+      `Rendered ${successful.length}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${format}`,
     )
   }
 
   cleanOrphans(allFiles, config)
+  return result
 }
 
 /* ── Default dark theme (exported for custom overrides) ── */

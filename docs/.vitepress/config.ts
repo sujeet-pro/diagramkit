@@ -5,6 +5,9 @@ export default defineConfig({
   title: 'diagramkit',
   description: 'Render diagram files to images with light/dark mode support',
   themeConfig: {
+    search: {
+      provider: 'local',
+    },
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Diagrams', link: '/diagrams/mermaid' },

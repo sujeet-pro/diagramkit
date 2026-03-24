@@ -55,6 +55,18 @@ diagramkit render . --no-contrast
 
 # Pre-install Playwright chromium
 diagramkit warmup
+
+# Initialize a config file
+diagramkit init
+
+# Install Claude Code skills
+diagramkit install-skills
+diagramkit install-skills --global
+
+# Dry run / quiet / JSON output
+diagramkit render . --dry-run
+diagramkit render . --quiet
+diagramkit render . --json
 ```
 
 ## Supported File Extensions
@@ -87,7 +99,7 @@ content/posts/my-post/
     network-dark.svg            <- rendered (auto-generated)
     system-light.svg            <- rendered (auto-generated)
     system-dark.svg             <- rendered (auto-generated)
-    manifest.json               <- cache manifest
+    diagrams.manifest.json      <- cache manifest
 ```
 
 ## Supported Output Formats
@@ -149,7 +161,7 @@ diagramkit render . --theme light --force
 
 ### 2. Local Config (per-directory)
 
-Create a `.diagramkitrc.json` or `diagramkit.config.json` in your project root:
+Create a `.diagramkitrc.json` in your project root:
 
 ```json
 {

@@ -5,7 +5,7 @@ import type { OutputFormat, RenderResult, Theme } from './types'
 
 type OutputVariant = 'light' | 'dark'
 
-function atomicWrite(path: string, content: Buffer): void {
+export function atomicWrite(path: string, content: Buffer): void {
   const tmp = path + '.tmp'
   writeFileSync(tmp, content)
   renameSync(tmp, path)

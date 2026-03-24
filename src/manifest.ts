@@ -1,5 +1,13 @@
 import { createHash } from 'crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import { basename, join } from 'path'
 import { getExpectedOutputNames } from './output'
 import type { DiagramFile, DiagramkitConfig, OutputFormat, Theme } from './types'
@@ -66,6 +74,7 @@ export function readManifest(sourceDir: string, config?: Partial<DiagramkitConfi
   }
 }
 
+/** Write manifest atomically (.tmp + rename) to prevent corruption on crash. */
 export function writeManifest(
   sourceDir: string,
   manifest: Manifest,
@@ -73,7 +82,10 @@ export function writeManifest(
 ): void {
   const manifestFile = config?.manifestFile ?? 'diagrams.manifest.json'
   const dir = ensureDiagramsDir(sourceDir, config)
-  writeFileSync(join(dir, manifestFile), JSON.stringify(manifest, null, 2) + '\n')
+  const target = join(dir, manifestFile)
+  const tmp = target + '.tmp'
+  writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n')
+  renameSync(tmp, target)
 }
 
 /* ── Hashing ── */
@@ -86,20 +98,21 @@ export function hashFile(filePath: string): string {
 
 /* ── Staleness checking ── */
 
-/** Check if a single diagram file is stale (changed since last render). */
+/** Check if a single diagram file is stale (changed since last render). Uses a pre-read manifest. */
 export function isStale(
   file: DiagramFile,
   format?: OutputFormat,
   config?: Partial<DiagramkitConfig>,
   theme?: Theme,
+  manifest?: Manifest,
 ): boolean {
   // When manifest is disabled, always consider stale
   if (config?.useManifest === false) return true
 
-  const manifest = readManifest(file.dir, config)
+  const m = manifest ?? readManifest(file.dir, config)
   const name = basename(file.path)
   const hash = hashFile(file.path)
-  const entry = manifest.diagrams[name]
+  const entry = m.diagrams[name]
 
   if (!entry || entry.hash !== hash) return true
 
@@ -112,7 +125,7 @@ export function isStale(
   return entry.outputs.some((output) => !existsSync(join(outDir, output)))
 }
 
-/** Filter files to only those that have changed since last render. */
+/** Filter files to only those that have changed since last render. Caches manifests per directory. */
 export function filterStaleFiles(
   files: DiagramFile[],
   force: boolean,
@@ -121,7 +134,16 @@ export function filterStaleFiles(
   theme?: Theme,
 ): DiagramFile[] {
   if (force) return files
-  return files.filter((f) => isStale(f, format, config, theme))
+
+  // Cache manifests by directory to avoid re-reading per file
+  const manifestCache = new Map<string, Manifest>()
+
+  return files.filter((f) => {
+    if (!manifestCache.has(f.dir)) {
+      manifestCache.set(f.dir, readManifest(f.dir, config))
+    }
+    return isStale(f, format, config, theme, manifestCache.get(f.dir)!)
+  })
 }
 
 /* ── Manifest update ── */
@@ -201,6 +223,8 @@ export function cleanOrphans(files: DiagramFile[], config?: Partial<DiagramkitCo
     const knownOutputs = new Set(Object.values(manifest.diagrams).flatMap((e) => e.outputs))
     for (const entry of readdirSync(outDir)) {
       if (entry === manifestFile || entry === 'manifest.json') continue
+      // Skip .tmp files from in-progress atomic writes
+      if (entry.endsWith('.tmp')) continue
       if (!knownOutputs.has(entry)) {
         unlinkSync(join(outDir, entry))
       }

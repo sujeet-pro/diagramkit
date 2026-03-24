@@ -116,5 +116,5 @@ export interface DiagramRenderer {
 export interface RendererOptions {
   force?: boolean
   format?: OutputFormat
-  config?: DiagramkitConfig
+  config?: Partial<DiagramkitConfig>
 }

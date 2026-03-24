@@ -35,6 +35,23 @@ diagramkit warmup
 
 This is equivalent to running `npx playwright install chromium`. Run this once when setting up a new environment.
 
+### `init`
+
+Create a `.diagramkitrc.json` configuration file in the current directory.
+
+```bash
+diagramkit init
+```
+
+### `install-skills`
+
+Copy diagramkit Claude Code skills to your project's `.claude/skills/` directory (or `~/.claude/skills/` with `--global`).
+
+```bash
+diagramkit install-skills
+diagramkit install-skills --global
+```
+
 ## Render Options
 
 ### `--format <svg|png|jpeg|webp>`
@@ -136,6 +153,62 @@ diagramkit render diagram.mermaid --output ./build/images
 ::: tip
 This flag applies to single-file rendering only. For directory renders, output is always placed in `.diagrams/` folders next to the source files (configurable via [configuration](/guide/configuration)).
 :::
+
+### `--output-dir <name>`
+
+Override the output folder name. Default: `.diagrams`.
+
+```bash
+diagramkit render . --output-dir images
+```
+
+### `--manifest-file <name>`
+
+Override the manifest filename. Default: `diagrams.manifest.json`.
+
+```bash
+diagramkit render . --manifest-file custom-manifest.json
+```
+
+### `--no-manifest`
+
+Disable manifest tracking entirely. Every file is re-rendered on each run.
+
+```bash
+diagramkit render . --no-manifest
+```
+
+### `--same-folder`
+
+Place output files next to source files instead of in a `.diagrams/` subfolder.
+
+```bash
+diagramkit render . --same-folder
+```
+
+### `--dry-run`
+
+Show what would be rendered without actually rendering. Useful for previewing which files are stale.
+
+```bash
+diagramkit render . --dry-run
+```
+
+### `--quiet`
+
+Suppress informational output, only show errors.
+
+```bash
+diagramkit render . --quiet
+```
+
+### `--json`
+
+Output results as JSON. Useful for CI and scripting.
+
+```bash
+diagramkit render . --json
+```
 
 ## Global Flags
 

@@ -71,10 +71,15 @@ process.on('SIGINT', () => {
 
 ## Watched File Types
 
-The watcher monitors these glob patterns:
+The watcher monitors all supported diagram file extensions:
 
 - `**/*.mermaid`
+- `**/*.mmd`
+- `**/*.mmdc`
 - `**/*.excalidraw`
+- `**/*.drawio`
+- `**/*.drawio.xml`
+- `**/*.dio`
 
 It ignores:
 

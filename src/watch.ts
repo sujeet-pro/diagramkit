@@ -41,8 +41,14 @@ export function watchDiagrams(opts: WatchOptions): () => void {
 
   const watcher = chokidarWatch(patterns, {
     ignoreInitial: true,
-    ignored: new RegExp(`node_modules|${outputDirPattern}|dist|dev`),
+    ignored: [/node_modules/, /\/dist\//, new RegExp(`(^|/)${outputDirPattern}(/|$)`)],
   })
+
+  // Per-file debounce to prevent concurrent renders on rapid saves
+  const pending = new Map<string, ReturnType<typeof setTimeout>>()
+  // Render mutex to prevent concurrent manifest writes
+  let rendering = false
+  const queue: string[] = []
 
   const handle = async (path: string) => {
     const file = toDiagramFile(path, extensionMap)
@@ -68,17 +74,42 @@ export function watchDiagrams(opts: WatchOptions): () => void {
     }
   }
 
-  watcher.on('change', async (path) => {
+  const processQueue = async () => {
+    if (rendering) return
+    rendering = true
+    while (queue.length > 0) {
+      const path = queue.shift()!
+      await handle(path)
+    }
+    rendering = false
+  }
+
+  const debouncedHandle = (path: string) => {
+    const existing = pending.get(path)
+    if (existing) clearTimeout(existing)
+    pending.set(
+      path,
+      setTimeout(() => {
+        pending.delete(path)
+        queue.push(path)
+        void processQueue()
+      }, 200),
+    )
+  }
+
+  watcher.on('change', (path) => {
     console.log(`Changed: ${path}`)
-    await handle(path)
+    debouncedHandle(path)
   })
 
-  watcher.on('add', async (path) => {
+  watcher.on('add', (path) => {
     console.log(`Added: ${path}`)
-    await handle(path)
+    debouncedHandle(path)
   })
 
   return () => {
+    for (const timer of pending.values()) clearTimeout(timer)
+    pending.clear()
     void watcher.close()
   }
 }
