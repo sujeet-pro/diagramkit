@@ -56,7 +56,7 @@ function renderFile(
 
 **Returns:** `Promise<RenderResult>`
 
-**Extension mapping:** Uses the [built-in extension map](/guide/configuration#extensionmap) to determine the diagram type. File is read synchronously with `readFileSync`.
+**Extension mapping:** Uses the [built-in extension map](/guide/configuration#extensionmap), merged with any `options.config.extensionMap` overrides, to determine the diagram type. File is read synchronously with `readFileSync`.
 
 ---
 

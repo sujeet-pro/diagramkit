@@ -3,7 +3,7 @@ import { basename } from 'path'
 import { postProcessDarkSvg } from './color/contrast'
 import { loadConfig } from './config'
 import { filterByType, findDiagramFiles } from './discovery'
-import { getAllExtensions, getDiagramType } from './extensions'
+import { getAllExtensions, getDiagramType, getExtensionMap } from './extensions'
 import { cleanOrphans, ensureDiagramsDir, filterStaleFiles, updateManifest } from './manifest'
 import { writeRenderResult } from './output'
 import { getPool } from './pool'
@@ -184,9 +184,10 @@ export async function renderFile(
   options: RenderOptions = {},
 ): Promise<RenderResult> {
   const name = basename(filePath)
-  const type = getDiagramType(name)
+  const extensionMap = getExtensionMap(options.config?.extensionMap)
+  const type = getDiagramType(name, extensionMap)
   if (!type) {
-    const supported = getAllExtensions().join(', ')
+    const supported = getAllExtensions(extensionMap).join(', ')
     throw new Error(`Unknown diagram type for file: "${name}". Supported extensions: ${supported}`)
   }
   const source = readFileSync(filePath, 'utf-8')
@@ -224,6 +225,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
   const allFiles = findDiagramFiles(contentDir, config)
 
   if (allFiles.length === 0) {
+    cleanOrphans([], config, [contentDir])
     log('No diagram files found.')
     return result
   }
@@ -252,8 +254,9 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
 
     // Group by diagram type for concurrent rendering across separate browser pages
     const byType = new Map<string, typeof stale>()
+    const extensionMap = getExtensionMap(config.extensionMap)
     for (const file of stale) {
-      const type = getDiagramType(basename(file.path))!
+      const type = getDiagramType(basename(file.path), extensionMap)!
       if (!byType.has(type)) byType.set(type, [])
       byType.get(type)!.push(file)
     }
@@ -292,7 +295,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
     )
   }
 
-  cleanOrphans(allFiles, config)
+  cleanOrphans(allFiles, config, [contentDir])
   return result
 }
 

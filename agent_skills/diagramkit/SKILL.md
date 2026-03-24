@@ -47,8 +47,8 @@ diagramkit render . --type mermaid
 diagramkit render . --type excalidraw
 diagramkit render . --type drawio
 
-# Custom output directory
-diagramkit render . --output ./rendered
+# Custom output directory for a single file
+diagramkit render flow.mermaid --output ./rendered
 
 # Disable dark mode contrast optimization
 diagramkit render . --no-contrast

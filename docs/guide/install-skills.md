@@ -12,8 +12,8 @@ Skills are markdown instruction files (`SKILL.md`) organized in folders under `.
 - `/diagram-excalidraw` — Author Excalidraw JSON files
 - `/diagram-drawio` — Author Draw.io XML files
 - `/image-convert` — Convert SVG to raster formats
-- `/troubleshoot` — Diagnose and fix rendering issues
-- `/ci-cd` — Set up CI/CD pipelines for diagram rendering
+- `/diagrams-troubleshoot` — Diagnose and fix rendering issues
+- `/diagrams-ci-cd` — Set up CI/CD pipelines for diagram rendering
 
 ## Installed Structure
 
@@ -36,9 +36,9 @@ your-project/
 │           │   └── SKILL.md         # Draw.io XML authoring
 │           ├── image-convert/
 │           │   └── SKILL.md         # SVG to raster conversion
-│           ├── troubleshoot/
+│           ├── diagrams-troubleshoot/
 │           │   └── SKILL.md         # Diagnose and fix issues
-│           ├── ci-cd/
+│           ├── diagrams-ci-cd/
 │           │   └── SKILL.md         # CI/CD integration
 │           └── refs/                # Shared references
 │               ├── mermaid/         # 20+ diagram type syntax
@@ -106,7 +106,7 @@ npm add sharp
 The `warmup` command installs Playwright's Chromium browser, which diagramkit uses for all rendering. You need to run this:
 
 - Once on your local machine after installing diagramkit
-- In CI/CD pipelines (see the `/ci-cd` skill for caching strategies)
+- In CI/CD pipelines (see the `/diagrams-ci-cd` skill for caching strategies)
 - In Docker images during build
 
 ```bash
@@ -149,15 +149,15 @@ ls .claude/skills/diagramkit/
 Expected output:
 
 ```
-ci-cd/
 diagram-drawio/
 diagram-excalidraw/
 diagram-mermaid/
 diagramkit/
 diagrams/
+diagrams-ci-cd/
+diagrams-troubleshoot/
 image-convert/
 refs/
-troubleshoot/
 ```
 
 Each folder contains a `SKILL.md`:
@@ -205,11 +205,11 @@ Generates Draw.io XML files with shapes, styles, containers, and edge routing. B
 
 Converts existing SVG files to PNG, JPEG, or WebP using sharp.
 
-### `/troubleshoot` — Troubleshooting
+### `/diagrams-troubleshoot` — Troubleshooting
 
 Diagnoses common issues: Playwright setup failures, rendering errors, manifest corruption, CI/CD problems, mermaid syntax errors, excalidraw JSON validation, and draw.io XML parsing.
 
-### `/ci-cd` — CI/CD Integration
+### `/diagrams-ci-cd` — CI/CD Integration
 
 Generates CI/CD configuration for GitHub Actions, GitLab CI, Docker, and pre-commit hooks. Includes caching strategies for Playwright browsers and rendered output.
 

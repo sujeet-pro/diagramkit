@@ -118,9 +118,9 @@ agent_skills/         User-installable Claude Code skills (shipped in npm packag
     SKILL.md          Draw.io source file authoring
   image-convert/
     SKILL.md          SVG-to-raster conversion
-  troubleshoot/
+  diagrams-troubleshoot/
     SKILL.md          Common errors and fixes
-  ci-cd/
+  diagrams-ci-cd/
     SKILL.md          CI/CD integration guide
   refs/
     mermaid/          Mermaid diagram type syntax (flowchart, sequence, class, etc.)
@@ -146,7 +146,7 @@ diagramkit render . --force                    # Ignore manifest cache
 diagramkit render . --type mermaid             # Filter by type
 diagramkit render . --no-contrast              # Skip dark SVG contrast fix
 diagramkit render . --scale 3                  # High-res raster
-diagramkit render file.mermaid --output ./out  # Custom output dir
+diagramkit render file.mermaid --output ./out  # Custom output dir for a single file
 diagramkit render . --dry-run                  # Preview what would render
 diagramkit render . --quiet                    # Suppress info output
 diagramkit render . --json                     # Machine-readable JSON output
@@ -254,8 +254,8 @@ Skills can be installed into a project with `diagramkit install-skills` or globa
 - **agent_skills/diagram-excalidraw/SKILL.md** — Excalidraw JSON authoring rules and patterns.
 - **agent_skills/diagram-drawio/SKILL.md** — Draw.io XML authoring with shapes, styles, containers.
 - **agent_skills/image-convert/SKILL.md** — SVG-to-raster conversion using diagramkit.
-- **agent_skills/troubleshoot/SKILL.md** — Common errors and fixes for all diagram types.
-- **agent_skills/ci-cd/SKILL.md** — CI/CD integration guide (GitHub Actions, GitLab CI, Docker).
+- **agent_skills/diagrams-troubleshoot/SKILL.md** — Common errors and fixes for all diagram types.
+- **agent_skills/diagrams-ci-cd/SKILL.md** — CI/CD integration guide (GitHub Actions, GitLab CI, Docker).
 - **agent_skills/refs/** — Shared references for mermaid syntax, excalidraw JSON format, draw.io shapes and styles.
 
 ## Project skills (for developing diagramkit)

@@ -57,6 +57,27 @@ describe('CLI rendering e2e', () => {
     expect(stdout).toContain('system-dark.svg')
   }, 120_000)
 
+  it('renders a single file using extensionMap from local config and strips the custom extension from output names', () => {
+    const workspace = createWorkspace('e2e-cli-custom-extension')
+
+    writeFileSync(
+      join(workspace, '.diagramkitrc.json'),
+      JSON.stringify(
+        {
+          extensionMap: { '.custom-diagram': 'mermaid' },
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    writeFileSync(join(workspace, 'flow.custom-diagram'), 'graph TD; A-->B')
+
+    runCli(['render', 'flow.custom-diagram', '--theme', 'light'], workspace)
+
+    expectSvgFile(join(workspace, '.diagrams', 'flow-light.svg'))
+    expectNotExists(join(workspace, '.diagrams', 'flow.custom-light.svg'))
+  }, 120_000)
+
   it('renders directory with custom output-dir and manifest-file', () => {
     const workspace = createWorkspace('e2e-cli-dir')
 
@@ -164,6 +185,16 @@ describe('CLI rendering e2e', () => {
     const files = readdirSync(workspace)
     const svgFiles = files.filter((f) => f.endsWith('.svg'))
     expect(svgFiles).toHaveLength(0)
+  }, 120_000)
+
+  it('--output rejects directory renders and points users to --output-dir', () => {
+    const workspace = createWorkspace('e2e-cli-output-dir-reject')
+
+    const result = runCliSafe(['render', '.', '--output', './rendered'], workspace)
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('--output is only supported for single-file renders')
+    expectNotExists(join(workspace, 'rendered'))
   }, 120_000)
 
   it('--json outputs parseable JSON for directory render', () => {

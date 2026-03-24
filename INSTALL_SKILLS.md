@@ -10,16 +10,16 @@ This file auto-installs all diagramkit agent skills when placed in your project'
 
 ## Available Skills
 
-| Skill                | Command               | Description                                                                           |
-| -------------------- | --------------------- | ------------------------------------------------------------------------------------- |
-| Diagram Orchestrator | `/diagrams`           | Select the best engine (mermaid, excalidraw, draw.io) and generate + render a diagram |
-| diagramkit Renderer  | `/diagramkit`         | Render `.mermaid`, `.excalidraw`, `.drawio` files to SVG/PNG/JPEG/WebP                |
-| Mermaid Authoring    | `/diagram-mermaid`    | Generate Mermaid source files with syntax for all 20+ diagram types                   |
-| Excalidraw Authoring | `/diagram-excalidraw` | Generate Excalidraw JSON source files with layout patterns and color palettes         |
-| Draw.io Authoring    | `/diagram-drawio`     | Generate Draw.io XML source files with shape libraries and style reference            |
-| Image Convert        | `/image-convert`      | Convert SVG to PNG/JPEG/WebP using diagramkit                                         |
-| Troubleshoot         | `/troubleshoot`       | Diagnose and fix common diagramkit issues                                             |
-| CI/CD                | `/ci-cd`              | Set up diagramkit in CI/CD pipelines (GitHub Actions, GitLab CI, Docker)              |
+| Skill                | Command                  | Description                                                                                               |
+| -------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Diagram Orchestrator | `/diagrams`              | Select the best engine (mermaid, excalidraw, draw.io) and generate + render a diagram                     |
+| diagramkit Renderer  | `/diagramkit`            | Render `.mermaid`, `.excalidraw`, `.drawio` files to SVG/PNG/JPEG/WebP                                    |
+| Mermaid Authoring    | `/diagram-mermaid`       | Generate Mermaid source files with syntax for all 20+ diagram types                                       |
+| Excalidraw Authoring | `/diagram-excalidraw`    | Generate Excalidraw JSON source files with layout patterns and color palettes                             |
+| Draw.io Authoring    | `/diagram-drawio`        | Generate Draw.io XML source files with shape libraries and style reference                                |
+| Image Convert        | `/image-convert`         | Convert SVG to PNG/JPEG/WebP using diagramkit                                                             |
+| Troubleshoot         | `/diagrams-troubleshoot` | Diagnose and fix common diagramkit issues including rendering failures, syntax errors, and CI/CD problems |
+| CI/CD                | `/diagrams-ci-cd`        | Set up diagramkit diagram rendering in CI/CD pipelines (GitHub Actions, GitLab CI, Docker, pre-commit)    |
 
 ## Installed Structure
 
@@ -42,9 +42,9 @@ your-project/
 │           │   └── SKILL.md
 │           ├── image-convert/
 │           │   └── SKILL.md
-│           ├── troubleshoot/
+│           ├── diagrams-troubleshoot/
 │           │   └── SKILL.md
-│           ├── ci-cd/
+│           ├── diagrams-ci-cd/
 │           │   └── SKILL.md
 │           └── refs/
 │               ├── mermaid/        # Syntax for all 20+ diagram types
@@ -112,7 +112,7 @@ After installing skills, verify they are available:
 ls .claude/skills/diagramkit/
 
 # Expected output:
-# ci-cd/
+# diagrams-ci-cd/
 # diagram-drawio/
 # diagram-excalidraw/
 # diagram-mermaid/
@@ -120,7 +120,7 @@ ls .claude/skills/diagramkit/
 # diagrams/
 # image-convert/
 # refs/
-# troubleshoot/
+# diagrams-troubleshoot/
 
 # Each skill folder contains a SKILL.md:
 ls .claude/skills/diagramkit/diagrams/

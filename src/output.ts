@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto'
 import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
-import { getMatchedExtension } from './extensions'
-import type { OutputFormat, RenderResult, Theme } from './types'
+import { getExtensionMap, getMatchedExtension } from './extensions'
+import type { DiagramType, OutputFormat, RenderResult, Theme } from './types'
 
 type OutputVariant = 'light' | 'dark'
 
@@ -45,8 +45,11 @@ export function getExpectedOutputNames(
  * Strip the full diagram extension, including multi-part aliases like `.drawio.xml`.
  * This keeps CLI naming aligned with discovery and manifest naming.
  */
-export function stripDiagramExtension(filename: string): string {
-  const ext = getMatchedExtension(filename)
+export function stripDiagramExtension(
+  filename: string,
+  extensionOverrides?: Record<string, DiagramType>,
+): string {
+  const ext = getMatchedExtension(filename, getExtensionMap(extensionOverrides))
   return ext ? basename(filename, ext) : filename.replace(/\.[^.]+$/, '')
 }
 
