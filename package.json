@@ -95,13 +95,13 @@
   "devDependencies": {
     "@types/node": "^22.15.0",
     "esbuild": "^0.27.0",
-    "sharp": "^0.33.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.0",
     "vite-plus": "^0.1.13",
     "vitepress": "^1.6.0"
   },
   "peerDependencies": {
-    "sharp": "^0.33.0"
+    "sharp": "^0.34.5"
   },
   "peerDependenciesMeta": {
     "sharp": {
