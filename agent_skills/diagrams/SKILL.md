@@ -165,7 +165,7 @@ diagramkit handles:
 ### Step 4: Handle Output Format
 
 - **`format=svg`** (default): diagramkit produces SVG directly. Use this unless the destination needs raster.
-- **`format=png`**: diagramkit rasterizes via Playwright screenshot. Use for email or Confluence when SVG is not appropriate.
+- **`format=png`**: diagramkit rasterizes via sharp. Use for email or Confluence when SVG is not appropriate.
 - **`format=jpeg`**: diagramkit rasterizes with white background. Use for email/Confluence when smaller raster files are preferred.
 - **`format=webp`**: diagramkit rasterizes with best compression. Use only when a raster asset is required and the destination supports WebP.
 

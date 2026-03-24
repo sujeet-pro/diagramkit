@@ -1,5 +1,5 @@
-import { readFileSync } from 'fs'
-import { basename } from 'path'
+import { readFileSync } from 'node:fs'
+import { basename } from 'node:path'
 import { postProcessDarkSvg } from './color/contrast'
 import { loadConfig } from './config'
 import { filterByType, findDiagramFiles } from './discovery'

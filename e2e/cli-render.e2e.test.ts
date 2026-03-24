@@ -265,4 +265,59 @@ describe('CLI rendering e2e', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toMatch(/diagramkit v\d+\.\d+\.\d+/)
   }, 120_000)
+
+  it('--no-contrast produces different dark SVG than default', () => {
+    const workspace = createWorkspace('e2e-cli-no-contrast')
+
+    // Render with contrast optimization (default)
+    runCli(['render', 'architecture.mmd', '--theme', 'dark', '--format', 'svg'], workspace)
+    const withContrast = readFileSync(
+      join(workspace, '.diagrams', 'architecture-dark.svg'),
+      'utf-8',
+    )
+
+    // Clean up for fresh render
+    rmSync(join(workspace, '.diagrams'), { recursive: true, force: true })
+
+    // Render without contrast optimization
+    runCli(
+      ['render', 'architecture.mmd', '--theme', 'dark', '--format', 'svg', '--no-contrast'],
+      workspace,
+    )
+    const withoutContrast = readFileSync(
+      join(workspace, '.diagrams', 'architecture-dark.svg'),
+      'utf-8',
+    )
+
+    // Both should be valid SVGs
+    expect(withContrast).toContain('<svg')
+    expect(withoutContrast).toContain('<svg')
+
+    // Contrast optimization modifies dark colors, so outputs should differ
+    expect(withContrast).not.toBe(withoutContrast)
+  }, 120_000)
+
+  it('--scale 3 produces a larger PNG than default scale', () => {
+    const workspace = createWorkspace('e2e-cli-scale')
+    const outDir = join(workspace, '.diagrams')
+
+    // Render at default scale (2)
+    runCli(['render', 'architecture.mmd', '--format', 'png', '--theme', 'light'], workspace)
+    const defaultSize = readFileSync(join(outDir, 'architecture-light.png')).length
+
+    // Clean up for fresh render
+    rmSync(outDir, { recursive: true, force: true })
+
+    // Render at scale 3
+    runCli(
+      ['render', 'architecture.mmd', '--format', 'png', '--theme', 'light', '--scale', '3'],
+      workspace,
+    )
+    const scaledPath = join(outDir, 'architecture-light.png')
+    expectRasterFile(scaledPath, 'png')
+    const scaledSize = readFileSync(scaledPath).length
+
+    // Higher scale should produce a larger file
+    expect(scaledSize).toBeGreaterThan(defaultSize)
+  }, 120_000)
 })

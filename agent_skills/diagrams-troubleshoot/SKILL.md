@@ -141,14 +141,14 @@ Cannot read properties of null (reading 'newPage')
 
 ### Cause
 
-The browser pool was not initialized before rendering. This happens when using the JS/TS API and forgetting to call `warmup()` or when the pool was disposed prematurely.
+The browser pool was disposed prematurely or encountered an initialization failure. Note that `warmup()` is **optional** for public API users -- `render()` calls `pool.acquire()` internally which auto-launches the browser on first use. `warmup()` is useful for pre-warming the browser in CI/Docker environments to move the cold-start latency out of the first render call, but it is not required before `render()`.
 
 ### Fix (API usage)
 
 ```typescript
 import { warmup, render, dispose } from 'diagramkit'
 
-// Always warmup before rendering
+// Optional: pre-warm the browser (useful in CI/Docker, not required)
 await warmup()
 
 const result = await render(source, 'mermaid', { format: 'svg' })
@@ -168,8 +168,7 @@ npm update diagramkit
 ### Common Mistakes
 
 - Calling `dispose()` before all renders complete
-- Running `render()` without `warmup()` in a fresh process
-- Calling `dispose()` then trying to render again without another `warmup()`
+- Calling `dispose()` then trying to render again without another `warmup()` or `render()` (the pool cannot auto-relaunch after explicit disposal)
 
 ---
 

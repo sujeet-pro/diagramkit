@@ -1,15 +1,15 @@
-import { createHash } from 'crypto'
+import { createHash } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   renameSync,
-  rmdirSync,
+  rmSync,
   unlinkSync,
   writeFileSync,
-} from 'fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'path'
+} from 'node:fs'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { getExpectedOutputNames } from './output'
 import type { DiagramFile, DiagramkitConfig, OutputFormat, Theme } from './types'
 
@@ -134,10 +134,13 @@ export function isStale(
 
   const m = manifest ?? readManifest(file.dir, config)
   const name = basename(file.path)
-  const hash = hashFile(file.path)
   const entry = m.diagrams[name]
 
-  if (!entry || entry.hash !== hash) return true
+  // Early return for files never rendered — avoids unnecessary hash computation
+  if (!entry) return true
+
+  const hash = hashFile(file.path)
+  if (entry.hash !== hash) return true
 
   // Format change triggers re-render
   if (format && entry.format !== format) return true
@@ -277,7 +280,7 @@ export function cleanOrphans(
         const oldManifestPath = join(outDir, 'manifest.json')
         if (existsSync(oldManifestPath)) unlinkSync(oldManifestPath)
         try {
-          rmdirSync(outDir)
+          rmSync(outDir, { recursive: true })
         } catch {}
         continue
       }

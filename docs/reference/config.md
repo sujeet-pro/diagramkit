@@ -186,7 +186,8 @@ The manifest file (`diagrams.manifest.json`) has this structure:
       "hash": "sha256:a1b2c3d4e5f67890",
       "generatedAt": "2025-01-15T10:30:00.000Z",
       "outputs": ["flow-light.svg", "flow-dark.svg"],
-      "format": "svg"
+      "format": "svg",
+      "theme": "both"
     }
   }
 }
@@ -200,6 +201,7 @@ The manifest file (`diagrams.manifest.json`) has this structure:
 | `generatedAt` | `string` | ISO 8601 timestamp of last render |
 | `outputs` | `string[]` | List of output filenames |
 | `format` | `OutputFormat` | Format used for this render |
+| `theme` | `Theme` | Theme variant used for this render |
 
 ## Example Configurations
 

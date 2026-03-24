@@ -32,7 +32,7 @@ function render(
 - For Mermaid, uses separate light/dark pages (due to global `mermaid.initialize()`)
 - For Excalidraw and Draw.io, uses a single page with per-call dark mode flag
 - Applies `postProcessDarkSvg()` to Mermaid dark SVGs when `contrastOptimize` is `true`
-- For raster formats, screenshots the SVG in Chromium at the specified scale
+- For raster formats, converts the SVG to raster using sharp with the requested density and quality settings
 
 ---
 
@@ -102,7 +102,7 @@ interface RenderAllResult {
 Watch for diagram file changes and re-render on change or addition.
 
 ```typescript
-function watchDiagrams(options: WatchOptions): () => void
+function watchDiagrams(options: WatchOptions): () => Promise<void>
 ```
 
 **Parameters:**
@@ -111,11 +111,11 @@ function watchDiagrams(options: WatchOptions): () => void
 |------|------|----------|-------------|
 | `options` | [`WatchOptions`](/reference/types#watchoptions) | Yes | Watch configuration |
 
-**Returns:** `() => void` -- call this function to stop watching
+**Returns:** `() => Promise<void>` -- call this function to stop watching
 
 **Watched patterns:** `**/*.mermaid`, `**/*.mmd`, `**/*.mmdc`, `**/*.excalidraw`, `**/*.drawio`, `**/*.drawio.xml`, `**/*.dio`
 
-**Ignored:** `node_modules`, `.diagrams`, `dist`, `dev`
+**Ignored:** `node_modules`, configured output directory (e.g. `.diagrams`), `dist`
 
 ---
 
@@ -187,16 +187,9 @@ function filterByType(
 
 ## Manifest
 
-### `hashFile(filePath)`
-
-Compute a SHA-256 content hash (first 16 hex chars, prefixed with `sha256:`).
-
-```typescript
-function hashFile(filePath: string): string
-// Returns: 'sha256:a1b2c3d4e5f67890'
-```
-
----
+::: info Internal Functions
+Functions like `hashFile`, `filterStaleFiles`, `writeManifest`, `updateManifest`, and `cleanOrphans` are internal to the manifest module and not part of the public API.
+:::
 
 ### `isStale(file, format?, config?, theme?, manifest?)`
 
@@ -221,24 +214,6 @@ Returns `true` if:
 
 ---
 
-### `filterStaleFiles(files, force, format?, config?, theme?)`
-
-Filter to files that need re-rendering.
-
-```typescript
-function filterStaleFiles(
-  files: DiagramFile[],
-  force: boolean,
-  format?: OutputFormat,
-  config?: Partial<DiagramkitConfig>,
-  theme?: Theme,
-): DiagramFile[]
-```
-
-Returns all files when `force` is `true`, otherwise filters using `isStale()`.
-
----
-
 ### `readManifest(sourceDir, config?)`
 
 Read the manifest from a source directory's output folder.
@@ -251,46 +226,6 @@ function readManifest(
 ```
 
 Returns `{ version: 1, diagrams: {} }` if no manifest exists. Supports migration from the old `manifest.json` filename.
-
----
-
-### `writeManifest(sourceDir, manifest, config?)`
-
-Write a manifest to the output folder.
-
-```typescript
-function writeManifest(
-  sourceDir: string,
-  manifest: Manifest,
-  config?: Partial<DiagramkitConfig>,
-): void
-```
-
----
-
-### `updateManifest(files, format?, config?)`
-
-Update manifests after successful renders, grouped by directory.
-
-```typescript
-function updateManifest(
-  files: DiagramFile[],
-  format?: OutputFormat,
-  config?: Partial<DiagramkitConfig>,
-): void
-```
-
-Skipped entirely when `useManifest` is `false`.
-
----
-
-### `cleanOrphans(files)`
-
-Remove orphaned outputs and manifest entries for deleted source files.
-
-```typescript
-function cleanOrphans(files: DiagramFile[]): void
-```
 
 ---
 
@@ -352,7 +287,7 @@ function atomicWrite(path: string, content: Buffer): void
 
 ## Subpath Exports
 
-diagramkit provides two package exports:
+diagramkit provides three package exports:
 
 | Import path | Content |
 |-------------|---------|

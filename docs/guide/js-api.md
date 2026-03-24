@@ -137,7 +137,7 @@ await dispose()
 |------|------|-------------|
 | `options` | `WatchOptions` | Watch configuration (see [Types](/reference/types)) |
 
-**Returns:** `() => void` -- a cleanup function that stops the watcher
+**Returns:** `() => Promise<void>` -- an async cleanup function that stops the watcher
 
 ## `warmup()`
 
@@ -253,17 +253,6 @@ const mermaidOnly = filterByType(all, 'mermaid')
 
 ## Manifest Operations
 
-### `hashFile(filePath)`
-
-Compute a SHA-256 content hash of a file (first 16 hex characters).
-
-```typescript
-import { hashFile } from 'diagramkit'
-
-const hash = hashFile('/path/to/diagram.mermaid')
-// 'sha256:a1b2c3d4e5f67890'
-```
-
 ### `isStale(file, format?, config?)`
 
 Check if a diagram file needs re-rendering.
@@ -287,13 +276,9 @@ const manifest = readManifest('/path/to/dir')
 // { version: 1, diagrams: { 'flow.mermaid': { hash, generatedAt, outputs, format } } }
 ```
 
-### `updateManifest(files, format?, config?)`
-
-Update manifests after successful renders. Groups files by directory.
-
-### `cleanOrphans(files)`
-
-Remove orphaned outputs and manifest entries for source files that no longer exist.
+::: info Internal Functions
+Functions like `hashFile`, `updateManifest`, and `cleanOrphans` are internal to the manifest module and not part of the public API.
+:::
 
 ## Browser Lifecycle
 

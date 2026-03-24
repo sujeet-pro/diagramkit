@@ -1,8 +1,8 @@
 import { watch as chokidarWatch } from 'chokidar'
-import { basename, dirname, join } from 'path'
+import { basename, dirname, join } from 'node:path'
 import { loadConfig } from './config'
 import { getAllExtensions, getExtensionMap, getMatchedExtension } from './extensions'
-import { updateManifest } from './manifest'
+import { hashFile, updateManifest } from './manifest'
 import { renderDiagramFileToDisk } from './renderer'
 import type { DiagramFile, DiagramType, WatchOptions } from './types'
 
@@ -66,7 +66,9 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
         config,
       })
       if (config.useManifest) {
-        updateManifest([file], format, config, theme)
+        // Pre-compute hash so updateManifest does not re-read and re-hash the file
+        const fileWithHash = { ...file, _hash: hashFile(file.path) }
+        updateManifest([fileWithHash], format, config, theme)
       }
       opts.onChange?.(path)
     } catch (err: any) {

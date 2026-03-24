@@ -108,20 +108,22 @@ JPEG/WebP quality from 1 to 100. Default: `90`.
 diagramkit render . --format jpeg --quality 80
 ```
 
-### `--force`
+### `--force`, `-f`
 
 Re-render all diagrams, ignoring the manifest cache.
 
 ```bash
 diagramkit render . --force
+diagramkit render . -f
 ```
 
-### `--watch`
+### `--watch`, `-w`
 
 Watch for file changes and re-render automatically. See [Watch Mode](/guide/watch-mode).
 
 ```bash
 diagramkit render . --watch
+diagramkit render . -w
 ```
 
 ### `--no-contrast`

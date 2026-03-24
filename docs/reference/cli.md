@@ -165,6 +165,8 @@ When given a directory, `diagramkit render` recursively scans for supported file
 
 - Hidden directories (names starting with `.`)
 - `node_modules/`
+- Symlinks (to prevent infinite loops)
+- The configured output directory (e.g. `.diagrams/` or a custom non-hidden `outputDir`)
 
 ## Exit Behavior
 
