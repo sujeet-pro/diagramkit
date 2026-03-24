@@ -712,7 +712,7 @@ When none of the above sections match your issue:
    - Excalidraw: [excalidraw.com](https://excalidraw.com)
    - Draw.io: [app.diagrams.net](https://app.diagrams.net)
 8. **Delete manifest and retry**: `rm .diagrams/diagrams.manifest.json && diagramkit render .`
-9. **Check Node.js version**: diagramkit requires Node.js 20+
+9. **Check Node.js version**: diagramkit requires Node.js 24+
 
 ## Composability
 

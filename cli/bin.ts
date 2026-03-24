@@ -254,12 +254,14 @@ async function commandInstallSkills() {
   const location = isGlobal ? `~/.claude/skills/diagramkit/` : `.claude/skills/diagramkit/`
   console.log(`Skills installed to ${location}`)
   console.log(`\nAvailable skills:`)
-  console.log(`  /diagrams       — Engine selection orchestrator`)
-  console.log(`  /diagram-mermaid    — Mermaid authoring`)
-  console.log(`  /diagram-excalidraw — Excalidraw authoring`)
-  console.log(`  /diagram-drawio     — Draw.io authoring`)
-  console.log(`  /diagramkit         — CLI quick reference`)
-  console.log(`  /image-convert      — SVG to raster conversion`)
+  console.log(`  /diagrams             — Engine selection orchestrator`)
+  console.log(`  /diagram-mermaid      — Mermaid source file authoring`)
+  console.log(`  /diagram-excalidraw   — Excalidraw source file authoring`)
+  console.log(`  /diagram-drawio       — Draw.io source file authoring`)
+  console.log(`  /diagramkit           — Render diagrams to images`)
+  console.log(`  /image-convert        — SVG to raster conversion`)
+  console.log(`  /troubleshoot         — Diagnose and fix common issues`)
+  console.log(`  /ci-cd                — CI/CD integration guide`)
 }
 
 async function commandRender() {

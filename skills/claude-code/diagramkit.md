@@ -228,74 +228,15 @@ await warmup() // Pre-install chromium
 await dispose() // Clean up browser
 ```
 
-## Writing Good Mermaid Diagrams
+## Authoring Diagram Source Files
 
-When generating mermaid diagrams:
+For creating diagram source files, use the dedicated generation skills:
 
-1. **Use semantic node IDs** -- `A[Web Server]` not `A[Node 1]`
-2. **Keep it readable** -- max ~15 nodes per diagram, split complex systems
-3. **Use subgraphs** for logical grouping
-4. **Avoid bright/neon colors** in custom styles -- they won't pass dark mode contrast checks
-5. **Prefer neutral fill colors** -- the dark mode post-processor adjusts high-luminance fills
-6. **Use `flowchart`** (not `graph`) for modern features
+- `/diagram-mermaid` -- Mermaid authoring with syntax for all 20+ diagram types
+- `/diagram-excalidraw` -- Excalidraw JSON authoring with layout patterns and color palettes
+- `/diagram-drawio` -- Draw.io XML authoring with shape libraries and style reference
 
-Example:
-
-```mermaid
-graph TD
-    A[Client] -->|HTTP| B[API Gateway]
-    B --> C[Auth Service]
-    B --> D[Content Service]
-    D --> E[(Database)]
-    C --> F[(Redis Cache)]
-```
-
-## Writing Good Excalidraw Diagrams
-
-When generating excalidraw JSON:
-
-1. **Use the standard JSON format** with `elements`, `appState`, and `files` keys
-2. **Set `viewBackgroundColor`** to `#ffffff` (dark mode is handled automatically)
-3. **Use the default color palette** -- avoid custom colors that may not contrast well in dark mode
-4. **Keep elements spaced** -- at least 20px padding between elements
-5. **Labels require TWO elements** -- a shape with `boundElements` and a text with `containerId`
-6. **Never use diamond shapes** -- arrow connections are broken for diamonds in raw JSON
-
-## Writing Good Draw.io Diagrams
-
-When generating draw.io XML:
-
-1. **Use mxGraphModel format** with proper `<diagram>` wrapper
-2. **Use standard mxCell styles** -- stick to built-in shape names for compatibility
-3. **Keep edge routing clean** -- use `edgeStyle=orthogonalEdgeStyle` for elbow routing
-4. **Set geometry explicitly** -- always provide `<mxGeometry>` with x, y, width, height
-5. **Use layers for complex diagrams** -- group related elements on separate layers
-6. **Avoid custom fonts** -- stick to system fonts for rendering reliability
-7. **Test dark mode** -- use neutral fill colors; dark mode inverts high-luminance fills
-
-Example minimal draw.io:
-
-```xml
-<mxfile>
-  <diagram name="Page-1">
-    <mxGraphModel>
-      <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="2" value="Service A" style="rounded=1;whiteSpace=wrap;" vertex="1" parent="1">
-          <mxGeometry x="100" y="100" width="120" height="60" as="geometry"/>
-        </mxCell>
-        <mxCell id="3" value="Service B" style="rounded=1;whiteSpace=wrap;" vertex="1" parent="1">
-          <mxGeometry x="300" y="100" width="120" height="60" as="geometry"/>
-        </mxCell>
-        <mxCell id="4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-</mxfile>
-```
+This skill (`/diagramkit`) is for **rendering** existing diagram source files to images.
 
 ## Manifest & Caching
 
