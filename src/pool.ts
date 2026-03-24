@@ -23,11 +23,7 @@ export class BrowserPool {
   private idleTimer: ReturnType<typeof setTimeout> | null = null
   private launching: Promise<void> | null = null
 
-  // Track whether mermaid pages have been initialized with the script
-  private mermaidLightReady = false
-  private mermaidDarkReady = false
-  private excalidrawReady = false
-  private drawioReady = false
+  private mermaidDarkThemeVars: string | null = null
 
   // Cached IIFE bundles
   private excalidrawBundle: string | null = null
@@ -40,12 +36,20 @@ export class BrowserPool {
       this.idleTimer = null
     }
     if (!this.browser) {
-      // Coalesce concurrent launches
+      // Coalesce concurrent launches — only the caller that created the promise should clear it
+      let isOwner = false
       if (!this.launching) {
         this.launching = this.launch()
+        isOwner = true
       }
-      await this.launching
-      this.launching = null
+      try {
+        await this.launching
+      } catch (err) {
+        this.refCount = Math.max(0, this.refCount - 1)
+        throw err
+      } finally {
+        if (isOwner) this.launching = null
+      }
     }
   }
 
@@ -58,19 +62,25 @@ export class BrowserPool {
     }
   }
 
-  async dispose(): Promise<void> {
+  async dispose(force = false): Promise<void> {
+    // Idle timer can fire while a new acquire() is in progress — bail unless forced
+    if (!force && this.refCount > 0) return
     if (this.idleTimer) {
       clearTimeout(this.idleTimer)
       this.idleTimer = null
+    }
+    // Wait for any in-flight launch so we don't leak a browser that resolves after nulling
+    if (this.launching) {
+      try {
+        await this.launching
+      } catch {}
+      this.launching = null
     }
     this.mermaidLightPage = null
     this.mermaidDarkPage = null
     this.excalidrawPage = null
     this.drawioPage = null
-    this.mermaidLightReady = false
-    this.mermaidDarkReady = false
-    this.excalidrawReady = false
-    this.drawioReady = false
+    this.mermaidDarkThemeVars = null
     this.context = null
     if (this.browser) {
       const b = this.browser
@@ -103,16 +113,23 @@ export class BrowserPool {
     if (!this.context) throw new Error('BrowserPool not acquired')
     if (!this.mermaidLightPage || this.mermaidLightPage.isClosed()) {
       this.mermaidLightPage = await this.createMermaidPage('default')
-      this.mermaidLightReady = true
     }
     return this.mermaidLightPage
   }
 
   async getMermaidDarkPage(themeVariables: Record<string, string>): Promise<Page> {
     if (!this.context) throw new Error('BrowserPool not acquired')
-    if (!this.mermaidDarkPage || this.mermaidDarkPage.isClosed()) {
+    const varsKey = JSON.stringify(themeVariables)
+    if (
+      !this.mermaidDarkPage ||
+      this.mermaidDarkPage.isClosed() ||
+      this.mermaidDarkThemeVars !== varsKey
+    ) {
+      if (this.mermaidDarkPage && !this.mermaidDarkPage.isClosed()) {
+        await this.mermaidDarkPage.close()
+      }
       this.mermaidDarkPage = await this.createMermaidPage('base', themeVariables)
-      this.mermaidDarkReady = true
+      this.mermaidDarkThemeVars = varsKey
     }
     return this.mermaidDarkPage
   }
@@ -136,10 +153,10 @@ export class BrowserPool {
       timeout: 15_000,
     })
 
-    // Initialize with theme
+    // Initialize with theme — securityLevel prevents crafted diagrams from executing JS
     const config = themeVariables
-      ? { theme, themeVariables, startOnLoad: false }
-      : { theme, startOnLoad: false }
+      ? { theme, themeVariables, startOnLoad: false, securityLevel: 'strict' }
+      : { theme, startOnLoad: false, securityLevel: 'strict' }
 
     await page.evaluate((cfg) => {
       ;(globalThis as any).mermaid.initialize(cfg)
@@ -156,7 +173,6 @@ export class BrowserPool {
       const bundle = await this.getExcalidrawBundle()
       if (!bundle) throw new Error('Excalidraw bundle unavailable')
       this.excalidrawPage = await this.createExcalidrawPage(bundle)
-      this.excalidrawReady = true
     }
     return this.excalidrawPage
   }
@@ -173,7 +189,8 @@ export class BrowserPool {
       const { output } = await bundle.generate({ format: 'iife' })
       this.excalidrawBundle = output[0].code
       return this.excalidrawBundle
-    } catch {
+    } catch (err) {
+      console.warn('Failed to build excalidraw bundle:', (err as Error).message)
       return null
     }
   }
@@ -196,7 +213,6 @@ export class BrowserPool {
       const bundle = await this.getDrawioBundle()
       if (!bundle) throw new Error('Draw.io bundle unavailable')
       this.drawioPage = await this.createDrawioPage(bundle)
-      this.drawioReady = true
     }
     return this.drawioPage
   }
@@ -213,7 +229,8 @@ export class BrowserPool {
       const { output } = await bundle.generate({ format: 'iife' })
       this.drawioBundle = output[0].code
       return this.drawioBundle
-    } catch {
+    } catch (err) {
+      console.warn('Failed to build draw.io bundle:', (err as Error).message)
       return null
     }
   }
@@ -268,23 +285,27 @@ export async function warmup(): Promise<void> {
 /** Explicitly dispose the browser pool. */
 export async function dispose(): Promise<void> {
   if (pool) {
-    await pool.dispose()
+    await pool.dispose(true)
     pool = null
   }
 }
 
-// Async cleanup for SIGINT/SIGTERM — these can await before exiting
+// Force-dispose on signals, then re-raise so the process exits with correct status
 const signalCleanup = async () => {
   if (pool) {
     const p = pool
     pool = null
-    await p.dispose()
+    await p.dispose(true)
   }
-  process.exit(0)
 }
 
-process.on('SIGINT', () => void signalCleanup())
-process.on('SIGTERM', () => void signalCleanup())
+const handleSignal = (signal: NodeJS.Signals) => {
+  void signalCleanup().finally(() => {
+    process.kill(process.pid, signal)
+  })
+}
+process.once('SIGINT', () => handleSignal('SIGINT'))
+process.once('SIGTERM', () => handleSignal('SIGTERM'))
 // 'exit' handler is synchronous — just null the reference, browser dies with parent
 process.on('exit', () => {
   pool = null

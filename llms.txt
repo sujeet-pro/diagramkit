@@ -36,6 +36,8 @@ renderAll(options?: BatchOptions): Promise<RenderAllResult>
 watchDiagrams(options: WatchOptions): () => void
 convertSvg(svg: Buffer | string, options: ConvertOptions): Promise<Buffer>
 loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string): DiagramkitConfig
+warmup(): Promise<void>
+dispose(): Promise<void>
 
 ## Configuration
 

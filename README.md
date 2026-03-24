@@ -91,16 +91,16 @@ Use a `<picture>` element so GitHub and other renderers pick the right variant b
 ```js
 import { render, renderFile, renderAll } from 'diagramkit'
 
-// Render from a string
-const results = await render('graph LR; A-->B', 'mermaid', {
+// Render from a string (returns in-memory RenderResult)
+const result = await render('graph LR; A-->B', 'mermaid', {
   theme: 'both',
   format: 'svg',
 })
 
-// Render a single file to disk
-await renderFile('docs/architecture.mermaid')
+// Render a single file (returns in-memory RenderResult, does NOT write to disk)
+const fileResult = await renderFile('docs/architecture.mermaid')
 
-// Batch render an entire directory
+// Batch render an entire directory (discovers files, writes output to .diagrams/ folders)
 await renderAll({ dir: './docs', format: 'svg', theme: 'both' })
 ```
 
@@ -137,9 +137,46 @@ Full documentation is available at [projects.sujeet.pro/diagramkit](https://proj
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 24
 - Playwright Chromium (installed via `npx diagramkit warmup`)
 - `sharp` (optional, only needed for raster output)
+
+## Development
+
+```bash
+git clone https://github.com/sujeet-pro/diagramkit.git
+cd diagramkit
+npm install
+npx playwright install chromium
+npm run build
+```
+
+### Validation scripts
+
+```bash
+# Lint and format check
+npm run check
+
+# Type checking
+npm run typecheck
+
+# Build library
+npm run build
+
+# Build docs site
+npm run build:docs
+
+# Unit tests (fast, no browser)
+npm run test:unit
+
+# E2E tests (requires Playwright Chromium + built dist)
+npm run test:e2e
+
+# Full validation (lint + typecheck + build + docs + unit + e2e)
+npm run validate
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
 ## License
 

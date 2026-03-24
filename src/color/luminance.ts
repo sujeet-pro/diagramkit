@@ -4,6 +4,6 @@
  */
 export function relativeLuminance(r: number, g: number, b: number): number {
   const srgb = [r / 255, g / 255, b / 255]
-  const linear = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+  const linear = srgb.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
   return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!
 }

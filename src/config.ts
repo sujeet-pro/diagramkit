@@ -17,15 +17,17 @@ export function getDefaultConfig(): DiagramkitConfig {
 
 /* ── Global config (~/.config/diagramkit/config.json) ── */
 
-function getGlobalConfigPath(): string {
+function getGlobalConfigPath(): string | null {
   const xdg = process.env.XDG_CONFIG_HOME
-  const base = xdg || join(process.env.HOME || '', '.config')
+  const home = process.env.HOME || process.env.USERPROFILE
+  if (!xdg && !home) return null
+  const base = xdg || join(home!, '.config')
   return join(base, 'diagramkit', 'config.json')
 }
 
 export function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
   const path = getGlobalConfigPath()
-  if (!existsSync(path)) return null
+  if (!path || !existsSync(path)) return null
   try {
     return JSON.parse(readFileSync(path, 'utf-8'))
   } catch {
@@ -60,10 +62,27 @@ export function loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string):
   const global = loadGlobalConfig()
   const local = dir ? loadLocalConfig(dir) : null
 
-  return {
+  const merged = {
     ...defaults,
     ...global,
     ...local,
     ...overrides,
   }
+
+  // Deep-merge extensionMap so layers accumulate rather than clobber
+  if (
+    defaults.extensionMap ||
+    global?.extensionMap ||
+    local?.extensionMap ||
+    overrides?.extensionMap
+  ) {
+    merged.extensionMap = {
+      ...defaults.extensionMap,
+      ...global?.extensionMap,
+      ...local?.extensionMap,
+      ...overrides?.extensionMap,
+    }
+  }
+
+  return merged
 }

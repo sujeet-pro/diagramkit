@@ -8,7 +8,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs'
-import { basename, join } from 'path'
+import { basename, join, resolve } from 'path'
 import { getExpectedOutputNames } from './output'
 import type { DiagramFile, DiagramkitConfig, OutputFormat, Theme } from './types'
 
@@ -37,7 +37,12 @@ export type Manifest = {
 /** Get the output directory for a given source directory. */
 export function getDiagramsDir(sourceDir: string, config?: Partial<DiagramkitConfig>): string {
   if (config?.sameFolder) return sourceDir
-  return join(sourceDir, config?.outputDir ?? '.diagrams')
+  const resolved = resolve(sourceDir, config?.outputDir ?? '.diagrams')
+  const resolvedBase = resolve(sourceDir)
+  if (resolved !== resolvedBase && !resolved.startsWith(resolvedBase + '/')) {
+    throw new Error(`outputDir "${config?.outputDir}" resolves outside the source directory`)
+  }
+  return resolved
 }
 
 /** Ensure the output directory exists for a given source directory. */
@@ -53,6 +58,13 @@ export function readManifest(sourceDir: string, config?: Partial<DiagramkitConfi
   const manifestFile = config?.manifestFile ?? 'diagrams.manifest.json'
   const outDir = getDiagramsDir(sourceDir, config)
   const path = join(outDir, manifestFile)
+
+  // Prevent path traversal via manifestFile
+  const resolvedPath = resolve(path)
+  const resolvedOutDir = resolve(outDir)
+  if (resolvedPath !== resolvedOutDir && !resolvedPath.startsWith(resolvedOutDir + '/')) {
+    throw new Error(`manifestFile "${manifestFile}" resolves outside the output directory`)
+  }
 
   if (!existsSync(path)) {
     // Migration fallback: check for old 'manifest.json'
@@ -83,6 +95,14 @@ export function writeManifest(
   const manifestFile = config?.manifestFile ?? 'diagrams.manifest.json'
   const dir = ensureDiagramsDir(sourceDir, config)
   const target = join(dir, manifestFile)
+
+  // Prevent path traversal via manifestFile
+  const resolved = resolve(target)
+  const resolvedDir = resolve(dir)
+  if (resolved !== resolvedDir && !resolved.startsWith(resolvedDir + '/')) {
+    throw new Error(`manifestFile "${manifestFile}" resolves outside the output directory`)
+  }
+
   const tmp = target + '.tmp'
   writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n')
   renameSync(tmp, target)
@@ -97,6 +117,8 @@ export function hashFile(filePath: string): string {
 }
 
 /* ── Staleness checking ── */
+
+export type StaleFile = DiagramFile & { _hash: string }
 
 /** Check if a single diagram file is stale (changed since last render). Uses a pre-read manifest. */
 export function isStale(
@@ -132,25 +154,51 @@ export function filterStaleFiles(
   format?: OutputFormat,
   config?: Partial<DiagramkitConfig>,
   theme?: Theme,
-): DiagramFile[] {
-  if (force) return files
+): StaleFile[] {
+  if (force) return files.map((f) => ({ ...f, _hash: hashFile(f.path) }))
 
-  // Cache manifests by directory to avoid re-reading per file
   const manifestCache = new Map<string, Manifest>()
 
-  return files.filter((f) => {
+  return files.reduce<StaleFile[]>((result, f) => {
     if (!manifestCache.has(f.dir)) {
       manifestCache.set(f.dir, readManifest(f.dir, config))
     }
-    return isStale(f, format, config, theme, manifestCache.get(f.dir)!)
-  })
+    const manifest = manifestCache.get(f.dir)!
+    const hash = hashFile(f.path)
+    const name = basename(f.path)
+    const entry = manifest.diagrams[name]
+
+    if (config?.useManifest === false) {
+      result.push({ ...f, _hash: hash })
+      return result
+    }
+
+    if (!entry || entry.hash !== hash) {
+      result.push({ ...f, _hash: hash })
+      return result
+    }
+    if (format && entry.format !== format) {
+      result.push({ ...f, _hash: hash })
+      return result
+    }
+    if (theme && entry.theme !== theme) {
+      result.push({ ...f, _hash: hash })
+      return result
+    }
+    const outDir = getDiagramsDir(f.dir, config)
+    if (entry.outputs.some((output) => !existsSync(join(outDir, output)))) {
+      result.push({ ...f, _hash: hash })
+      return result
+    }
+    return result
+  }, [])
 }
 
 /* ── Manifest update ── */
 
 /** Update manifests after successful renders. Groups files by directory. */
 export function updateManifest(
-  files: DiagramFile[],
+  files: (DiagramFile & { _hash?: string })[],
   format: OutputFormat = 'svg',
   config?: Partial<DiagramkitConfig>,
   theme: Theme = 'both',
@@ -158,7 +206,8 @@ export function updateManifest(
   // When manifest is disabled, skip writing entirely
   if (config?.useManifest === false) return
 
-  const byDir = new Map<string, DiagramFile[]>()
+  type FileWithHash = DiagramFile & { _hash?: string }
+  const byDir = new Map<string, FileWithHash[]>()
   for (const f of files) {
     if (!byDir.has(f.dir)) byDir.set(f.dir, [])
     byDir.get(f.dir)!.push(f)
@@ -169,7 +218,7 @@ export function updateManifest(
     for (const f of dirFiles) {
       const name = basename(f.path)
       manifest.diagrams[name] = {
-        hash: hashFile(f.path),
+        hash: f._hash ?? hashFile(f.path),
         generatedAt: new Date().toISOString(),
         outputs: getExpectedOutputNames(f.name, format, theme),
         format,
@@ -215,6 +264,9 @@ export function cleanOrphans(files: DiagramFile[], config?: Partial<DiagramkitCo
     // In same-folder mode we can only safely remove files that were explicitly tracked by the manifest.
     // Sweeping "unknown" files would delete sources and unrelated project files.
     if (config?.sameFolder) continue
+
+    // Empty manifest means corruption or fresh state — skip sweep to avoid deleting all outputs
+    if (Object.keys(manifest.diagrams).length === 0) continue
 
     // Clean outputs not referenced by the manifest
     const outDir = getDiagramsDir(dir, config)

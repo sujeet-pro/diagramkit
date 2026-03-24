@@ -158,16 +158,16 @@ WebP output:
 
 ## How Conversion Works
 
-diagramkit converts SVG to raster formats using Playwright's screenshot API:
+diagramkit converts SVG to raster formats using `sharp` (which uses librsvg internally):
 
-1. The SVG is loaded into a headless Chromium page.
-2. Playwright takes a screenshot at the specified scale factor.
-3. The screenshot is encoded in the target format with the specified quality.
+1. diagramkit renders diagrams to SVG first using headless Chromium (Playwright).
+2. The SVG is then passed to `sharp` with the requested density (scale \* 72 DPI).
+3. `sharp` rasterizes the SVG and encodes it in the target format with the specified quality.
 
 This means:
 
-- Rendering is pixel-perfect (real browser rendering).
-- Custom fonts, filters, and CSS are fully supported.
+- SVG rendering is pixel-perfect (real browser rendering via Playwright).
+- Rasterization is handled by sharp's librsvg backend, not the browser.
 - Scale factor controls the effective DPI (scale=2 means 2x resolution).
 - JPEG has a white background (no transparency).
 - PNG preserves transparency.

@@ -15,7 +15,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
-import { getDefaultConfig, loadConfig, loadLocalConfig } from '../config'
+import { getDefaultConfig, loadConfig, loadGlobalConfig, loadLocalConfig } from './config'
 
 describe('config loading', () => {
   const originalEnv = {
@@ -126,5 +126,57 @@ describe('config loading', () => {
       defaultFormat: 'webp',
       defaultTheme: 'dark',
     })
+  })
+
+  it('returns null for malformed JSON in global config', () => {
+    const home = mkdtempSync(join(tmpdir(), 'diagramkit-config-badglobal-'))
+    tempDirs.push(home)
+
+    process.env.HOME = home
+    process.env.XDG_CONFIG_HOME = join(home, '.config')
+
+    mkdirSync(join(home, '.config', 'diagramkit'), { recursive: true })
+    writeFileSync(join(home, '.config', 'diagramkit', 'config.json'), '{invalid json!!!')
+
+    expect(loadGlobalConfig()).toBeNull()
+  })
+
+  it('returns null for malformed JSON in local config', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-badlocal-'))
+    tempDirs.push(root)
+
+    writeFileSync(join(root, '.diagramkitrc.json'), 'not valid json {{{')
+
+    expect(loadLocalConfig(root)).toBeNull()
+  })
+
+  it('deep-merges extensionMap so layers accumulate', () => {
+    const home = mkdtempSync(join(tmpdir(), 'diagramkit-config-extmap-'))
+    const repo = mkdtempSync(join(tmpdir(), 'diagramkit-config-extmap-repo-'))
+    tempDirs.push(home, repo)
+
+    process.env.HOME = home
+    process.env.XDG_CONFIG_HOME = join(home, '.config')
+
+    mkdirSync(join(home, '.config', 'diagramkit'), { recursive: true })
+    writeFileSync(
+      join(home, '.config', 'diagramkit', 'config.json'),
+      JSON.stringify({ extensionMap: { '.puml': 'mermaid' } }),
+    )
+    writeFileSync(
+      join(repo, '.diagramkitrc.json'),
+      JSON.stringify({ extensionMap: { '.d2': 'mermaid' } }),
+    )
+
+    const config = loadConfig({ extensionMap: { '.custom': 'excalidraw' } }, repo)
+
+    // All three layers should be present
+    expect(config.extensionMap).toEqual(
+      expect.objectContaining({
+        '.puml': 'mermaid',
+        '.d2': 'mermaid',
+        '.custom': 'excalidraw',
+      }),
+    )
   })
 })

@@ -4,6 +4,20 @@ Thanks for your interest in contributing. This guide covers the basics for getti
 
 ## Dev setup
 
+### Prerequisites
+
+Node >= 24 is required (see `.node-version`).
+
+```bash
+# Install Node via nvm (recommended)
+nvm install    # reads .node-version
+nvm use
+```
+
+Or download from [nodejs.org](https://nodejs.org/).
+
+### Clone and install
+
 ```bash
 git clone https://github.com/sujeet-pro/diagramkit.git
 cd diagramkit
@@ -31,13 +45,25 @@ Run only unit tests (fast, no browser required):
 npm run test:unit
 ```
 
-Run only end-to-end tests (requires Playwright Chromium):
+Run only end-to-end tests (requires Playwright Chromium, build first):
 
 ```bash
 npm run test:e2e
 ```
 
-Unit tests live in `src/__tests__/` and cover pure logic modules. E2E tests live in `src/e2e/` and exercise real rendering through Playwright for all diagram types, output formats, and themes.
+E2E tests require a built dist. Run `npm run build` before `npm run test:e2e`.
+
+Unit tests are colocated with source files (`src/*.test.ts`). E2E tests are vitest-integrated tests that run with `npm run test:e2e`. See `e2e/README.md` for the full test case list.
+
+## Full validation
+
+Before submitting a PR, run the full validation:
+
+```bash
+npm run validate
+```
+
+This runs lint, typecheck, build, docs build, unit tests, and e2e in sequence.
 
 ## Code style
 
@@ -75,5 +101,5 @@ See `CLAUDE.md` for a detailed architecture overview, directory structure, and g
 1. Create a feature branch from `main`
 2. Make your changes, following the code style above
 3. Add or update tests as appropriate -- unit tests for pure logic, e2e tests for rendering behavior
-4. Run `npm test` and `npm run check` to verify everything passes
+4. Run `npm run validate` to verify everything passes
 5. Open a pull request against `main` with a clear description of the change

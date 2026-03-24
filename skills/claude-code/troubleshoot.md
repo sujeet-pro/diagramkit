@@ -84,7 +84,7 @@ The `--with-deps` flag installs required OS-level libraries (libgbm, libnss3, et
 Cannot find module 'sharp'
 ```
 
-Or raster output (PNG/JPEG/WebP) silently fails while SVG works fine.
+Or raster output (PNG/JPEG/WebP) fails with an error while SVG works fine.
 
 ### Cause
 
@@ -620,7 +620,7 @@ The `--with-deps` flag is critical -- it installs OS-level libraries that Chromi
 ### Docker
 
 ```dockerfile
-FROM node:20
+FROM node:24
 
 # Install Playwright system dependencies
 RUN npx playwright install --with-deps chromium
@@ -712,7 +712,7 @@ When none of the above sections match your issue:
    - Excalidraw: [excalidraw.com](https://excalidraw.com)
    - Draw.io: [app.diagrams.net](https://app.diagrams.net)
 8. **Delete manifest and retry**: `rm .diagrams/diagrams.manifest.json && diagramkit render .`
-9. **Check Node.js version**: diagramkit requires Node.js 18+
+9. **Check Node.js version**: diagramkit requires Node.js 20+
 
 ## Composability
 

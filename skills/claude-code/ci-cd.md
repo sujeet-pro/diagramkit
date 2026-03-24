@@ -64,7 +64,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -126,7 +126,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -178,7 +178,7 @@ When your documentation pipeline requires PNG or JPEG:
 
 ```yaml
 render-diagrams:
-  image: node:20
+  image: node:24
   stage: build
   cache:
     key: playwright-${CI_RUNNER_OS}
@@ -207,7 +207,7 @@ render-diagrams:
 
 ```yaml
 render-and-commit:
-  image: node:20
+  image: node:24
   stage: build
   before_script:
     - npm ci
@@ -234,7 +234,7 @@ render-and-commit:
 
 ```yaml
 pages:
-  image: node:20
+  image: node:24
   stage: deploy
   before_script:
     - npm ci
@@ -256,7 +256,7 @@ pages:
 ### Dockerfile for Rendering
 
 ```dockerfile
-FROM node:20-bookworm
+FROM node:24-bookworm
 
 # Install Playwright Chromium and OS dependencies in one layer
 RUN npx playwright install --with-deps chromium
@@ -278,7 +278,7 @@ RUN npx diagramkit render .
 
 ```dockerfile
 # Stage 1: Render diagrams
-FROM node:20-bookworm AS render
+FROM node:24-bookworm AS render
 
 RUN npx playwright install --with-deps chromium
 
@@ -290,7 +290,7 @@ COPY . .
 RUN npx diagramkit render .
 
 # Stage 2: Build documentation site (no Playwright needed)
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 COPY --from=render /app .
@@ -307,18 +307,18 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 ```dockerfile
 # WRONG -- Chromium won't work
-FROM node:20-alpine
+FROM node:24-alpine
 
 # CORRECT
-FROM node:20-bookworm
-FROM node:20-bullseye
-FROM node:20  # default is Debian-based
+FROM node:24-bookworm
+FROM node:24-bullseye
+FROM node:24  # default is Debian-based
 ```
 
 **Run as non-root** when possible:
 
 ```dockerfile
-FROM node:20-bookworm
+FROM node:24-bookworm
 
 RUN npx playwright install --with-deps chromium
 
@@ -385,12 +385,12 @@ fi
 
 ### What to Cache
 
-| Asset               | Path                      | Size   | Cache Key                        |
-| ------------------- | ------------------------- | ------ | -------------------------------- |
-| Playwright Chromium | `~/.cache/ms-playwright/` | ~400MB | OS + `package-lock.json` hash    |
-| npm dependencies    | `node_modules/`           | varies | `package-lock.json` hash         |
-| Rendered output     | `**/.diagrams/`           | varies | Hash of all diagram source files |
-| diagramkit manifest | `.diagrams/manifest.json` | <1KB   | Part of rendered output cache    |
+| Asset               | Path                               | Size   | Cache Key                        |
+| ------------------- | ---------------------------------- | ------ | -------------------------------- |
+| Playwright Chromium | `~/.cache/ms-playwright/`          | ~400MB | OS + `package-lock.json` hash    |
+| npm dependencies    | `node_modules/`                    | varies | `package-lock.json` hash         |
+| Rendered output     | `**/.diagrams/`                    | varies | Hash of all diagram source files |
+| diagramkit manifest | `.diagrams/diagrams.manifest.json` | <1KB   | Part of rendered output cache    |
 
 ### GitHub Actions Cache Configuration
 
@@ -533,7 +533,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - uses: actions/cache@v4
@@ -556,7 +556,7 @@ jobs:
 ### Docker: Documentation Site Build
 
 ```dockerfile
-FROM node:20-bookworm AS render
+FROM node:24-bookworm AS render
 RUN npx playwright install --with-deps chromium
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -564,7 +564,7 @@ RUN npm ci
 COPY . .
 RUN npx diagramkit render ./docs
 
-FROM node:20-bookworm AS build
+FROM node:24-bookworm AS build
 WORKDIR /app
 COPY --from=render /app .
 RUN npm run docs:build

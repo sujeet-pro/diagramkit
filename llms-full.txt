@@ -194,6 +194,13 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
     height?: number    // SVG height in pixels (SVG output only)
   }
 
+### RenderAllResult
+  interface RenderAllResult {
+    rendered: string[]   // Files that were rendered
+    skipped: string[]    // Files skipped (unchanged, manifest cache hit)
+    failed: string[]     // Files that failed to render
+  }
+
 ### BatchOptions
   interface BatchOptions extends RenderOptions {
     dir?: string           // Root directory to scan. Default: cwd()
@@ -324,8 +331,9 @@ Skill for AI-assisted diagram generation and rendering. Covers:
 ## Testing
 
 - Framework: vitest
-- Unit tests: src/__tests__/manifest.test.ts, src/__tests__/color.test.ts, src/__tests__/convert.test.ts, src/__tests__/extensions.test.ts, src/__tests__/config.test.ts, src/__tests__/discovery.test.ts, src/__tests__/output.test.ts
-- E2E tests: src/e2e/api-render.e2e.test.ts, src/e2e/cli-render.e2e.test.ts
+- Unit tests: colocated with source as src/*.test.ts (manifest, color, convert, extensions, config, discovery, output)
+- E2E tests: e2e/api-render.e2e.test.ts, e2e/cli-render.e2e.test.ts
+- E2E helpers: e2e/test-utils.ts
 - Run: npm test (all), npm run test:unit (unit only), npm run test:e2e (e2e only)
 - Type checking: npm run typecheck (tsc --noEmit)
 - Build: npm run build

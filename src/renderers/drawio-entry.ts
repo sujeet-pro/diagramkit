@@ -114,9 +114,13 @@ function escapeXml(str: string): string {
 
 /** Strip basic HTML tags from draw.io cell values (they often contain <b>, <br>, etc.) */
 function stripHtml(str: string): string {
-  const div = document.createElement('div')
-  div.innerHTML = str
-  return div.textContent || div.innerText || ''
+  return str
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
 }
 
 /** sRGB linearization for WCAG luminance — matches the Node-side color/luminance.ts formula. */
@@ -136,10 +140,16 @@ function adjustColorForDark(hex: string, isDark: boolean): string {
   if (lower === '#ffffff' || lower === '#fff') return '#2d2d2d'
   if (lower === '#000000' || lower === '#000') return '#e5e5e5'
 
+  // Normalize 3-digit hex to 6-digit
+  let normalized = hex
+  if (hex.length === 4) {
+    normalized = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3]
+  }
+
   // Parse hex to determine luminance using proper WCAG formula
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const r = parseInt(normalized.slice(1, 3), 16) / 255
+  const g = parseInt(normalized.slice(3, 5), 16) / 255
+  const b = parseInt(normalized.slice(5, 7), 16) / 255
   const lum = wcagLuminance(r, g, b)
 
   // Light colors get darkened — threshold matches Node-side contrast.ts (0.4)

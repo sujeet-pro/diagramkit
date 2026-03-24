@@ -97,16 +97,17 @@ src/
     browser-env.d.ts  Minimal DOM types for browser entry files
   color/
     index.ts          Color utility barrel
+    index.test.ts     Color unit tests
     convert.ts        hex/rgb/hsl conversions
     luminance.ts      WCAG relative luminance
     contrast.ts       postProcessDarkSvg() — fix dark mode contrast
-  __tests__/          Unit tests (pure logic, mocked FS where needed)
-  test-utils/
-    e2e.ts            Shared e2e helpers (fixture workspace, CLI runner, validators)
-  e2e/
-    api-render.e2e.test.ts  API rendering e2e (all types, formats, themes, incremental)
-    cli-render.e2e.test.ts  CLI rendering e2e (flags, output dirs, filtering)
-    fixtures/               Sample .mmd, .excalidraw, .drawio.xml for testing
+  *.test.ts           Unit tests colocated with source files
+e2e/
+  api-render.e2e.test.ts  API rendering e2e (vitest, all types/formats/themes/incremental)
+  cli-render.e2e.test.ts  CLI rendering e2e (vitest, flags/output dirs/filtering)
+  test-utils.ts           Shared e2e helpers (fixture workspace, CLI runner, validators)
+  README.md               Lists all e2e test cases
+  fixtures/               Sample .mmd, .excalidraw, .drawio.xml for testing
 docs/                 VitePress documentation site
 skills/
   claude-code/        LLM skills for diagram generation and rendering
@@ -151,9 +152,9 @@ diagramkit install-skills --global             # Copy skills to ~/.claude/skills
 render(source, type, options?)    // Render from string → RenderResult
 renderFile(filePath, options?)    // Render from file → RenderResult
 renderAll(options?)               // Batch render directory → RenderAllResult { rendered, skipped, failed }
-renderDiagramFileToDisk(file, options?) // Render + write to disk
+renderDiagramFileToDisk(file, options?) // Render single file + write to disk. Useful for custom watch implementations.
 watchDiagrams(options)            // Watch mode with debounce
-convertSvg(svg, options)          // SVG to PNG/JPEG/WebP via sharp
+convertSvg(svg, options)          // SVG to PNG/JPEG/WebP via sharp. Imported from 'diagramkit/convert', not the main entrypoint.
 loadConfig(overrides?, dir?)      // Merged config: defaults -> global -> local -> overrides
 getExtensionMap(overrides?)       // Get extension-to-type mapping
 warmup() / dispose()              // Browser lifecycle
@@ -171,7 +172,7 @@ atomicWrite(path, content)        // Atomic .tmp + rename write
 - Section headers: `/* -- Name -- */`
 - Dynamic imports for optional deps (sharp)
 - Atomic writes in renderers: .tmp + rename
-- Test files: unit tests in `src/__tests__/`, e2e tests in `src/e2e/`
+- Test files: unit tests colocated with source (`src/*.test.ts`), e2e tests in `e2e/`
 - Unit tests cover pure logic; e2e tests cover real Playwright rendering across all diagram types
 
 ## Dependencies
@@ -195,12 +196,37 @@ atomicWrite(path, content)        // Atomic .tmp + rename write
 | `.drawio.xml` | drawio      |
 | `.dio`        | drawio      |
 
+## Runtime compatibility
+
+- **Node 24** (`.node-version`) with npm 11.x
+- **engines.node**: `>=24.0.0`
+
 ## Testing strategy
 
-- **Unit tests** (`src/__tests__/`): Test pure logic modules (extensions, config, manifest, output, discovery, color, convert) with real temp directories and mocked FS where needed. No browser required.
-- **E2E tests** (`src/e2e/`): Test real rendering through Playwright for all diagram types (mermaid, excalidraw, drawio) across all output formats (SVG, PNG, JPEG, WebP), themes, config options, and incremental rebuild behavior. Each test creates an isolated temp workspace from fixture files.
-- **CLI e2e tests**: Run the built CLI binary (`dist/cli/bin.mjs`) via `execFileSync` to verify flag parsing and output.
-- Run `npm test` for all, `npm run test:unit` for fast feedback, `npm run test:e2e` for rendering tests.
+- **Unit tests** (`src/**/*.test.ts`): Colocated with source files. Test pure logic modules (extensions, config, manifest, output, discovery, color, convert) with real temp directories and mocked FS where needed. No browser required.
+- **E2E tests** (`e2e/`): Vitest-integrated tests that run with `npm run test:e2e`. Test real rendering through Playwright for all diagram types, themes, formats, CLI flags, manifest behavior, and incremental rebuilds. Each test creates and cleans up an isolated temp workspace.
+- **CI**: E2E on Node 24 (from `.node-version`).
+- Run `npm test` for all, `npm run test:unit` for fast feedback, `npm run test:e2e` for e2e.
+- **Export policy**: Only export functions needed by other modules or the public API. Never export a function solely for testing — test through the public interface or restructure the code instead.
+
+## Validation before commit
+
+Always run these checks before committing changes:
+
+```bash
+npm run check          # Lint and format
+npm run typecheck      # Type checking
+npm run build          # Build dist
+npm run build:docs     # Build docs site
+npm run test:unit      # Unit tests
+npm run test:e2e       # E2E rendering tests (Node)
+```
+
+Or run everything at once:
+
+```bash
+npm run validate    # All checks in sequence (lint + typecheck + build + docs + all tests)
+```
 
 ## LLM files
 

@@ -4,7 +4,7 @@
 
 - ESM only, no CommonJS (`import`/`export`, never `require`/`module.exports`)
 - TypeScript strict mode
-- Node >= 20.0.0 required
+- Node >= 24.0.0 required
 
 ## Formatting
 
@@ -40,7 +40,7 @@
 
 ## Renderers
 
-- Dynamic imports for optional dependencies (`sharp`, `@excalidraw/excalidraw`, `rolldown`)
+- Dynamic imports for optional peer dependencies (`sharp`). Runtime bundling for browser entry points via `rolldown`.
 - Fail gracefully: if an optional dep is missing, warn and skip (do not throw from batch)
 - Individual file failures do not abort a batch render — log and continue
 - Atomic writes where practical: write to `.tmp` file, then `renameSync` to final path
@@ -69,13 +69,13 @@
 - Framework: vitest
 - Unit tests for pure logic: color conversions, manifest operations, extension resolution
 - Integration tests that need Playwright should be separate (slower, require chromium)
-- Test files live in `src/__tests__/`
+- Unit tests colocated with source (`src/*.test.ts`), e2e tests in `e2e/`
 - Run with `npm test` (vitest run) or `npm run test:watch` (vitest watch)
 - Type checking: `npm run typecheck` (tsc --noEmit)
 
 ## Build
 
-- Vite for library build (`vite build`)
+- vite-plus for library build (`vp pack`)
 - `vite-plugin-dts` for type declaration generation
 - Output to `dist/` — ESM only (`.mjs` + `.d.mts`)
 - Published files: `dist/` and `skills/`
