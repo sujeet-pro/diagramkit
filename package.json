@@ -85,23 +85,23 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
-    "chokidar": "^4.0.3",
-    "mermaid": "^11.6.0",
-    "playwright": "^1.52.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "chokidar": "^5.0.0",
+    "mermaid": "^11.13.0",
+    "playwright": "^1.58.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "rolldown": "^1.0.0-rc.11"
   },
   "devDependencies": {
-    "@types/node": "^22.15.0",
-    "esbuild": "^0.27.0",
-    "sharp": "^0.33.0",
-    "typescript": "^5.9.0",
+    "@types/node": "^25.5.0",
+    "esbuild": "^0.27.4",
+    "sharp": "^0.34.5",
+    "typescript": "^6.0.2",
     "vite-plus": "^0.1.13",
-    "vitepress": "^1.6.0"
+    "vitepress": "^1.6.4"
   },
   "peerDependencies": {
-    "sharp": "^0.33.0"
+    "sharp": "^0.34.5"
   },
   "peerDependenciesMeta": {
     "sharp": {
