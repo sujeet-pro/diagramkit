@@ -71,8 +71,8 @@
     "build": "vp pack",
     "build:docs": "npm run docs:build",
     "test": "vp test run",
-    "test:unit": "vp test run src/__tests__ --pool forks --fileParallelism",
-    "test:e2e": "vp test run src/e2e --pool forks --fileParallelism",
+    "test:unit": "vp test run src/ --pool forks --fileParallelism",
+    "test:e2e": "vp test run e2e/ --pool forks --fileParallelism",
     "test:watch": "vp test",
     "check": "vp check",
     "check:fix": "vp check --fix",
@@ -80,7 +80,8 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "validate": "npm run check && npm run typecheck && npm run build && npm run build:docs && npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
@@ -112,7 +113,7 @@
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.13"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "packageManager": "npm@11.12.0"
 }

@@ -11,7 +11,7 @@ export function postProcessDarkSvg(svg: string): string {
   // Process fill colors inside style="..." attributes
   let result = svg.replace(/style="([^"]*)"/g, (match, styleContent: string) => {
     const newStyle = styleContent.replace(
-      /fill\s*:\s*(#[0-9a-fA-F]{3,6})/g,
+      /fill\s*:\s*(#(?:[0-9a-fA-F]{3}){1,2})/g,
       (fillMatch, hex: string) => {
         return adjustFillIfNeeded(fillMatch, hex)
       },
@@ -22,7 +22,7 @@ export function postProcessDarkSvg(svg: string): string {
   // Also process style='...' attributes (single quotes)
   result = result.replace(/style='([^']*)'/g, (match, styleContent: string) => {
     const newStyle = styleContent.replace(
-      /fill\s*:\s*(#[0-9a-fA-F]{3,6})/g,
+      /fill\s*:\s*(#(?:[0-9a-fA-F]{3}){1,2})/g,
       (fillMatch, hex: string) => {
         return adjustFillIfNeeded(fillMatch, hex)
       },
@@ -31,7 +31,7 @@ export function postProcessDarkSvg(svg: string): string {
   })
 
   // Process standalone fill="#hex" attributes (not inside style)
-  result = result.replace(/fill="(#[0-9a-fA-F]{3,6})"/g, (match, hex: string) => {
+  result = result.replace(/fill="(#(?:[0-9a-fA-F]{3}){1,2})"/g, (match, hex: string) => {
     const rgb = hexToRgb(hex)
     if (!rgb) return match
     const [r, g, b] = rgb

@@ -12,6 +12,8 @@ const DEFAULT_EXTENSION_MAP: Record<string, DiagramType> = {
   '.dio': 'drawio',
 }
 
+const DEFAULT_SORTED_KEYS = Object.keys(DEFAULT_EXTENSION_MAP).sort((a, b) => b.length - a.length)
+
 /** Merge defaults with optional overrides. */
 export function getExtensionMap(
   overrides?: Record<string, DiagramType>,
@@ -29,7 +31,10 @@ export function getDiagramType(
   map: Record<string, DiagramType> = DEFAULT_EXTENSION_MAP,
 ): DiagramType | null {
   // Sort by descending length for correct longest-match behavior
-  const sorted = Object.keys(map).sort((a, b) => b.length - a.length)
+  const sorted =
+    map === DEFAULT_EXTENSION_MAP
+      ? DEFAULT_SORTED_KEYS
+      : Object.keys(map).sort((a, b) => b.length - a.length)
   for (const ext of sorted) {
     if (filename.endsWith(ext)) return map[ext]!
   }
@@ -44,7 +49,10 @@ export function getMatchedExtension(
   filename: string,
   map: Record<string, DiagramType> = DEFAULT_EXTENSION_MAP,
 ): string | null {
-  const sorted = Object.keys(map).sort((a, b) => b.length - a.length)
+  const sorted =
+    map === DEFAULT_EXTENSION_MAP
+      ? DEFAULT_SORTED_KEYS
+      : Object.keys(map).sort((a, b) => b.length - a.length)
   for (const ext of sorted) {
     if (filename.endsWith(ext)) return ext
   }

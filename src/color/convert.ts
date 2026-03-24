@@ -1,6 +1,6 @@
 /** Parse a hex color string to RGB tuple. Supports 3 and 6 digit hex. Returns null for invalid input. */
 export function hexToRgb(hex: string): [number, number, number] | null {
-  hex = hex.replace('#', '')
+  hex = hex.replace(/^#/, '')
   if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2]
   if (hex.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(hex)) return null
   return [

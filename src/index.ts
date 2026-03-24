@@ -1,6 +1,12 @@
 /* ── Core API ── */
 
-export { render, renderAll, renderFile, defaultMermaidDarkTheme } from './renderer'
+export {
+  render,
+  renderAll,
+  renderFile,
+  renderDiagramFileToDisk,
+  defaultMermaidDarkTheme,
+} from './renderer'
 export type { RenderAllResult } from './renderer'
 export { dispose, warmup } from './pool'
 export { watchDiagrams } from './watch'
@@ -26,18 +32,7 @@ export { convertSvg } from './convert'
 /* ── File operations ── */
 
 export { filterByType, findDiagramFiles } from './discovery'
-export {
-  cleanOrphans,
-  DIAGRAMS_DIR,
-  ensureDiagramsDir,
-  filterStaleFiles,
-  getDiagramsDir,
-  hashFile,
-  isStale,
-  readManifest,
-  updateManifest,
-  writeManifest,
-} from './manifest'
+export { getDiagramsDir, ensureDiagramsDir, isStale, readManifest } from './manifest'
 
 /* ── Color utilities ── */
 
@@ -47,8 +42,12 @@ export { postProcessDarkSvg } from './color/contrast'
 
 export { atomicWrite, stripDiagramExtension } from './output'
 
-/* ── Renderers ── */
+/* ── Renderers (legacy) ── */
 
+/**
+ * @deprecated Class-based renderers are legacy. Use render(), renderFile(), or renderAll() instead.
+ * These renderers always produce SVG with both themes and have limited error handling.
+ */
 export { createRenderers, ExcalidrawRenderer, MermaidRenderer, DrawioRenderer } from './renderers'
 
 /* ── Types ── */

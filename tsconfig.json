@@ -18,12 +18,11 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src", "cli"],
+  "include": ["src", "cli", "e2e"],
   "exclude": [
     "node_modules",
     "dist",
     "docs",
-    "src/__tests__",
     "src/renderers/excalidraw-entry.ts",
     "src/renderers/drawio-entry.ts"
   ]

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Node.js** >= 20.0.0
+- **Node.js** >= 24.0.0
 - A package manager (npm, pnpm, or yarn)
 
 ## Installation

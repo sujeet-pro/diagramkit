@@ -49,6 +49,7 @@ export function watchDiagrams(opts: WatchOptions): () => void {
   // Render mutex to prevent concurrent manifest writes
   let rendering = false
   const queue: string[] = []
+  const queueSet = new Set<string>()
 
   const handle = async (path: string) => {
     const file = toDiagramFile(path, extensionMap)
@@ -77,11 +78,15 @@ export function watchDiagrams(opts: WatchOptions): () => void {
   const processQueue = async () => {
     if (rendering) return
     rendering = true
-    while (queue.length > 0) {
-      const path = queue.shift()!
-      await handle(path)
+    try {
+      while (queue.length > 0) {
+        const path = queue.shift()!
+        queueSet.delete(path)
+        await handle(path)
+      }
+    } finally {
+      rendering = false
     }
-    rendering = false
   }
 
   const debouncedHandle = (path: string) => {
@@ -91,7 +96,10 @@ export function watchDiagrams(opts: WatchOptions): () => void {
       path,
       setTimeout(() => {
         pending.delete(path)
-        queue.push(path)
+        if (!queueSet.has(path)) {
+          queue.push(path)
+          queueSet.add(path)
+        }
         void processQueue()
       }, 200),
     )

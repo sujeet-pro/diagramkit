@@ -13,8 +13,12 @@ export async function convertSvg(svg: Buffer | string, options: ConvertOptions):
     throw new Error(`sharp is required for ${options.format} output. Install: npm add sharp`)
   }
 
-  const density = (options.density ?? 2) * 72 // sharp uses DPI, SVG base is 72
-  const quality = options.quality ?? 90
+  const rawDensity = options.density ?? 2
+  if (rawDensity <= 0 || rawDensity > 10) {
+    throw new Error(`density must be between 0 and 10, got ${rawDensity}`)
+  }
+  const density = rawDensity * 72 // sharp uses DPI, SVG base is 72
+  const quality = Math.max(1, Math.min(100, options.quality ?? 90))
   const input = Buffer.isBuffer(svg) ? svg : Buffer.from(svg)
 
   let pipeline = sharp(input, { density })

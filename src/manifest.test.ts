@@ -18,14 +18,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import {
   cleanOrphans,
   ensureDiagramsDir,
+  filterStaleFiles,
   getDiagramsDir,
   hashFile,
   isStale,
   readManifest,
   updateManifest,
   writeManifest,
-} from '../manifest'
-import type { DiagramFile } from '../types'
+} from './manifest'
+import type { DiagramFile } from './types'
 
 describe('manifest', () => {
   let testDir: string
@@ -194,6 +195,98 @@ describe('manifest', () => {
       expect(existsSync(join(testDir, 'keep-dark.svg'))).toBe(true)
       expect(existsSync(join(testDir, 'keep.mermaid'))).toBe(true)
       expect(existsSync(join(testDir, 'notes.txt'))).toBe(true)
+    })
+
+    it('removes unreferenced files from non-same-folder output directory', () => {
+      const file = createDiagram()
+      const outDir = ensureDiagramsDir(testDir)
+
+      updateManifest([file], 'svg', undefined, 'both')
+      writeFileSync(join(outDir, 'test-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'test-dark.svg'), '<svg/>')
+      // An extra file that is not tracked in the manifest
+      writeFileSync(join(outDir, 'stale-light.svg'), '<svg/>')
+
+      cleanOrphans([file])
+
+      expect(existsSync(join(outDir, 'test-light.svg'))).toBe(true)
+      expect(existsSync(join(outDir, 'test-dark.svg'))).toBe(true)
+      expect(existsSync(join(outDir, 'stale-light.svg'))).toBe(false)
+    })
+  })
+
+  describe('filterStaleFiles', () => {
+    it('returns all files with _hash populated when force=true', () => {
+      const file1 = createDiagram('a.mermaid', 'flowchart TD\nA-->B')
+      const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
+
+      // Pre-render so files would normally be up-to-date
+      updateManifest([file1, file2], 'svg', undefined, 'both')
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'a-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'a-dark.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'b-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'b-dark.svg'), '<svg/>')
+
+      const stale = filterStaleFiles([file1, file2], true, 'svg', undefined, 'both')
+      expect(stale).toHaveLength(2)
+      expect(stale[0]._hash).toMatch(/^sha256:/)
+      expect(stale[1]._hash).toMatch(/^sha256:/)
+    })
+
+    it('filters out up-to-date files when force=false', () => {
+      const file1 = createDiagram('a.mermaid', 'flowchart TD\nA-->B')
+      const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
+
+      // Only update manifest for file1
+      updateManifest([file1], 'svg', undefined, 'both')
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'a-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'a-dark.svg'), '<svg/>')
+
+      const stale = filterStaleFiles([file1, file2], false, 'svg', undefined, 'both')
+      expect(stale).toHaveLength(1)
+      expect(stale[0].name).toBe('b')
+      expect(stale[0]._hash).toMatch(/^sha256:/)
+    })
+
+    it('returns all files when useManifest is false', () => {
+      const file1 = createDiagram('a.mermaid', 'flowchart TD\nA-->B')
+      const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
+
+      // Even after updating the manifest, all files should be returned
+      updateManifest([file1, file2], 'svg', undefined, 'both')
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'a-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'a-dark.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'b-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'b-dark.svg'), '<svg/>')
+
+      const stale = filterStaleFiles([file1, file2], false, 'svg', { useManifest: false }, 'both')
+      expect(stale).toHaveLength(2)
+      expect(stale[0]._hash).toMatch(/^sha256:/)
+      expect(stale[1]._hash).toMatch(/^sha256:/)
+    })
+  })
+
+  describe('updateManifest with cached hash', () => {
+    it('uses _hash from the file object instead of re-hashing', () => {
+      const file = createDiagram('cached.mermaid', 'flowchart TD\nX-->Y')
+      const fakeHash = 'sha256:deadbeefdeadbeef'
+      const fileWithHash = { ...file, _hash: fakeHash }
+
+      updateManifest([fileWithHash], 'svg', undefined, 'both')
+
+      const manifest = readManifest(testDir)
+      expect(manifest.diagrams['cached.mermaid'].hash).toBe(fakeHash)
+    })
+  })
+
+  describe('path traversal protection', () => {
+    it('throws when outputDir resolves outside the source directory', () => {
+      expect(() => getDiagramsDir('/some/path', { outputDir: '../../../etc' })).toThrow(
+        /resolves outside the source directory/,
+      )
     })
   })
 })

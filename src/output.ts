@@ -1,4 +1,5 @@
-import { mkdirSync, renameSync, writeFileSync } from 'fs'
+import { randomBytes } from 'crypto'
+import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
 import { getMatchedExtension } from './extensions'
 import type { OutputFormat, RenderResult, Theme } from './types'
@@ -6,9 +7,16 @@ import type { OutputFormat, RenderResult, Theme } from './types'
 type OutputVariant = 'light' | 'dark'
 
 export function atomicWrite(path: string, content: Buffer): void {
-  const tmp = path + '.tmp'
-  writeFileSync(tmp, content)
-  renameSync(tmp, path)
+  const tmp = path + '.tmp.' + randomBytes(4).toString('hex')
+  try {
+    writeFileSync(tmp, content)
+    renameSync(tmp, path)
+  } catch (err) {
+    try {
+      unlinkSync(tmp)
+    } catch {}
+    throw err
+  }
 }
 
 export function getOutputVariants(theme: Theme = 'both'): OutputVariant[] {

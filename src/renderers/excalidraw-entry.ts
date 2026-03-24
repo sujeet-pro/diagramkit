@@ -8,7 +8,12 @@ import { exportToSvg } from '@excalidraw/excalidraw'
   json: string,
   darkMode: boolean,
 ): Promise<string> => {
-  const data = JSON.parse(json)
+  let data: any
+  try {
+    data = JSON.parse(json)
+  } catch {
+    throw new Error('Invalid Excalidraw JSON: file does not contain valid JSON')
+  }
   const svg = await exportToSvg({
     elements: data.elements || [],
     appState: {

@@ -46,6 +46,9 @@ export async function render(
     let lightSvg: string | undefined
     let darkSvg: string | undefined
 
+    // Unique prefix avoids mermaid element ID collisions across concurrent renders
+    const renderId = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+
     if (type === 'mermaid') {
       if (theme === 'light' || theme === 'both') {
         const page = await pool.getMermaidLightPage()
@@ -56,7 +59,7 @@ export async function render(
             const { svg } = await (globalThis as any).mermaid.render(id, diagram, container)
             return svg as string
           },
-          { diagram: source.trim(), id: 'render-light' },
+          { diagram: source.trim(), id: `${renderId}-light` },
         )
       }
 
@@ -70,7 +73,7 @@ export async function render(
             const { svg } = await (globalThis as any).mermaid.render(id, diagram, container)
             return svg as string
           },
-          { diagram: source.trim(), id: 'render-dark' },
+          { diagram: source.trim(), id: `${renderId}-dark` },
         )
         if (contrastOptimize && darkSvg) {
           darkSvg = postProcessDarkSvg(darkSvg)
@@ -119,6 +122,9 @@ export async function render(
           darkSvg = postProcessDarkSvg(darkSvg)
         }
       }
+    } else {
+      const _exhaustive: never = type
+      throw new Error(`Unsupported diagram type: ${String(_exhaustive)}`)
     }
 
     // Convert to raster if needed (via sharp, dynamically imported)
@@ -136,15 +142,26 @@ export async function render(
       return { light, dark, format }
     }
 
-    // SVG output — parse dimensions
+    // SVG output — parse dimensions, with px-suffix tolerance and viewBox fallback
     const refSvg = lightSvg ?? darkSvg
     let width: number | undefined
     let height: number | undefined
     if (refSvg) {
-      const wMatch = refSvg.match(/width="(\d+(?:\.\d+)?)"/)
-      const hMatch = refSvg.match(/height="(\d+(?:\.\d+)?)"/)
-      if (wMatch) width = parseFloat(wMatch[1]!)
-      if (hMatch) height = parseFloat(hMatch[1]!)
+      const svgTag = refSvg.match(/<svg[^>]*>/)
+      if (svgTag) {
+        const tag = svgTag[0]
+        const wMatch = tag.match(/width="(\d+(?:\.\d+)?)\s*(?:px)?"/)
+        const hMatch = tag.match(/height="(\d+(?:\.\d+)?)\s*(?:px)?"/)
+        if (wMatch) width = parseFloat(wMatch[1]!)
+        if (hMatch) height = parseFloat(hMatch[1]!)
+        if (!wMatch || !hMatch) {
+          const vbMatch = tag.match(/viewBox="[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)"/)
+          if (vbMatch) {
+            if (!wMatch) width = parseFloat(vbMatch[1]!)
+            if (!hMatch) height = parseFloat(vbMatch[2]!)
+          }
+        }
+      }
     }
 
     return {
@@ -200,13 +217,15 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
   const config = loadConfig(opts.config, contentDir)
   const format = opts.format ?? config.defaultFormat
   const theme = opts.theme ?? config.defaultTheme
+  const log = opts.logger?.log ?? console.log
+  const warn = opts.logger?.warn ?? console.warn
 
   const result: RenderAllResult = { rendered: [], skipped: [], failed: [] }
 
   const allFiles = findDiagramFiles(contentDir, config)
 
   if (allFiles.length === 0) {
-    console.log('No diagram files found.')
+    log('No diagram files found.')
     return result
   }
 
@@ -224,40 +243,52 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
   }
 
   if (stale.length === 0) {
-    console.log(`All ${filtered.length} diagrams up-to-date (skipped)`)
+    log(`All ${filtered.length} diagrams up-to-date (skipped)`)
   } else {
     if (!opts.force && stale.length < filtered.length) {
-      console.log(
-        `${filtered.length - stale.length} diagrams up-to-date, ${stale.length} need rendering`,
-      )
+      log(`${filtered.length - stale.length} diagrams up-to-date, ${stale.length} need rendering`)
     }
 
     const successful: DiagramFile[] = []
 
+    // Group by diagram type for concurrent rendering across separate browser pages
+    const byType = new Map<string, typeof stale>()
     for (const file of stale) {
-      try {
-        await renderDiagramFileToDisk(file, {
-          format,
-          theme,
-          quality: opts.quality,
-          scale: opts.scale,
-          contrastOptimize: opts.contrastOptimize,
-          mermaidDarkTheme: opts.mermaidDarkTheme,
-          config,
-        })
-        successful.push(file)
-        result.rendered.push(file.path)
-      } catch (err: any) {
-        console.warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
-        result.failed.push(file.path)
-      }
+      const type = getDiagramType(basename(file.path))!
+      if (!byType.has(type)) byType.set(type, [])
+      byType.get(type)!.push(file)
     }
+
+    const renderOpts = {
+      format,
+      theme,
+      quality: opts.quality,
+      scale: opts.scale,
+      contrastOptimize: opts.contrastOptimize,
+      mermaidDarkTheme: opts.mermaidDarkTheme,
+      config,
+    }
+
+    await Promise.all(
+      [...byType.values()].map(async (files) => {
+        for (const file of files) {
+          try {
+            await renderDiagramFileToDisk(file, renderOpts)
+            successful.push(file)
+            result.rendered.push(file.path)
+          } catch (err: any) {
+            warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
+            result.failed.push(file.path)
+          }
+        }
+      }),
+    )
 
     if (successful.length > 0) {
       updateManifest(successful, format, config, theme)
     }
 
-    console.log(
+    log(
       `Rendered ${successful.length}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${format}`,
     )
   }

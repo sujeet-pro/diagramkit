@@ -17,7 +17,7 @@ export default defineConfig({
     platform: 'node',
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'e2e/**/*.e2e.test.ts'],
     pool: 'forks',
     fileParallelism: true,
   },

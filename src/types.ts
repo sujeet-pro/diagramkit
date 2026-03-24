@@ -77,6 +77,8 @@ export interface BatchOptions extends RenderOptions {
   force?: boolean
   /** Filter to specific diagram type */
   type?: DiagramType
+  /** Optional logger for library consumers to control output */
+  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
 }
 
 /* ── Watch options ── */

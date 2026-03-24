@@ -99,7 +99,14 @@ function getFlag(name: string): boolean {
 
 function getFlagValue(name: string): string | undefined {
   const idx = args.indexOf(`--${name}`)
-  if (idx !== -1 && idx + 1 < args.length) return args[idx + 1]
+  if (idx !== -1 && idx + 1 < args.length) {
+    const value = args[idx + 1]!
+    if (value.startsWith('-')) {
+      console.error(`Missing value for --${name}`)
+      process.exit(1)
+    }
+    return value
+  }
   return undefined
 }
 
@@ -126,6 +133,47 @@ function validatePositiveNumber(value: string, label: string): number {
   return num
 }
 
+/* ── Unknown flag detection ── */
+
+function warnUnknownFlags() {
+  const knownFlags = new Set([
+    'format',
+    'theme',
+    'scale',
+    'quality',
+    'force',
+    'watch',
+    'no-contrast',
+    'type',
+    'output',
+    'dry-run',
+    'quiet',
+    'json',
+    'output-dir',
+    'manifest-file',
+    'no-manifest',
+    'same-folder',
+    'help',
+    'version',
+    'global',
+  ])
+  const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
+
+  for (const arg of args) {
+    if (arg.startsWith('--')) {
+      const name = arg.slice(2)
+      if (!knownFlags.has(name)) {
+        console.warn(`Warning: unknown flag "${arg}"`)
+      }
+    } else if (arg.startsWith('-') && arg.length === 2) {
+      const short = arg.slice(1)
+      if (!knownShortFlags.has(short)) {
+        console.warn(`Warning: unknown flag "${arg}"`)
+      }
+    }
+  }
+}
+
 /* ── Commands ── */
 
 async function commandWarmup() {
@@ -136,9 +184,9 @@ async function commandWarmup() {
     const { execFileSync } = await import('child_process')
     execFileSync(process.execPath, [playwrightPath, 'install', 'chromium'], { stdio: 'inherit' })
   } catch {
-    // Fallback to npx if direct resolution fails
-    const { execSync } = await import('child_process')
-    execSync('npx playwright install chromium', { stdio: 'inherit' })
+    // Fallback to npx if direct resolution fails — execFileSync avoids shell injection
+    const { execFileSync } = await import('child_process')
+    execFileSync('npx', ['playwright', 'install', 'chromium'], { stdio: 'inherit' })
   }
   console.log('Done.')
 }
@@ -166,7 +214,7 @@ async function commandInit() {
 async function commandInstallSkills() {
   const isGlobal = args.includes('--global')
   const { mkdirSync, cpSync } = await import('fs')
-  const { join, dirname } = await import('path')
+  const { join } = await import('path')
 
   // Find skills directory relative to this package
   const pkgCandidates = [
@@ -215,7 +263,30 @@ async function commandInstallSkills() {
 }
 
 async function commandRender() {
-  const target = args[1] ?? '.'
+  // Find the first positional argument after "render" by skipping flags and their values
+  const FLAGS_WITH_VALUES = new Set([
+    'format',
+    'theme',
+    'scale',
+    'quality',
+    'type',
+    'output',
+    'output-dir',
+    'manifest-file',
+  ])
+  let target = '.'
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i]!
+    if (arg.startsWith('--')) {
+      const name = arg.slice(2)
+      if (FLAGS_WITH_VALUES.has(name)) i++ // skip the value too
+      continue
+    }
+    if (arg.startsWith('-')) continue
+    target = arg
+    break
+  }
+  warnUnknownFlags()
 
   // Validate flag values
   const rawFormat = getFlagValue('format') ?? 'svg'
@@ -257,10 +328,15 @@ async function commandRender() {
 
   const resolvedTarget = resolve(target)
 
-  // Check if target is a single file
-  const stat = existsSync(resolvedTarget) ? (await import('fs')).statSync(resolvedTarget) : null
+  if (!existsSync(resolvedTarget)) {
+    console.error(`Path does not exist: ${resolvedTarget}`)
+    process.exit(1)
+  }
 
-  if (stat?.isFile()) {
+  // Check if target is a single file
+  const stat = (await import('fs')).statSync(resolvedTarget)
+
+  if (stat.isFile()) {
     // Single file render
     const { renderFile, dispose } = await import('../src/index')
     try {
@@ -331,12 +407,9 @@ async function commandRender() {
     return
   }
 
-  // Suppress console.log in quiet mode
-  const origLog = console.log
-  const origWarn = console.warn
-  if (quiet && !jsonOutput) {
-    console.log = () => {}
-  }
+  // Use the logger option to suppress output in quiet mode instead of monkey-patching console
+  const noop = () => {}
+  const logger = quiet && !jsonOutput ? { log: noop, warn: noop } : undefined
 
   const { renderAll, dispose } = await import('../src/index')
 
@@ -352,6 +425,7 @@ async function commandRender() {
       type,
       contrastOptimize: !noContrast,
       config: configOverrides,
+      logger,
     })
 
     if (customOutput && renderResult.rendered.length > 0) {
@@ -377,12 +451,6 @@ async function commandRender() {
       }
     }
   } finally {
-    // Restore console
-    if (quiet) {
-      console.log = origLog
-      console.warn = origWarn
-    }
-
     if (!watchMode) {
       await dispose()
     }
@@ -408,11 +476,10 @@ async function commandRender() {
       },
     })
 
-    // Keep process alive, clean up on exit
+    // Keep process alive, clean up on exit — dispose() must complete before exit to avoid zombie Chromium
     process.on('SIGINT', () => {
       cleanup()
-      void import('../src/index').then(({ dispose }) => dispose())
-      process.exit(0)
+      void dispose().finally(() => process.exit(0))
     })
   }
 }

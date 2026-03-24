@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
-import { filterByType, findDiagramFiles } from '../discovery'
+import { filterByType, findDiagramFiles } from './discovery'
 
 describe('discovery', () => {
   const tempDirs: string[] = []
@@ -68,5 +68,71 @@ describe('discovery', () => {
 
     expect(mermaidFiles).toHaveLength(1)
     expect(mermaidFiles[0]?.name).toBe('architecture')
+  })
+
+  it('skips custom output directory during discovery', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-outputdir-'))
+    tempDirs.push(root)
+
+    mkdirSync(join(root, '_renders'), { recursive: true })
+    writeFileSync(join(root, '_renders', 'hidden.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'visible.mermaid'), 'flowchart TD\nC-->D')
+
+    const files = findDiagramFiles(root, { outputDir: '_renders' })
+
+    expect(files).toHaveLength(1)
+    expect(files[0]?.name).toBe('visible')
+  })
+
+  it('finds diagrams in nested subdirectories', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-nested-'))
+    tempDirs.push(root)
+
+    mkdirSync(join(root, 'docs', 'api'), { recursive: true })
+    mkdirSync(join(root, 'src', 'diagrams'), { recursive: true })
+    writeFileSync(join(root, 'top.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'docs', 'api', 'flow.mmd'), 'flowchart TD\nC-->D')
+    writeFileSync(join(root, 'src', 'diagrams', 'arch.excalidraw'), '{"elements":[]}')
+
+    const files = findDiagramFiles(root)
+
+    expect(files).toHaveLength(3)
+    expect(files.map((f) => f.name).sort()).toEqual(['arch', 'flow', 'top'])
+  })
+
+  it('filters by excalidraw type', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-excalidraw-'))
+    tempDirs.push(root)
+
+    writeFileSync(join(root, 'flow.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'board.excalidraw'), '{"elements":[]}')
+    writeFileSync(join(root, 'system.drawio.xml'), '<mxGraphModel />')
+
+    const files = findDiagramFiles(root)
+    const excalidrawFiles = filterByType(files, 'excalidraw')
+
+    expect(excalidrawFiles).toHaveLength(1)
+    expect(excalidrawFiles[0]?.name).toBe('board')
+  })
+
+  it('filters by drawio type', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-drawio-'))
+    tempDirs.push(root)
+
+    writeFileSync(join(root, 'flow.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'board.excalidraw'), '{"elements":[]}')
+    writeFileSync(join(root, 'system.drawio.xml'), '<mxGraphModel />')
+    writeFileSync(join(root, 'other.dio'), '<mxGraphModel />')
+
+    const files = findDiagramFiles(root)
+    const drawioFiles = filterByType(files, 'drawio')
+
+    expect(drawioFiles).toHaveLength(2)
+    expect(drawioFiles.map((f) => f.name).sort()).toEqual(['other', 'system'])
+  })
+
+  it('returns empty array for non-existent directory', () => {
+    const files = findDiagramFiles('/nonexistent-path-abc123-xyz')
+    expect(files).toEqual([])
   })
 })

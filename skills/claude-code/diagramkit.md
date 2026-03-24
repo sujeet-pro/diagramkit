@@ -4,7 +4,7 @@ description: Render .mermaid, .excalidraw, and .drawio diagrams to SVG/PNG/JPEG/
 user_invocable: true
 arguments:
   - name: command
-    description: 'CLI command: render, warmup, convert'
+    description: 'CLI command: render, warmup, init, install-skills'
     required: true
   - name: target
     description: 'File or directory to render (default: current directory)'

@@ -5,7 +5,7 @@ import {
   getExtensionMap,
   getExtensionsForType,
   getMatchedExtension,
-} from '../extensions'
+} from './extensions'
 
 describe('getDiagramType', () => {
   it('resolves .mermaid to mermaid', () => {
