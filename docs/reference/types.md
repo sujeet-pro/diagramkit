@@ -301,36 +301,3 @@ type ManifestEntry = {
 | `format` | `OutputFormat` | Output format used for this render |
 | `theme` | `Theme` | Theme variant used for this render |
 
----
-
-## Internal Types
-
-These types are exported but primarily used internally by the rendering system.
-
-### `DiagramRenderer`
-
-Interface implemented by each diagram engine (Mermaid, Excalidraw, Draw.io).
-
-```typescript
-interface DiagramRenderer {
-  name: string
-  extensions: string[]
-  renderBatch(files: DiagramFile[], options?: RendererOptions): Promise<void>
-  renderSingle(file: DiagramFile, options?: RendererOptions): Promise<void>
-  dispose?(): Promise<void>
-}
-```
-
----
-
-### `RendererOptions`
-
-Internal options passed to renderer implementations.
-
-```typescript
-interface RendererOptions {
-  force?: boolean
-  format?: OutputFormat
-  config?: Partial<DiagramkitConfig>
-}
-```

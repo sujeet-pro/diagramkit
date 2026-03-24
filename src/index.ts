@@ -42,14 +42,6 @@ export { postProcessDarkSvg } from './color/contrast'
 
 export { atomicWrite, stripDiagramExtension } from './output'
 
-/* ── Renderers (legacy) ── */
-
-/**
- * @deprecated Class-based renderers are legacy. Use render(), renderFile(), or renderAll() instead.
- * These renderers always produce SVG with both themes and have limited error handling.
- */
-export { createRenderers, ExcalidrawRenderer, MermaidRenderer, DrawioRenderer } from './renderers'
-
 /* ── Types ── */
 
 export type {
@@ -57,11 +49,9 @@ export type {
   ConvertOptions,
   DiagramFile,
   DiagramkitConfig,
-  DiagramRenderer,
   DiagramType,
   OutputFormat,
   RenderOptions,
-  RendererOptions,
   RenderResult,
   Theme,
   WatchOptions,

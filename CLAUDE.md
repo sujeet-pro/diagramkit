@@ -88,13 +88,9 @@ src/
   extensions.ts       Extension-to-DiagramType mapping and aliases
   output.ts           Output naming, atomic writes, extension stripping
   renderers/
-    index.ts          createRenderers() factory
-    mermaid.ts        MermaidRenderer class (DiagramRenderer interface)
-    excalidraw.ts     ExcalidrawRenderer class
     excalidraw-entry.ts  Browser IIFE for excalidraw exportToSvg
-    drawio.ts         DrawioRenderer class
-    drawio-entry.ts   Browser IIFE for draw.io mxGraphModel parsing
-    browser-env.d.ts  Minimal DOM types for browser entry files
+    drawio-entry.ts      Browser IIFE for draw.io mxGraphModel parsing
+    browser-env.d.ts     Minimal DOM types for browser entry files
   color/
     index.ts          Color utility barrel
     index.test.ts     Color unit tests

@@ -25,7 +25,7 @@ function toDiagramFile(
  * Safe mode: if render fails, output and manifest are left untouched.
  * Returns a cleanup function to stop watching.
  */
-export function watchDiagrams(opts: WatchOptions): () => void {
+export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   const dir = opts.dir
   const config = loadConfig(opts.config, dir)
   const format = opts.renderOptions?.format ?? config.defaultFormat
@@ -115,9 +115,9 @@ export function watchDiagrams(opts: WatchOptions): () => void {
     debouncedHandle(path)
   })
 
-  return () => {
+  return async () => {
     for (const timer of pending.values()) clearTimeout(timer)
     pending.clear()
-    void watcher.close()
+    await watcher.close()
   }
 }

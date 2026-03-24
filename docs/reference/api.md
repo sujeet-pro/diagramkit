@@ -91,7 +91,7 @@ interface RenderAllResult {
 1. Discovers all diagram files with `findDiagramFiles()`
 2. Optionally filters by `type`
 3. Checks manifest for staleness (unless `force: true`)
-4. Renders stale files using `MermaidRenderer`, `ExcalidrawRenderer`, and `DrawioRenderer`
+4. Renders stale files via `renderDiagramFileToDisk()` (grouped by diagram type for concurrency)
 5. Updates manifest
 6. Cleans orphaned outputs
 
@@ -335,32 +335,6 @@ function postProcessDarkSvg(svg: string): string
 Finds inline `fill:#hex` values with relative luminance > 0.4 and darkens them (lightness set to 0.25, saturation capped at 0.6) while preserving hue.
 
 Exported from both `diagramkit` and `diagramkit/color`.
-
----
-
-## Renderers
-
-### `createRenderers()`
-
-Create the array of built-in diagram renderers.
-
-```typescript
-function createRenderers(): DiagramRenderer[]
-```
-
-Returns `[MermaidRenderer, ExcalidrawRenderer, DrawioRenderer]`.
-
-### `MermaidRenderer`
-
-Class implementing `DiagramRenderer` for `.mermaid` files.
-
-### `ExcalidrawRenderer`
-
-Class implementing `DiagramRenderer` for `.excalidraw` files.
-
-### `DrawioRenderer`
-
-Class implementing `DiagramRenderer` for `.drawio` files.
 
 ---
 

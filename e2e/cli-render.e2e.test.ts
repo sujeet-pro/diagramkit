@@ -227,4 +227,11 @@ describe('CLI rendering e2e', () => {
     expect(result.stdout).toContain('--theme')
     expect(result.stdout).toContain('--help')
   }, 120_000)
+
+  it('--version prints the version number', () => {
+    const result = runCliSafe(['--version'])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toMatch(/diagramkit v\d+\.\d+\.\d+/)
+  }, 120_000)
 })
