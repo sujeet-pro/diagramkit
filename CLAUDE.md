@@ -116,7 +116,10 @@ skills/
     diagram-excalidraw.md Excalidraw authoring
     diagram-drawio.md     Draw.io authoring
     image-convert.md      SVG-to-raster conversion
+    troubleshoot.md       Common errors and fixes
+    ci-cd.md              CI/CD integration guide
     references/           Excalidraw JSON format, arrows, colors, examples, validation
+                          Draw.io shapes and styles references
 ```
 
 ## Commands
@@ -133,21 +136,29 @@ diagramkit render . --type mermaid             # Filter by type
 diagramkit render . --no-contrast              # Skip dark SVG contrast fix
 diagramkit render . --scale 3                  # High-res raster
 diagramkit render file.mermaid --output ./out  # Custom output dir
+diagramkit render . --dry-run                  # Preview what would render
+diagramkit render . --quiet                    # Suppress info output
+diagramkit render . --json                     # Machine-readable JSON output
 diagramkit warmup                              # Install Playwright chromium
+diagramkit init                                # Create .diagramkitrc.json config
+diagramkit install-skills                      # Copy skills to .claude/skills/
+diagramkit install-skills --global             # Copy skills to ~/.claude/skills/
 ```
 
 ## Key APIs
 
 ```typescript
-render(source, type, options?)    // Render from string
-renderFile(filePath, options?)    // Render from file
-renderAll(options?)               // Batch render directory
-watchDiagrams(options)            // Watch mode
+render(source, type, options?)    // Render from string → RenderResult
+renderFile(filePath, options?)    // Render from file → RenderResult
+renderAll(options?)               // Batch render directory → RenderAllResult { rendered, skipped, failed }
+renderDiagramFileToDisk(file, options?) // Render + write to disk
+watchDiagrams(options)            // Watch mode with debounce
 convertSvg(svg, options)          // SVG to PNG/JPEG/WebP via sharp
 loadConfig(overrides?, dir?)      // Merged config: defaults -> global -> local -> overrides
 getExtensionMap(overrides?)       // Get extension-to-type mapping
 warmup() / dispose()              // Browser lifecycle
-postProcessDarkSvg(svg)           // Color contrast fix
+postProcessDarkSvg(svg)           // Color contrast fix (handles style="" and fill="" attributes)
+atomicWrite(path, content)        // Atomic .tmp + rename write
 ```
 
 ## Coding conventions
@@ -191,7 +202,15 @@ postProcessDarkSvg(svg)           // Color contrast fix
 - **CLI e2e tests**: Run the built CLI binary (`dist/cli/bin.mjs`) via `execFileSync` to verify flag parsing and output.
 - Run `npm test` for all, `npm run test:unit` for fast feedback, `npm run test:e2e` for rendering tests.
 
+## LLM files
+
+- **llms.txt** — Concise LLM-oriented summary following the llms.txt convention.
+- **llms-full.txt** — Detailed LLM reference with architecture, API, and internals.
+- When updating the codebase, keep these files in sync with actual behavior.
+
 ## Claude Code skills
+
+Skills can be installed into a project with `diagramkit install-skills` or globally with `diagramkit install-skills --global`.
 
 - **skills/claude-code/diagramkit.md** — Quick reference for CLI, output convention, configuration, dark mode.
 - **skills/claude-code/diagrams.md** — Engine selection: when to use mermaid vs excalidraw vs drawio.
@@ -199,4 +218,6 @@ postProcessDarkSvg(svg)           // Color contrast fix
 - **skills/claude-code/diagram-excalidraw.md** — Excalidraw JSON authoring rules and patterns.
 - **skills/claude-code/diagram-drawio.md** — Draw.io XML authoring with shapes, styles, containers.
 - **skills/claude-code/image-convert.md** — SVG-to-raster conversion using diagramkit.
-- **skills/claude-code/references/** — Excalidraw JSON format spec, arrows, colors, examples, validation.
+- **skills/claude-code/troubleshoot.md** — Common errors and fixes for all diagram types.
+- **skills/claude-code/ci-cd.md** — CI/CD integration guide (GitHub Actions, GitLab CI, Docker).
+- **skills/claude-code/references/** — Excalidraw JSON format, arrows, colors, examples, validation. Draw.io shapes and styles.

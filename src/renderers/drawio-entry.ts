@@ -119,6 +119,15 @@ function stripHtml(str: string): string {
   return div.textContent || div.innerText || ''
 }
 
+/** sRGB linearization for WCAG luminance — matches the Node-side color/luminance.ts formula. */
+function srgbLinear(c: number): number {
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+}
+
+function wcagLuminance(r: number, g: number, b: number): number {
+  return 0.2126 * srgbLinear(r) + 0.7152 * srgbLinear(g) + 0.0722 * srgbLinear(b)
+}
+
 function adjustColorForDark(hex: string, isDark: boolean): string {
   if (!isDark || !hex) return hex
 
@@ -127,14 +136,14 @@ function adjustColorForDark(hex: string, isDark: boolean): string {
   if (lower === '#ffffff' || lower === '#fff') return '#2d2d2d'
   if (lower === '#000000' || lower === '#000') return '#e5e5e5'
 
-  // Parse hex to determine luminance
+  // Parse hex to determine luminance using proper WCAG formula
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255
   const b = parseInt(hex.slice(5, 7), 16) / 255
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  const lum = wcagLuminance(r, g, b)
 
-  // Light colors get darkened, dark colors get lightened
-  if (lum > 0.6) {
+  // Light colors get darkened — threshold matches Node-side contrast.ts (0.4)
+  if (lum > 0.4) {
     const factor = 0.3
     const dr = Math.round(r * factor * 255)
     const dg = Math.round(g * factor * 255)

@@ -1,7 +1,8 @@
-import { readFileSync, renameSync, writeFileSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join } from 'path'
 import { postProcessDarkSvg } from '../color/contrast'
 import { ensureDiagramsDir } from '../manifest'
+import { atomicWrite } from '../output'
 import { getPool } from '../pool'
 import type { DiagramFile, DiagramRenderer, RendererOptions } from '../types'
 
@@ -34,6 +35,7 @@ export class DrawioRenderer implements DiagramRenderer {
       for (const file of files) {
         const xml = readFileSync(file.path, 'utf-8')
         const outDir = ensureDiagramsDir(file.dir, options?.config)
+        let fileOk = true
 
         for (const darkMode of [false, true]) {
           const suffix = darkMode ? 'dark' : 'light'
@@ -46,15 +48,14 @@ export class DrawioRenderer implements DiagramRenderer {
             )
             if (darkMode) svg = postProcessDarkSvg(svg)
 
-            const outPath = join(outDir, `${file.name}-${suffix}.svg`)
-            writeFileSync(outPath + '.tmp', svg)
-            renameSync(outPath + '.tmp', outPath)
+            atomicWrite(join(outDir, `${file.name}-${suffix}.svg`), Buffer.from(svg))
           } catch (err: any) {
             console.warn(`  FAIL: ${file.name}-${suffix} — ${err.message}`)
             failed++
+            fileOk = false
           }
         }
-        rendered++
+        if (fileOk) rendered++
       }
 
       const elapsed = (performance.now() - start).toFixed(0)
@@ -74,6 +75,7 @@ export class DrawioRenderer implements DiagramRenderer {
     try {
       page = await pool.getDrawioPage()
     } catch {
+      console.warn('  Draw.io rendering unavailable — bundle failed to load.')
       pool.release()
       return
     }
@@ -93,9 +95,7 @@ export class DrawioRenderer implements DiagramRenderer {
           )
           if (darkMode) svg = postProcessDarkSvg(svg)
 
-          const outPath = join(outDir, `${file.name}-${suffix}.svg`)
-          writeFileSync(outPath + '.tmp', svg)
-          renameSync(outPath + '.tmp', outPath)
+          atomicWrite(join(outDir, `${file.name}-${suffix}.svg`), Buffer.from(svg))
         } catch (err: any) {
           console.warn(`  FAIL: ${file.name}-${suffix} — ${err.message}`)
         }

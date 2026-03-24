@@ -4,18 +4,28 @@
   "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, and .drawio to SVG/PNG/JPEG/WebP with light/dark mode support",
   "keywords": [
     "cli",
+    "cli-tool",
     "dark-mode",
+    "dark-mode-diagrams",
     "diagram",
+    "diagram-renderer",
+    "diagram-to-image",
     "draw.io",
     "drawio",
+    "drawio-to-svg",
     "excalidraw",
+    "excalidraw-to-svg",
+    "headless-rendering",
+    "incremental-build",
     "jpeg",
     "light-mode",
     "mermaid",
+    "mermaid-to-svg",
     "png",
     "rendering",
     "sharp",
     "svg",
+    "watch-mode",
     "webp"
   ],
   "homepage": "https://projects.sujeet.pro/diagramkit/",
@@ -102,7 +112,7 @@
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.13"
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=20.0.0"
   },
   "packageManager": "npm@11.12.0"
 }

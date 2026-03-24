@@ -216,12 +216,8 @@ When called from another skill, respect the caller's `format` preferences and ou
 diagramkit must be installed:
 
 ```bash
-npm install diagramkit
+npm add diagramkit
 diagramkit warmup  # Install Playwright chromium
 ```
 
-Optional peer dependencies for excalidraw support:
-
-```bash
-npm install @excalidraw/excalidraw react react-dom
-```
+All rendering engines (mermaid, excalidraw, draw.io) are bundled. Only `sharp` is an optional peer dependency (needed for PNG/JPEG/WebP raster output).

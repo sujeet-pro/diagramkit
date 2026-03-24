@@ -96,7 +96,7 @@ await dispose()
 |------|------|-------------|
 | `options` | `BatchOptions` | Batch rendering configuration |
 
-**Returns:** `Promise<void>`
+**Returns:** `Promise<RenderAllResult>` -- an object with `rendered`, `skipped`, and `failed` arrays of file paths.
 
 The function:
 1. Discovers all diagram files recursively
@@ -201,7 +201,7 @@ const jpeg = await convertSvg(svgString, {
 Load the merged configuration from all sources.
 
 ```typescript
-import { loadConfig } from 'diagramkit/config'
+import { loadConfig } from 'diagramkit'
 
 const config = loadConfig(
   { outputDir: 'images' },  // overrides

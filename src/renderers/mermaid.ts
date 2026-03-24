@@ -1,51 +1,12 @@
-import { readFileSync, renameSync, writeFileSync } from 'fs'
+import { readFileSync } from 'fs'
 import { basename, join } from 'path'
 import type { Page } from 'playwright'
 import { postProcessDarkSvg } from '../color/contrast'
 import { ensureDiagramsDir } from '../manifest'
+import { atomicWrite } from '../output'
 import { getPool } from '../pool'
+import { defaultMermaidDarkTheme } from '../renderer'
 import type { DiagramFile, DiagramRenderer, RendererOptions } from '../types'
-
-/* ── Dark theme variables (matches typical dark mode palette) ── */
-
-const mermaidDarkTheme: Record<string, string> = {
-  background: '#111111',
-  primaryColor: '#2d2d2d',
-  primaryTextColor: '#e5e5e5',
-  primaryBorderColor: '#555555',
-  secondaryColor: '#333333',
-  secondaryTextColor: '#cccccc',
-  secondaryBorderColor: '#555555',
-  tertiaryColor: '#252525',
-  tertiaryTextColor: '#cccccc',
-  tertiaryBorderColor: '#555555',
-  lineColor: '#cccccc',
-  textColor: '#e5e5e5',
-  mainBkg: '#2d2d2d',
-  nodeBkg: '#2d2d2d',
-  nodeBorder: '#555555',
-  clusterBkg: '#1e1e1e',
-  clusterBorder: '#555555',
-  titleColor: '#e5e5e5',
-  edgeLabelBackground: '#1e1e1e',
-  actorBorder: '#555555',
-  actorBkg: '#2d2d2d',
-  actorTextColor: '#e5e5e5',
-  actorLineColor: '#888888',
-  signalColor: '#cccccc',
-  signalTextColor: '#e5e5e5',
-  labelBoxBkgColor: '#2d2d2d',
-  labelBoxBorderColor: '#555555',
-  labelTextColor: '#e5e5e5',
-  loopTextColor: '#e5e5e5',
-  noteBorderColor: '#555555',
-  noteBkgColor: '#333333',
-  noteTextColor: '#e5e5e5',
-  activationBorderColor: '#555555',
-  activationBkgColor: '#333333',
-  defaultLinkColor: '#cccccc',
-  arrowheadColor: '#cccccc',
-}
 
 /** Render a mermaid diagram string to SVG using a Playwright page. */
 async function renderMermaidInPage(page: Page, diagram: string, id: string): Promise<string> {
@@ -58,13 +19,6 @@ async function renderMermaidInPage(page: Page, diagram: string, id: string): Pro
     },
     { diagram, id },
   )
-}
-
-/** Atomic write: write to .tmp then rename. */
-function atomicWrite(path: string, content: string): void {
-  const tmp = path + '.tmp'
-  writeFileSync(tmp, content)
-  renameSync(tmp, path)
 }
 
 export class MermaidRenderer implements DiagramRenderer {
@@ -83,7 +37,7 @@ export class MermaidRenderer implements DiagramRenderer {
     try {
       const [lightPage, darkPage] = await Promise.all([
         pool.getMermaidLightPage(),
-        pool.getMermaidDarkPage(mermaidDarkTheme),
+        pool.getMermaidDarkPage(defaultMermaidDarkTheme),
       ])
 
       let rendered = 0
@@ -101,8 +55,11 @@ export class MermaidRenderer implements DiagramRenderer {
           ])
 
           const outDir = ensureDiagramsDir(file.dir, options?.config)
-          atomicWrite(join(outDir, `${file.name}-light.svg`), lightSvg)
-          atomicWrite(join(outDir, `${file.name}-dark.svg`), postProcessDarkSvg(darkSvg))
+          atomicWrite(join(outDir, `${file.name}-light.svg`), Buffer.from(lightSvg))
+          atomicWrite(
+            join(outDir, `${file.name}-dark.svg`),
+            Buffer.from(postProcessDarkSvg(darkSvg)),
+          )
           rendered++
         } catch (err: any) {
           console.warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
@@ -127,7 +84,7 @@ export class MermaidRenderer implements DiagramRenderer {
     try {
       const [lightPage, darkPage] = await Promise.all([
         pool.getMermaidLightPage(),
-        pool.getMermaidDarkPage(mermaidDarkTheme),
+        pool.getMermaidDarkPage(defaultMermaidDarkTheme),
       ])
 
       const diagram = readFileSync(file.path, 'utf-8').trim()
@@ -139,8 +96,8 @@ export class MermaidRenderer implements DiagramRenderer {
       ])
 
       const outDir = ensureDiagramsDir(file.dir, options?.config)
-      atomicWrite(join(outDir, `${file.name}-light.svg`), lightSvg)
-      atomicWrite(join(outDir, `${file.name}-dark.svg`), postProcessDarkSvg(darkSvg))
+      atomicWrite(join(outDir, `${file.name}-light.svg`), Buffer.from(lightSvg))
+      atomicWrite(join(outDir, `${file.name}-dark.svg`), Buffer.from(postProcessDarkSvg(darkSvg)))
       console.log(`  Rendered: ${file.name}`)
     } finally {
       pool.release()

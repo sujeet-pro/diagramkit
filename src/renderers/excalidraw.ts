@@ -1,15 +1,9 @@
-import { readFileSync, renameSync, writeFileSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join } from 'path'
 import { ensureDiagramsDir } from '../manifest'
+import { atomicWrite } from '../output'
 import { getPool } from '../pool'
 import type { DiagramFile, DiagramRenderer, RendererOptions } from '../types'
-
-/** Atomic write: write to .tmp then rename. */
-function atomicWrite(path: string, content: string): void {
-  const tmp = path + '.tmp'
-  writeFileSync(tmp, content)
-  renameSync(tmp, path)
-}
 
 export class ExcalidrawRenderer implements DiagramRenderer {
   name = 'excalidraw'
@@ -40,6 +34,7 @@ export class ExcalidrawRenderer implements DiagramRenderer {
       for (const file of files) {
         const json = readFileSync(file.path, 'utf-8')
         const outDir = ensureDiagramsDir(file.dir, options?.config)
+        let fileOk = true
 
         for (const darkMode of [false, true]) {
           const suffix = darkMode ? 'dark' : 'light'
@@ -50,13 +45,14 @@ export class ExcalidrawRenderer implements DiagramRenderer {
               },
               { json, darkMode },
             )
-            atomicWrite(join(outDir, `${file.name}-${suffix}.svg`), svg)
+            atomicWrite(join(outDir, `${file.name}-${suffix}.svg`), Buffer.from(svg))
           } catch (err: any) {
             console.warn(`  FAIL: ${file.name}-${suffix} — ${err.message}`)
             failed++
+            fileOk = false
           }
         }
-        rendered++
+        if (fileOk) rendered++
       }
 
       const elapsed = (performance.now() - start).toFixed(0)
@@ -95,7 +91,7 @@ export class ExcalidrawRenderer implements DiagramRenderer {
             },
             { json, darkMode },
           )
-          atomicWrite(join(outDir, `${file.name}-${suffix}.svg`), svg)
+          atomicWrite(join(outDir, `${file.name}-${suffix}.svg`), Buffer.from(svg))
         } catch (err: any) {
           console.warn(`  FAIL: ${file.name}-${suffix} — ${err.message}`)
         }

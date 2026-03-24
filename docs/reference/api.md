@@ -65,7 +65,7 @@ function renderFile(
 Render all diagrams in a directory tree. Writes output to `.diagrams/` folders.
 
 ```typescript
-function renderAll(options?: BatchOptions): Promise<void>
+function renderAll(options?: BatchOptions): Promise<RenderAllResult>
 ```
 
 **Parameters:**
@@ -74,13 +74,24 @@ function renderAll(options?: BatchOptions): Promise<void>
 |------|------|----------|-------------|
 | `options` | [`BatchOptions`](/reference/types#batchoptions) | No | Batch configuration |
 
-**Returns:** `Promise<void>`
+**Returns:** `Promise<RenderAllResult>` -- see [`RenderAllResult`](/reference/types#renderallresult)
+
+```typescript
+interface RenderAllResult {
+  /** Files that were successfully rendered */
+  rendered: string[]
+  /** Files that were skipped (up-to-date) */
+  skipped: string[]
+  /** Files that failed to render */
+  failed: string[]
+}
+```
 
 **Behavior:**
 1. Discovers all diagram files with `findDiagramFiles()`
 2. Optionally filters by `type`
 3. Checks manifest for staleness (unless `force: true`)
-4. Renders stale files using `MermaidRenderer` and `ExcalidrawRenderer`
+4. Renders stale files using `MermaidRenderer`, `ExcalidrawRenderer`, and `DrawioRenderer`
 5. Updates manifest
 6. Cleans orphaned outputs
 
@@ -102,7 +113,7 @@ function watchDiagrams(options: WatchOptions): () => void
 
 **Returns:** `() => void` -- call this function to stop watching
 
-**Watched patterns:** `**/*.mermaid`, `**/*.excalidraw`
+**Watched patterns:** `**/*.mermaid`, `**/*.mmd`, `**/*.mmdc`, `**/*.excalidraw`, `**/*.drawio`, `**/*.drawio.xml`, `**/*.dio`
 
 **Ignored:** `node_modules`, `.diagrams`, `dist`, `dev`
 
@@ -187,7 +198,7 @@ function hashFile(filePath: string): string
 
 ---
 
-### `isStale(file, format?, config?)`
+### `isStale(file, format?, config?, theme?, manifest?)`
 
 Check if a diagram file needs re-rendering.
 
@@ -196,6 +207,8 @@ function isStale(
   file: DiagramFile,
   format?: OutputFormat,
   config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
+  manifest?: Manifest,
 ): boolean
 ```
 
@@ -208,7 +221,7 @@ Returns `true` if:
 
 ---
 
-### `filterStaleFiles(files, force, format?, config?)`
+### `filterStaleFiles(files, force, format?, config?, theme?)`
 
 Filter to files that need re-rendering.
 
@@ -218,6 +231,7 @@ function filterStaleFiles(
   force: boolean,
   format?: OutputFormat,
   config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
 ): DiagramFile[]
 ```
 
@@ -334,7 +348,7 @@ Create the array of built-in diagram renderers.
 function createRenderers(): DiagramRenderer[]
 ```
 
-Returns `[MermaidRenderer, ExcalidrawRenderer]`.
+Returns `[MermaidRenderer, ExcalidrawRenderer, DrawioRenderer]`.
 
 ### `MermaidRenderer`
 
@@ -343,6 +357,22 @@ Class implementing `DiagramRenderer` for `.mermaid` files.
 ### `ExcalidrawRenderer`
 
 Class implementing `DiagramRenderer` for `.excalidraw` files.
+
+### `DrawioRenderer`
+
+Class implementing `DiagramRenderer` for `.drawio` files.
+
+---
+
+## Output Utilities
+
+### `atomicWrite(path, content)`
+
+Write a file atomically by writing to a `.tmp` file first, then renaming. Prevents partial files from being served by dev servers or committed by watchers.
+
+```typescript
+function atomicWrite(path: string, content: Buffer): void
+```
 
 ---
 
@@ -354,3 +384,4 @@ diagramkit provides two package exports:
 |-------------|---------|
 | `diagramkit` | Main API (rendering, discovery, manifest, color) |
 | `diagramkit/color` | Color utilities only (`postProcessDarkSvg`, `hexToRgb`, `rgbToHsl`, `hslToHex`, `relativeLuminance`) |
+| `diagramkit/convert` | SVG-to-raster conversion (`convertSvg`) |

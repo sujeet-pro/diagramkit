@@ -1,6 +1,7 @@
 /* ── Core API ── */
 
 export { render, renderAll, renderFile, defaultMermaidDarkTheme } from './renderer'
+export type { RenderAllResult } from './renderer'
 export { dispose, warmup } from './pool'
 export { watchDiagrams } from './watch'
 
@@ -41,6 +42,10 @@ export {
 /* ── Color utilities ── */
 
 export { postProcessDarkSvg } from './color/contrast'
+
+/* ── Output utilities ── */
+
+export { atomicWrite, stripDiagramExtension } from './output'
 
 /* ── Renderers ── */
 

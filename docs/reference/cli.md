@@ -6,6 +6,8 @@
 |---------|-------------|
 | `render <file-or-dir>` | Render diagram file(s) to images |
 | `warmup` | Pre-install Playwright Chromium browser |
+| `init` | Create a `.diagramkitrc.json` config file |
+| `install-skills [--global]` | Copy diagramkit skills to `.claude/skills/` (or `~/.claude/skills/` with `--global`) |
 | `--help`, `-h` | Show help message |
 | `--version`, `-v` | Show installed version |
 
@@ -22,6 +24,13 @@
 | `--no-contrast` | `boolean` | `false` | Disable dark SVG contrast optimization |
 | `--type` | `mermaid \| excalidraw \| drawio` | all | Filter to specific diagram type |
 | `--output` | `string` | `.diagrams/` sibling | Custom output directory (single-file mode only) |
+| `--output-dir` | `string` | `.diagrams` | Output folder name |
+| `--manifest-file` | `string` | `diagrams.manifest.json` | Manifest filename |
+| `--no-manifest` | `boolean` | `false` | Disable manifest tracking |
+| `--same-folder` | `boolean` | `false` | Output in same folder as source files |
+| `--dry-run` | `boolean` | `false` | Show what would be rendered without rendering |
+| `--quiet` | `boolean` | `false` | Suppress informational output, only show errors |
+| `--json` | `boolean` | `false` | Output results as JSON (for CI/scripting) |
 
 ## Output Naming
 
