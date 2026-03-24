@@ -43,7 +43,8 @@
   },
   "files": [
     "dist",
-    "skills",
+    "agent_skills",
+    "INSTALL_SKILLS.md",
     "llms.txt",
     "llms-full.txt"
   ],

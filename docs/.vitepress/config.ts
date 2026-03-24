@@ -21,6 +21,7 @@ export default defineConfig({
         { text: 'Configuration', link: '/guide/configuration' },
         { text: 'Watch Mode', link: '/guide/watch-mode' },
         { text: 'Image Formats', link: '/guide/image-formats' },
+        { text: 'Installing Skills', link: '/guide/install-skills' },
       ],
       '/diagrams/': [
         { text: 'Mermaid', link: '/diagrams/mermaid' },

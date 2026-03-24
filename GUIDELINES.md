@@ -78,4 +78,4 @@
 - vite-plus for library build (`vp pack`)
 - `vite-plugin-dts` for type declaration generation
 - Output to `dist/` — ESM only (`.mjs` + `.d.mts`)
-- Published files: `dist/` and `skills/`
+- Published files: `dist/`, `agent_skills/`, and `INSTALL_SKILLS.md`

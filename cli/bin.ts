@@ -24,7 +24,7 @@ Commands:
   render <file-or-dir>     Render diagram file(s) to images
   warmup                   Pre-install Playwright chromium browser
   init                     Create a .diagramkitrc.json config file
-  install-skills           Copy diagramkit skills to .claude/skills/ (or ~/.claude/skills/ with --global)
+  install-skills           Copy diagramkit agent skills to .claude/skills/ (or ~/.claude/skills/ with --global)
 
 Render options:
   --format <svg|png|jpeg|webp>      Output format (default: svg)
@@ -216,10 +216,10 @@ async function commandInstallSkills() {
   const { mkdirSync, cpSync } = await import('fs')
   const { join } = await import('path')
 
-  // Find skills directory relative to this package
+  // Find agent_skills directory relative to this package
   const pkgCandidates = [
-    new URL('../skills', import.meta.url),
-    new URL('../../skills', import.meta.url),
+    new URL('../agent_skills', import.meta.url),
+    new URL('../../agent_skills', import.meta.url),
   ]
 
   let skillsSource: string | null = null
@@ -232,7 +232,7 @@ async function commandInstallSkills() {
   }
 
   if (!skillsSource) {
-    console.error('Could not find skills directory in diagramkit package.')
+    console.error('Could not find agent_skills directory in diagramkit package.')
     process.exit(1)
   }
 
@@ -244,12 +244,7 @@ async function commandInstallSkills() {
   const targetDir = join(targetBase, 'diagramkit')
 
   mkdirSync(targetDir, { recursive: true })
-
-  // Copy claude-code skills
-  const claudeCodeSource = join(skillsSource, 'claude-code')
-  if (existsSync(claudeCodeSource)) {
-    cpSync(claudeCodeSource, targetDir, { recursive: true })
-  }
+  cpSync(skillsSource, targetDir, { recursive: true })
 
   const location = isGlobal ? `~/.claude/skills/diagramkit/` : `.claude/skills/diagramkit/`
   console.log(`Skills installed to ${location}`)

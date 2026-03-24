@@ -24,11 +24,11 @@ Render the output with `/diagramkit` or:
 diagramkit render diagram.excalidraw
 ```
 
-See `references/excalidraw/json-format.md` for full JSON format details.
-See `references/excalidraw/arrows.md` for arrow routing patterns.
-See `references/excalidraw/colors.md` for color palettes.
-See `references/excalidraw/validation.md` for validation checklists.
-See `references/excalidraw/examples.md` for complete JSON examples.
+See `refs/excalidraw/json-format.md` for full JSON format details.
+See `refs/excalidraw/arrows.md` for arrow routing patterns.
+See `refs/excalidraw/colors.md` for color palettes.
+See `refs/excalidraw/validation.md` for validation checklists.
+See `refs/excalidraw/examples.md` for complete JSON examples.
 
 ## Workflow
 

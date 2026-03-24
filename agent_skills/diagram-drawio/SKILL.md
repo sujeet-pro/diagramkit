@@ -23,8 +23,8 @@ Render the output with `/diagramkit` or:
 diagramkit render diagram.drawio
 ```
 
-See `references/drawio/shapes.md` for shape libraries and infrastructure icons.
-See `references/drawio/styles.md` for style properties, colors, and dark mode guidelines.
+See `refs/drawio/shapes.md` for shape libraries and infrastructure icons.
+See `refs/drawio/styles.md` for style properties, colors, and dark mode guidelines.
 
 ## Workflow
 

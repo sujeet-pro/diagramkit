@@ -393,7 +393,7 @@ node -e "JSON.parse(require('fs').readFileSync('diagram.excalidraw', 'utf8'))"
 
 Every element must have a unique `id`. Text elements should use the pattern `{shape-id}-text`.
 
-See `references/excalidraw-validation.md` for the full validation checklist.
+See `refs/excalidraw/validation.md` for the full validation checklist.
 
 ---
 
