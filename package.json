@@ -102,7 +102,7 @@
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.13"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "packageManager": "npm@11.12.0"
 }
