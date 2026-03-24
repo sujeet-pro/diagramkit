@@ -1,17 +1,11 @@
 ---
 name: diagram-excalidraw
-description: Generate Excalidraw diagrams as .excalidraw JSON files from descriptions or codebase analysis. Renders via diagramkit. Use for architecture overviews, system diagrams, freeform layouts.
+description: Generate Excalidraw diagram source files (.excalidraw JSON) from descriptions or codebase analysis. Use for architecture overviews, system diagrams, freeform layouts.
 user_invocable: true
 arguments:
   - name: description
     description: "Description of what to diagram, or 'analyze' to auto-analyze the codebase"
     required: true
-  - name: format
-    description: 'Output format: svg, png, jpeg, webp (default: svg)'
-    required: false
-  - name: output-dir
-    description: 'Output directory (default: .diagrams sibling)'
-    required: false
   - name: palette
     description: 'Color palette: default, aws, azure, gcp, kubernetes (default: default)'
     required: false
@@ -22,30 +16,19 @@ arguments:
 
 # Excalidraw Diagram Generation
 
-Generate architecture diagrams, system overviews, and freeform diagrams as `.excalidraw` JSON files. Render to SVG/PNG/JPEG/WebP via `diagramkit`.
+Generate architecture diagrams, system overviews, and freeform diagrams as `.excalidraw` JSON files. This skill writes a `.excalidraw` source file only -- use `/diagramkit` or `diagramkit render` to produce images.
 
-## Rendering
-
-Use `diagramkit` for rendering -- NOT `excalidraw-to-svg` or other tools:
+Render the output with `/diagramkit` or:
 
 ```bash
-# Render a single excalidraw file
 diagramkit render diagram.excalidraw
-
-# Render raster output for email or Confluence
-diagramkit render diagram.excalidraw --format png --theme light --scale 2
-
-# Render all excalidraw files in a directory
-diagramkit render . --type excalidraw
 ```
 
-diagramkit uses a headless Chromium instance with the Excalidraw library loaded, producing both light and dark variants automatically.
-
-See `references/excalidraw-json-format.md` for full JSON format details.
-See `references/excalidraw-arrows.md` for arrow routing patterns.
-See `references/excalidraw-colors.md` for color palettes.
-See `references/excalidraw-validation.md` for validation checklists.
-See `references/excalidraw-examples.md` for complete JSON examples.
+See `references/excalidraw/json-format.md` for full JSON format details.
+See `references/excalidraw/arrows.md` for arrow routing patterns.
+See `references/excalidraw/colors.md` for color palettes.
+See `references/excalidraw/validation.md` for validation checklists.
+See `references/excalidraw/examples.md` for complete JSON examples.
 
 ## Workflow
 
@@ -123,29 +106,13 @@ Spoke positions at 45 degree increments:
 
 Generate a valid `.excalidraw` JSON file following the critical rules below.
 
-### Phase 3: Render with diagramkit
-
-```bash
-diagramkit render <name>.excalidraw --format <format>
-```
-
-diagramkit automatically:
-
-- Renders both light and dark variants
-- Handles `darkMode` per-call (no separate page needed)
-- Outputs to `.diagrams/` sibling folder
-- Defaults to SVG unless the destination explicitly needs raster output, such as email or Confluence
-
-### Phase 4: Output
-
-Save and report:
+### Phase 3: Report Output
 
 ```
-Excalidraw diagram generated:
+Excalidraw source file written:
   Source: ./diagrams/system-architecture.excalidraw
-  Output: .diagrams/system-architecture-light.svg
-          .diagrams/system-architecture-dark.svg
 
+Render with: diagramkit render ./diagrams/system-architecture.excalidraw
 Open in Excalidraw: https://excalidraw.com (load the .excalidraw file)
 VS Code: Install the Excalidraw extension and open the file directly.
 ```
@@ -628,5 +595,3 @@ This skill is called by:
 - **`/diagrams`** orchestrator -- when Excalidraw is the selected engine.
 - Other skills that need visual architecture diagrams.
 - **Standalone**: User invokes directly with `/diagram-excalidraw`.
-
-Always render via `diagramkit render` -- never via `excalidraw-to-svg` or other tools.

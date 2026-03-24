@@ -111,16 +111,18 @@ e2e/
 docs/                 VitePress documentation site
 skills/
   claude-code/        LLM skills for diagram generation and rendering
-    diagramkit.md     Quick reference (CLI, output convention, config)
+    diagramkit.md     Render diagrams to images (CLI, output convention, config)
     diagrams.md       Engine selection orchestrator
-    diagram-mermaid.md    Mermaid authoring (20+ diagram types)
-    diagram-excalidraw.md Excalidraw authoring
-    diagram-drawio.md     Draw.io authoring
+    diagram-mermaid.md    Mermaid source file authoring
+    diagram-excalidraw.md Excalidraw source file authoring
+    diagram-drawio.md     Draw.io source file authoring
     image-convert.md      SVG-to-raster conversion
     troubleshoot.md       Common errors and fixes
     ci-cd.md              CI/CD integration guide
-    references/           Excalidraw JSON format, arrows, colors, examples, validation
-                          Draw.io shapes and styles references
+    references/
+      mermaid/            Mermaid diagram type syntax (flowchart, sequence, class, etc.)
+      excalidraw/         Excalidraw JSON format, arrows, colors, examples, validation
+      drawio/             Draw.io shapes and styles references
 ```
 
 ## Commands

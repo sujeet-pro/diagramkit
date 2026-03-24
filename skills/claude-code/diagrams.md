@@ -139,13 +139,13 @@ When `format` is omitted, default to SVG. Only switch to a raster format when th
 
 ### Step 2: Delegate to Engine Skill
 
-Based on the selected engine, invoke the appropriate skill:
+Based on the selected engine, invoke the appropriate skill to write the source file:
 
-- **Mermaid**: Use the `/diagram-mermaid` skill with the resolved type and description.
-- **Excalidraw**: Use the `/diagram-excalidraw` skill with the description.
-- **Draw.io**: Use the `/diagram-drawio` skill with the description.
+- **Mermaid**: Use the `/diagram-mermaid` skill with the resolved type and description. It writes a `.mermaid` file.
+- **Excalidraw**: Use the `/diagram-excalidraw` skill with the description. It writes a `.excalidraw` file.
+- **Draw.io**: Use the `/diagram-drawio` skill with the description. It writes a `.drawio` file.
 
-Pass through all relevant arguments (format, output-dir, etc.).
+These skills only produce the diagram source file. They do NOT render it.
 
 ### Step 3: Render with diagramkit
 

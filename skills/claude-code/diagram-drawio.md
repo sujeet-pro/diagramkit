@@ -1,17 +1,11 @@
 ---
 name: diagram-drawio
-description: Generate draw.io diagrams as .drawio XML files from descriptions. Renders via diagramkit. Use for network diagrams, enterprise architecture, BPMN, and precise layouts.
+description: Generate draw.io diagram source files (.drawio XML) from descriptions. Use for network diagrams, enterprise architecture, BPMN, and precise layouts.
 user_invocable: true
 arguments:
   - name: description
     description: 'Description of what to diagram'
     required: true
-  - name: format
-    description: 'Output format: svg, png, jpeg, webp (default: svg)'
-    required: false
-  - name: output-dir
-    description: 'Output directory (default: .diagrams sibling)'
-    required: false
   - name: style
     description: 'Visual style: default, sketch, minimal (default: default)'
     required: false
@@ -19,26 +13,18 @@ arguments:
 
 # Draw.io Diagram Generation
 
-Generate precise, professionally-styled diagrams as `.drawio` XML files. Render to SVG/PNG/JPEG/WebP via `diagramkit`.
-
-## Rendering
-
-Use `diagramkit` for rendering -- NOT `draw.io` desktop or other tools:
-
-```bash
-# Render a single drawio file
-diagramkit render diagram.drawio
-
-# Render raster output for email or Confluence
-diagramkit render diagram.drawio --format png --theme light --scale 2
-
-# Render all drawio files in a directory
-diagramkit render . --type drawio
-```
+Generate precise, professionally-styled diagrams as `.drawio` XML files. This skill writes a `.drawio` source file only -- use `/diagramkit` or `diagramkit render` to produce images.
 
 Accepted file extensions: `.drawio`, `.drawio.xml`, `.dio`
 
-diagramkit uses a headless Chromium instance with the draw.io renderer, producing both light and dark variants automatically.
+Render the output with `/diagramkit` or:
+
+```bash
+diagramkit render diagram.drawio
+```
+
+See `references/drawio/shapes.md` for shape libraries and infrastructure icons.
+See `references/drawio/styles.md` for style properties, colors, and dark mode guidelines.
 
 ## Workflow
 
@@ -55,24 +41,13 @@ Parse the description to identify:
 
 Write a `.drawio` file following the XML format reference below.
 
-### Phase 3: Render with diagramkit
-
-```bash
-diagramkit render <name>.drawio --format <format>
-```
-
-diagramkit automatically produces both light and dark variants. Default to SVG unless the destination explicitly needs raster output, such as email or Confluence.
-
-### Phase 4: Output
-
-Save and report:
+### Phase 3: Report Output
 
 ```
-Draw.io diagram generated:
+Draw.io source file written:
   Source: ./diagrams/network-topology.drawio
-  Output: .diagrams/network-topology-light.svg
-          .diagrams/network-topology-dark.svg
 
+Render with: diagramkit render ./diagrams/network-topology.drawio
 Edit in browser: https://app.diagrams.net (load the .drawio file)
 VS Code: Install the draw.io extension and open the file directly.
 ```
@@ -539,5 +514,3 @@ This skill is called by:
 - **`/diagrams`** orchestrator -- when Draw.io is the selected engine.
 - Other skills that need precise/enterprise-style diagrams.
 - **Standalone**: User invokes directly with `/diagram-drawio`.
-
-Always render via `diagramkit render` -- never via draw.io desktop export or other tools.
