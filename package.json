@@ -33,7 +33,7 @@
     "url": "https://github.com/sujeet-pro/diagramkit/issues"
   },
   "license": "MIT",
-  "author": "Sujeet Jaiswal",
+  "author": "Sujeet Jaiswal (https://github.com/sujeet-pro)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sujeet-pro/diagramkit.git"
@@ -46,7 +46,8 @@
     "agent_skills",
     "INSTALL_SKILLS.md",
     "llms.txt",
-    "llms-full.txt"
+    "llms-full.txt",
+    "!dist/**/*.map"
   ],
   "type": "module",
   "sideEffects": false,

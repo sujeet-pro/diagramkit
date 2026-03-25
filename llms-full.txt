@@ -213,6 +213,7 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
     onChange?: (file: string) => void         // Callback after render
     renderOptions?: RenderOptions
     config?: Partial<DiagramkitConfig>
+    logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
   }
 
 ### ConvertOptions

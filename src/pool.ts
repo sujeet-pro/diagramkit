@@ -179,17 +179,19 @@ export class BrowserPool {
 
   /* ── Excalidraw page ── */
 
-  async getExcalidrawPage(): Promise<Page> {
+  async getExcalidrawPage(warn?: (...args: any[]) => void): Promise<Page> {
     if (!this.context) throw new Error('BrowserPool not acquired')
     if (!this.excalidrawPage || this.excalidrawPage.isClosed()) {
-      const bundle = await this.getExcalidrawBundle()
+      const bundle = await this.getExcalidrawBundle(warn)
       if (!bundle) throw new Error('Excalidraw bundle unavailable')
       this.excalidrawPage = await this.createExcalidrawPage(bundle)
     }
     return this.excalidrawPage
   }
 
-  private async getExcalidrawBundle(): Promise<string | null> {
+  private async getExcalidrawBundle(
+    warn: (...args: any[]) => void = console.warn,
+  ): Promise<string | null> {
     if (this.excalidrawBundle) return this.excalidrawBundle
 
     try {
@@ -199,7 +201,7 @@ export class BrowserPool {
       this.excalidrawBundle = await buildOrReadCachedBundle('excalidraw-entry', entryPath)
       return this.excalidrawBundle
     } catch (err) {
-      console.warn('Failed to build excalidraw bundle:', (err as Error).message)
+      warn('Failed to build excalidraw bundle:', (err as Error).message)
       return null
     }
   }
@@ -216,17 +218,19 @@ export class BrowserPool {
 
   /* ── Draw.io page ── */
 
-  async getDrawioPage(): Promise<Page> {
+  async getDrawioPage(warn?: (...args: any[]) => void): Promise<Page> {
     if (!this.context) throw new Error('BrowserPool not acquired')
     if (!this.drawioPage || this.drawioPage.isClosed()) {
-      const bundle = await this.getDrawioBundle()
+      const bundle = await this.getDrawioBundle(warn)
       if (!bundle) throw new Error('Draw.io bundle unavailable')
       this.drawioPage = await this.createDrawioPage(bundle)
     }
     return this.drawioPage
   }
 
-  private async getDrawioBundle(): Promise<string | null> {
+  private async getDrawioBundle(
+    warn: (...args: any[]) => void = console.warn,
+  ): Promise<string | null> {
     if (this.drawioBundle) return this.drawioBundle
 
     try {
@@ -236,7 +240,7 @@ export class BrowserPool {
       this.drawioBundle = await buildOrReadCachedBundle('drawio-entry', entryPath)
       return this.drawioBundle
     } catch (err) {
-      console.warn('Failed to build draw.io bundle:', (err as Error).message)
+      warn('Failed to build draw.io bundle:', (err as Error).message)
       return null
     }
   }
@@ -264,14 +268,22 @@ async function buildOrReadCachedBundle(name: string, entryPath: string): Promise
     readFileSync,
     readdirSync,
     renameSync,
+    statSync,
     unlinkSync,
     writeFileSync,
   } = await import('node:fs')
   const { join } = await import('node:path')
 
-  // Cache key = SHA-256 of entry file content (changes when source or deps change after rebuild)
+  // Cache key = SHA-256 of entry file content + lockfile mtime so npm update invalidates cache
+  const { fileURLToPath } = await import('node:url')
   const entryContent = readFileSync(entryPath)
-  const hash = createHash('sha256').update(entryContent).digest('hex').slice(0, 12)
+  const hasher = createHash('sha256').update(entryContent)
+  try {
+    const lockfilePath = fileURLToPath(new URL('../package-lock.json', import.meta.url))
+    const lockMtime = statSync(lockfilePath).mtimeMs.toString()
+    hasher.update(lockMtime)
+  } catch {}
+  const hash = hasher.digest('hex').slice(0, 12)
   const cacheFile = join(CACHE_DIR, `${name}-${hash}.iife.js`)
 
   if (existsSync(cacheFile)) {
@@ -336,9 +348,39 @@ async function resolveRendererEntryPath(
 
 // Singleton pool instance
 let pool: BrowserPool | null = null
+let signalHandlersRegistered = false
+
+// Force-dispose on signals, then re-raise so the process exits with correct status
+const signalCleanup = async () => {
+  if (pool) {
+    const p = pool
+    pool = null
+    await p.dispose(true)
+  }
+}
+
+const handleSignal = (signal: NodeJS.Signals) => {
+  void signalCleanup().finally(() => {
+    process.kill(process.pid, signal)
+  })
+}
+
+function registerSignalHandlers() {
+  if (signalHandlersRegistered) return
+  signalHandlersRegistered = true
+  process.once('SIGINT', () => handleSignal('SIGINT'))
+  process.once('SIGTERM', () => handleSignal('SIGTERM'))
+  // 'exit' handler is synchronous — just null the reference, browser dies with parent
+  process.on('exit', () => {
+    pool = null
+  })
+}
 
 export function getPool(): BrowserPool {
-  if (!pool) pool = new BrowserPool()
+  if (!pool) {
+    pool = new BrowserPool()
+    registerSignalHandlers()
+  }
   return pool
 }
 
@@ -356,24 +398,3 @@ export async function dispose(): Promise<void> {
     pool = null
   }
 }
-
-// Force-dispose on signals, then re-raise so the process exits with correct status
-const signalCleanup = async () => {
-  if (pool) {
-    const p = pool
-    pool = null
-    await p.dispose(true)
-  }
-}
-
-const handleSignal = (signal: NodeJS.Signals) => {
-  void signalCleanup().finally(() => {
-    process.kill(process.pid, signal)
-  })
-}
-process.once('SIGINT', () => handleSignal('SIGINT'))
-process.once('SIGTERM', () => handleSignal('SIGTERM'))
-// 'exit' handler is synchronous — just null the reference, browser dies with parent
-process.on('exit', () => {
-  pool = null
-})

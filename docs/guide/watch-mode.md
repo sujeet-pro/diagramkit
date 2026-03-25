@@ -11,12 +11,10 @@ diagramkit render . --watch
 This performs an initial full render, then watches for changes:
 
 ```
-Rendering 5 mermaid diagrams...
-  5 mermaid rendered in 1200ms
+Rendered 5/5 diagrams to svg
 Watching for diagram changes...
 
 Changed: docs/architecture.mermaid
-  Rendered: architecture
   Re-rendered: docs/architecture.mermaid
 ```
 

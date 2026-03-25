@@ -108,6 +108,34 @@ The function:
 5. Updates the manifest
 6. Cleans up orphaned outputs from deleted source files
 
+## `renderDiagramFileToDisk(file, options?)`
+
+Render a single discovered diagram file and write the output variants to disk. This is the same function used internally by `renderAll()` and watch mode. Useful for custom watch implementations or fine-grained control over which files to render.
+
+```typescript
+import { findDiagramFiles, renderDiagramFileToDisk, dispose } from 'diagramkit'
+
+const files = findDiagramFiles('/path/to/project')
+for (const file of files) {
+  const written = await renderDiagramFileToDisk(file, {
+    format: 'svg',
+    theme: 'both',
+  })
+  // written — array of output filenames (e.g. ['flow-light.svg', 'flow-dark.svg'])
+}
+
+await dispose()
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `file` | `DiagramFile` | A discovered diagram file object (from `findDiagramFiles`) |
+| `options` | `RenderOptions & { config?: DiagramkitConfig; outDir?: string }` | Optional rendering configuration. `outDir` overrides the default output directory. |
+
+**Returns:** `Promise<string[]>` -- an array of output filenames written to disk.
+
 ## `watchDiagrams(options)`
 
 Watch for diagram file changes and re-render automatically. Returns a cleanup function.
@@ -254,6 +282,30 @@ const mermaidOnly = filterByType(all, 'mermaid')
 
 ## Manifest Operations
 
+### `filterStaleFiles(files, force, format?, config?, theme?)`
+
+Filter a list of diagram files to only those that need re-rendering based on the manifest. Caches manifests per directory for efficiency.
+
+```typescript
+import { findDiagramFiles, filterStaleFiles } from 'diagramkit'
+
+const files = findDiagramFiles('/path/to/project')
+const stale = filterStaleFiles(files, false, 'svg')
+// stale — only files that have changed, are missing outputs, or were never rendered
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `files` | `DiagramFile[]` | Array of discovered diagram files |
+| `force` | `boolean` | If `true`, all files are considered stale |
+| `format` | `OutputFormat` | Optional format to check against manifest (triggers re-render on format change) |
+| `config` | `Partial<DiagramkitConfig>` | Optional configuration overrides |
+| `theme` | `Theme` | Optional theme to check against manifest (triggers re-render on theme change) |
+
+**Returns:** `StaleFile[]` -- array of files that need re-rendering.
+
 ### `isStale(file, format?, config?, theme?, manifest?)`
 
 Check if a diagram file needs re-rendering.
@@ -278,6 +330,28 @@ import { readManifest } from 'diagramkit'
 
 const manifest = readManifest('/path/to/dir')
 // { version: 1, diagrams: { 'flow.mermaid': { hash, generatedAt, outputs, format } } }
+```
+
+### `getDiagramsDir(sourceFile, config?)`
+
+Returns the output directory path for a source file's directory. Does not create the directory.
+
+```typescript
+import { getDiagramsDir } from 'diagramkit'
+
+const outDir = getDiagramsDir('/path/to/docs')
+// '/path/to/docs/.diagrams'
+```
+
+### `ensureDiagramsDir(sourceFile, config?)`
+
+Returns the output directory path for a source file's directory, creating it if it does not exist.
+
+```typescript
+import { ensureDiagramsDir } from 'diagramkit'
+
+const outDir = ensureDiagramsDir('/path/to/docs')
+// '/path/to/docs/.diagrams' (created if missing)
 ```
 
 ::: info Internal Functions

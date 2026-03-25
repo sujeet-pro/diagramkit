@@ -62,4 +62,4 @@ export type {
   Theme,
   WatchOptions,
 } from './types'
-export type { Manifest, ManifestEntry } from './manifest'
+export type { Manifest, ManifestEntry, StaleFile } from './manifest'

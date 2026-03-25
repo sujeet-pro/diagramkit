@@ -5,11 +5,13 @@
  * built `dist/cli/bin.mjs`, asserts outputs, then cleans up.
  */
 
+import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   createFixtureWorkspace,
+  distCliPath,
   expectNotExists,
   expectRasterFile,
   expectSvgFile,
@@ -369,4 +371,99 @@ describe('CLI rendering e2e', () => {
 
     expect(stdout).toContain('Skills installed')
   }, 120_000)
+
+  it('warmup installs Playwright chromium successfully', () => {
+    const result = runCliSafe(['warmup'])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Done.')
+  }, 120_000)
+
+  it('--watch re-renders when source file changes', async () => {
+    const workspace = createWorkspace('e2e-cli-watch')
+
+    // Keep only the mermaid file for a fast, focused test
+    rmSync(join(workspace, 'whiteboard.excalidraw'))
+    rmSync(join(workspace, 'system.drawio.xml'))
+
+    const outDir = join(workspace, '.diagrams')
+    const outputFile = join(outDir, 'architecture-light.svg')
+
+    // Start CLI in watch mode as a background process
+    const child = spawn(
+      'node',
+      [distCliPath, 'render', '.', '--watch', '--format', 'svg', '--theme', 'light'],
+      {
+        cwd: workspace,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+
+    // Collect stdout for debugging
+    let stdout = ''
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    let stderr = ''
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+
+    // Helper: poll until a condition is true, with timeout
+    const pollUntil = (
+      fn: () => boolean,
+      interval: number,
+      timeout: number,
+      label: string,
+    ): Promise<void> =>
+      new Promise((resolve, reject) => {
+        const deadline = Date.now() + timeout
+        const check = () => {
+          if (fn()) return resolve()
+          if (Date.now() > deadline)
+            return reject(new Error(`Timed out: ${label}\nstdout: ${stdout}\nstderr: ${stderr}`))
+          setTimeout(check, interval)
+        }
+        check()
+      })
+
+    try {
+      // Wait for the watcher to be fully ready (stdout includes "Watching" message)
+      await pollUntil(
+        () => stdout.includes('Watching for diagram changes'),
+        200,
+        30_000,
+        'waiting for watcher ready',
+      )
+
+      // Verify initial render produced the output file
+      expectSvgFile(outputFile)
+
+      // Wait for fs.watch to fully initialize after chokidar setup
+      await new Promise((r) => setTimeout(r, 3000))
+
+      // Add a new diagram file to trigger an 'add' event (more reliable than 'change' across OSes)
+      const newFile = join(workspace, 'extra.mmd')
+      const newOutputFile = join(outDir, 'extra-light.svg')
+      writeFileSync(newFile, 'flowchart TD\n    X[New] -->|HTTP| Y[Node]\n')
+
+      // Wait for the "Re-rendered" message, confirming the watch cycle completed
+      await pollUntil(() => stdout.includes('Re-rendered'), 200, 20_000, 'waiting for re-render')
+
+      // Verify the new file was rendered
+      const renderedSvg = readFileSync(newOutputFile, 'utf-8')
+      expect(renderedSvg).toContain('<svg')
+    } finally {
+      // Clean up the watch process
+      child.kill('SIGTERM')
+      await new Promise<void>((resolve) => {
+        child.on('exit', () => resolve())
+        // Fallback: force kill if SIGTERM does not work within 5s
+        setTimeout(() => {
+          child.kill('SIGKILL')
+          resolve()
+        }, 5_000)
+      })
+    }
+  }, 60_000)
 })
