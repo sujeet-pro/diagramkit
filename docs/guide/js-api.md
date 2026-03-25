@@ -127,7 +127,7 @@ const stop = watchDiagrams({
 })
 
 // Later, stop watching
-stop()
+await stop()
 await dispose()
 ```
 
@@ -171,6 +171,7 @@ Always call `dispose()` when you are done rendering, especially in scripts and C
 Convert an SVG buffer or string to a raster format using [sharp](https://sharp.pixelplumbing.com/). This function is useful when you have an SVG and want to convert it to PNG, JPEG, or WebP independently of the rendering pipeline.
 
 ```typescript
+// Also available from the main import: import { convertSvg } from 'diagramkit'
 import { convertSvg } from 'diagramkit/convert'
 
 const png = await convertSvg(svgBuffer, {
@@ -223,7 +224,7 @@ import { postProcessDarkSvg } from 'diagramkit'
 const optimized = postProcessDarkSvg(rawDarkSvg)
 ```
 
-Finds inline `fill:#hex` values with luminance > 0.4 and darkens them while preserving hue, so colored nodes retain their visual identity against dark backgrounds.
+Finds inline `fill:#hex` values and standalone `fill="#hex"` attributes with luminance > 0.4 and darkens them while preserving hue, so colored nodes retain their visual identity against dark backgrounds.
 
 ## File Discovery
 
@@ -253,9 +254,12 @@ const mermaidOnly = filterByType(all, 'mermaid')
 
 ## Manifest Operations
 
-### `isStale(file, format?, config?)`
+### `isStale(file, format?, config?, theme?, manifest?)`
 
 Check if a diagram file needs re-rendering.
+
+- `theme` — optional `Theme` to check staleness for a specific theme variant (default: uses config theme).
+- `manifest` — optional pre-loaded manifest object to avoid re-reading from disk.
 
 ```typescript
 import { isStale } from 'diagramkit'
@@ -277,7 +281,7 @@ const manifest = readManifest('/path/to/dir')
 ```
 
 ::: info Internal Functions
-Functions like `hashFile`, `updateManifest`, and `cleanOrphans` are internal to the manifest module and not part of the public API.
+Functions like `hashFile`, `updateManifest`, `writeManifest`, and `cleanOrphans` are internal to the manifest module and not exported from the public API. Use `renderAll()` or `renderDiagramFileToDisk()` for rendering workflows that manage the manifest automatically.
 :::
 
 ## Browser Lifecycle

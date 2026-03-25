@@ -135,4 +135,13 @@ describe('discovery', () => {
     const files = findDiagramFiles('/nonexistent-path-abc123-xyz')
     expect(files).toEqual([])
   })
+
+  it('returns empty array for an empty directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-empty-'))
+    tempDirs.push(root)
+
+    const files = findDiagramFiles(root)
+
+    expect(files).toEqual([])
+  })
 })

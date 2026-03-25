@@ -25,10 +25,10 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version-file: '.node-version'
           cache: npm
@@ -80,3 +80,8 @@ jobs:
         run: |
           git push origin ${{ github.ref_name }}
           git push origin --tags
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "v$(node -p 'require("./package.json").version')" --generate-notes

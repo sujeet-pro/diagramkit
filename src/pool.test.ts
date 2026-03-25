@@ -19,6 +19,7 @@ vi.mock('playwright', () => {
   }
   const mockContext = {
     newPage: vi.fn(() => Promise.resolve({ ...mockPage })),
+    route: vi.fn(() => Promise.resolve()),
   }
   const mockBrowser = {
     newContext: vi.fn(() => Promise.resolve(mockContext)),

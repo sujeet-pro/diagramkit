@@ -5,8 +5,8 @@
  * built `dist/cli/bin.mjs`, asserts outputs, then cleans up.
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   createFixtureWorkspace,
@@ -319,5 +319,54 @@ describe('CLI rendering e2e', () => {
 
     // Higher scale should produce a larger file
     expect(scaledSize).toBeGreaterThan(defaultSize)
+  }, 120_000)
+
+  it('--quality 50 produces a valid JPEG', () => {
+    const workspace = createWorkspace('e2e-cli-quality')
+
+    runCli(
+      ['render', 'architecture.mmd', '--format', 'jpeg', '--quality', '50', '--theme', 'light'],
+      workspace,
+    )
+
+    const outPath = join(workspace, '.diagrams', 'architecture-light.jpeg')
+    expectRasterFile(outPath, 'jpeg')
+  }, 120_000)
+
+  it('init creates .diagramkitrc.json with valid JSON', () => {
+    const workspace = createWorkspace('e2e-cli-init')
+
+    // Remove any fixture files — init doesn't need them
+    rmSync(join(workspace, 'architecture.mmd'))
+    rmSync(join(workspace, 'whiteboard.excalidraw'))
+    rmSync(join(workspace, 'system.drawio.xml'))
+
+    const stdout = runCli(['init'], workspace)
+
+    const configPath = join(workspace, '.diagramkitrc.json')
+    expect(existsSync(configPath)).toBe(true)
+
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'))
+    expect(config).toHaveProperty('outputDir')
+    expect(config).toHaveProperty('defaultFormat')
+    expect(config).toHaveProperty('defaultTheme')
+    expect(stdout).toContain('.diagramkitrc.json')
+  }, 120_000)
+
+  it('install-skills copies skill files to .claude/skills/diagramkit/', () => {
+    const workspace = createWorkspace('e2e-cli-install-skills')
+
+    const stdout = runCli(['install-skills'], workspace)
+
+    const skillsDir = join(workspace, '.claude', 'skills', 'diagramkit')
+    expect(existsSync(skillsDir)).toBe(true)
+
+    // Should contain at least the main skill directories
+    const entries = readdirSync(skillsDir)
+    expect(entries.length).toBeGreaterThan(0)
+    expect(entries).toContain('diagrams')
+    expect(entries).toContain('diagramkit')
+
+    expect(stdout).toContain('Skills installed')
   }, 120_000)
 })

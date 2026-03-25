@@ -101,7 +101,7 @@ function getFlagValue(name: string): string | undefined {
   const idx = args.indexOf(`--${name}`)
   if (idx !== -1 && idx + 1 < args.length) {
     const value = args[idx + 1]!
-    if (value.startsWith('-')) {
+    if (value.startsWith('--')) {
       console.error(`Missing value for --${name}`)
       process.exit(1)
     }
@@ -352,13 +352,33 @@ async function commandRender() {
       })
 
       // Write output files
-      const [path, { ensureDiagramsDir }, { stripDiagramExtension, writeRenderResult }] =
-        await Promise.all([import('node:path'), import('../src/manifest'), import('../src/output')])
+      const [
+        path,
+        { ensureDiagramsDir, updateManifest },
+        { stripDiagramExtension, writeRenderResult },
+      ] = await Promise.all([
+        import('node:path'),
+        import('../src/manifest'),
+        import('../src/output'),
+      ])
       const outDir = customOutput
         ? resolve(customOutput)
         : ensureDiagramsDir(path.dirname(resolvedTarget), resolvedConfig)
       const name = stripDiagramExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap)
       const written = writeRenderResult(name, outDir, result)
+
+      // Update manifest for incremental builds (skip for custom output dirs)
+      if (!customOutput) {
+        const { getMatchedExtension } = await import('../src/extensions')
+        const ext =
+          getMatchedExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap) ?? ''
+        updateManifest(
+          [{ path: resolvedTarget, name, dir: path.dirname(resolvedTarget), ext }],
+          format,
+          resolvedConfig,
+          theme,
+        )
+      }
 
       if (jsonOutput) {
         console.log(JSON.stringify({ rendered: written.map((f) => path.join(outDir, f)) }))
@@ -426,7 +446,7 @@ async function commandRender() {
       force,
       type,
       contrastOptimize: !noContrast,
-      config: configOverrides,
+      config: resolvedConfig,
       logger,
     })
   } finally {
@@ -456,7 +476,7 @@ async function commandRender() {
     })
 
     // Keep process alive, clean up on exit — dispose() must complete before exit to avoid zombie Chromium
-    process.on('SIGINT', () => {
+    process.once('SIGINT', () => {
       void cleanup()
         .then(() => dispose())
         .then(() => process.exit(0))

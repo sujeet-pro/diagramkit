@@ -14,7 +14,11 @@ import type { DiagramFile, DiagramkitConfig, DiagramType } from './types'
  */
 export function findDiagramFiles(dir: string, config?: Partial<DiagramkitConfig>): DiagramFile[] {
   const map = getExtensionMap(config?.extensionMap)
-  // Compare against the first path segment so nested outputDirs like "build/diagrams" match correctly
+  // Compare against the first path segment so nested outputDirs are excluded during discovery.
+  // Trade-off: a multi-segment outputDir like "build/diagrams" will cause the entire "build"
+  // directory to be skipped, not just "build/diagrams". This is conservative — it avoids
+  // accidentally scanning output directories at the cost of potentially skipping unrelated
+  // source files that happen to live under the same top-level directory.
   const outputDirSegment = (config?.outputDir ?? '.diagrams').split('/')[0]!
   const results: DiagramFile[] = []
 

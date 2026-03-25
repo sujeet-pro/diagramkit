@@ -49,21 +49,19 @@
     "llms-full.txt"
   ],
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "bun": "./src/index.ts",
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
     },
     "./color": {
-      "bun": "./src/color/index.ts",
       "import": "./dist/color/index.mjs",
       "types": "./dist/color/index.d.mts"
     },
     "./convert": {
-      "bun": "./src/convert.ts",
       "import": "./dist/convert.mjs",
       "types": "./dist/convert.d.mts"
     }
@@ -110,6 +108,8 @@
     }
   },
   "overrides": {
+    "dompurify": ">=3.3.2",
+    "nanoid": ">=3.3.8",
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.13",
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.13"
   },

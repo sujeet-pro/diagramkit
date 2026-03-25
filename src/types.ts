@@ -92,6 +92,8 @@ export interface WatchOptions {
   renderOptions?: RenderOptions
   /** Configuration overrides */
   config?: Partial<DiagramkitConfig>
+  /** Optional logger for library consumers to control output */
+  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
 }
 
 /* ── Convert options ── */

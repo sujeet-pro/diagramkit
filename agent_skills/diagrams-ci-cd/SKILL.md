@@ -43,6 +43,7 @@ on:
     paths:
       - '**/*.mermaid'
       - '**/*.mmd'
+      - '**/*.mmdc'
       - '**/*.excalidraw'
       - '**/*.drawio'
       - '**/*.drawio.xml'
@@ -51,6 +52,7 @@ on:
     paths:
       - '**/*.mermaid'
       - '**/*.mmd'
+      - '**/*.mmdc'
       - '**/*.excalidraw'
       - '**/*.drawio'
       - '**/*.drawio.xml'
@@ -113,6 +115,7 @@ on:
     paths:
       - '**/*.mermaid'
       - '**/*.mmd'
+      - '**/*.mmdc'
       - '**/*.excalidraw'
       - '**/*.drawio'
       - '**/*.drawio.xml'
@@ -197,6 +200,7 @@ render-diagrams:
     - changes:
         - '**/*.mermaid'
         - '**/*.mmd'
+        - '**/*.mmdc'
         - '**/*.excalidraw'
         - '**/*.drawio'
         - '**/*.drawio.xml'
@@ -224,6 +228,7 @@ render-and-commit:
       changes:
         - '**/*.mermaid'
         - '**/*.mmd'
+        - '**/*.mmdc'
         - '**/*.excalidraw'
         - '**/*.drawio'
         - '**/*.drawio.xml'
@@ -368,7 +373,8 @@ fi
 ```json
 {
   "lint-staged": {
-    "*.{mermaid,mmd,mmdc,excalidraw,drawio,dio}": ["diagramkit render", "git add **/.diagrams/"]
+    "*.{mermaid,mmd,mmdc,excalidraw,drawio,dio}": ["diagramkit render", "git add **/.diagrams/"],
+    "*.drawio.xml": ["diagramkit render", "git add **/.diagrams/"]
   }
 }
 ```
@@ -406,7 +412,7 @@ fi
 - uses: actions/cache@v4
   with:
     path: '**/.diagrams'
-    key: diagrams-${{ hashFiles('**/*.mermaid', '**/*.mmd', '**/*.excalidraw', '**/*.drawio', '**/*.drawio.xml', '**/*.dio') }}
+    key: diagrams-${{ hashFiles('**/*.mermaid', '**/*.mmd', '**/*.mmdc', '**/*.excalidraw', '**/*.drawio', '**/*.drawio.xml', '**/*.dio') }}
     restore-keys: |
       diagrams-
 ```
@@ -519,6 +525,7 @@ on:
     paths:
       - '**/*.mermaid'
       - '**/*.mmd'
+      - '**/*.mmdc'
       - '**/*.excalidraw'
       - '**/*.drawio'
       - '**/*.drawio.xml'
