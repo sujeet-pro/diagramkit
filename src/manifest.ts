@@ -311,8 +311,8 @@ export function cleanOrphans(
     const knownOutputs = new Set(Object.values(manifest.diagrams).flatMap((e) => e.outputs))
     for (const entry of readdirSync(outDir)) {
       if (entry === manifestFile || entry === 'manifest.json') continue
-      // Skip .tmp files from in-progress atomic writes
-      if (entry.endsWith('.tmp')) continue
+      // Skip .tmp files from in-progress atomic writes (matches both foo.tmp and foo.svg.tmp.a1b2c3d4)
+      if (entry.includes('.tmp')) continue
       if (!knownOutputs.has(entry)) {
         unlinkSync(join(outDir, entry))
       }

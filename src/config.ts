@@ -84,5 +84,15 @@ export function loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string):
     }
   }
 
+  // Reset invalid config values to defaults (catches malformed config files)
+  if (typeof merged.outputDir !== 'string') merged.outputDir = defaults.outputDir
+  if (typeof merged.manifestFile !== 'string') merged.manifestFile = defaults.manifestFile
+  if (typeof merged.useManifest !== 'boolean') merged.useManifest = defaults.useManifest
+  if (typeof merged.sameFolder !== 'boolean') merged.sameFolder = defaults.sameFolder
+  if (typeof merged.defaultFormat !== 'string') merged.defaultFormat = defaults.defaultFormat
+  if (typeof merged.defaultTheme !== 'string') merged.defaultTheme = defaults.defaultTheme
+  if (merged.extensionMap && typeof merged.extensionMap !== 'object')
+    merged.extensionMap = defaults.extensionMap
+
   return merged
 }

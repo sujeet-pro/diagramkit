@@ -282,6 +282,8 @@ function renderDiagramFileToDisk(
 
 ---
 
+## Extension Utilities
+
 ### `getExtensionMap(overrides?)`
 
 Get the full extension-to-type mapping, merged with optional overrides.
@@ -358,6 +360,8 @@ function stripDiagramExtension(
 
 ---
 
+## Configuration
+
 ### `getDefaultConfig()`
 
 Return the default configuration values.
@@ -368,6 +372,28 @@ function getDefaultConfig(): DiagramkitConfig
 
 ---
 
+### `loadConfig(overrides?, dir?)`
+
+Load and merge configuration from all layers: defaults → global (`~/.config/diagramkit/config.json`) → local (`.diagramkitrc.json`, walks up from `dir`) → overrides.
+
+```typescript
+function loadConfig(
+  overrides?: Partial<DiagramkitConfig>,
+  dir?: string,
+): DiagramkitConfig
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `overrides` | `Partial<DiagramkitConfig>` | No | Per-call configuration overrides applied last |
+| `dir` | `string` | No | Starting directory for local config file walk-up (defaults to `process.cwd()`) |
+
+**Returns:** `DiagramkitConfig` -- the fully merged configuration object
+
+---
+
 ### `defaultMermaidDarkTheme`
 
 The default Mermaid dark theme variables object used for dark mode rendering.
@@ -375,6 +401,32 @@ The default Mermaid dark theme variables object used for dark mode rendering.
 ```typescript
 const defaultMermaidDarkTheme: Record<string, string>
 ```
+
+---
+
+## SVG-to-Raster Conversion
+
+### `convertSvg(svg, options)`
+
+Convert an SVG to a raster format (PNG, JPEG, or WebP) using sharp. Requires `sharp` as an optional peer dependency.
+
+```typescript
+function convertSvg(
+  svg: Buffer | string,
+  options: ConvertOptions,
+): Promise<Buffer>
+```
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `svg` | `Buffer \| string` | Yes | SVG content to convert |
+| `options` | [`ConvertOptions`](/reference/types#convertoptions) | Yes | Raster conversion options (format, density, quality) |
+
+**Returns:** `Promise<Buffer>` -- the raster image as a buffer
+
+Also available from the `diagramkit/convert` subpath export.
 
 ---
 

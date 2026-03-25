@@ -476,11 +476,13 @@ async function commandRender() {
     })
 
     // Keep process alive, clean up on exit — dispose() must complete before exit to avoid zombie Chromium
-    process.once('SIGINT', () => {
+    const onSignal = () => {
       void cleanup()
         .then(() => dispose())
         .then(() => process.exit(0))
-    })
+    }
+    process.once('SIGINT', onSignal)
+    process.once('SIGTERM', onSignal)
   }
 }
 

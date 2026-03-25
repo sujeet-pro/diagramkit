@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing. This guide covers the basics for getting started.
 
+By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). To report security vulnerabilities, see our [Security Policy](SECURITY.md).
+
 ## Dev setup
 
 ### Prerequisites
@@ -102,4 +104,4 @@ See `CLAUDE.md` for a detailed architecture overview, directory structure, and g
 2. Make your changes, following the code style above
 3. Add or update tests as appropriate -- unit tests for pure logic, e2e tests for rendering behavior
 4. Run `npm run validate` to verify everything passes
-5. Open a pull request against `main` with a clear description of the change
+5. Open a pull request against `main` with a clear description of the change -- GitHub will auto-apply the PR template

@@ -109,14 +109,14 @@ A `DiagramFile` that has been identified as needing re-rendering. Returned by `f
 ```typescript
 type StaleFile = DiagramFile & {
   /** SHA-256 content hash of the source file */
-  _hash: string
+  _hash?: string
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
 | *(inherited)* | | All fields from `DiagramFile` |
-| `_hash` | `string` | SHA-256 content hash, used internally by the manifest |
+| `_hash` | `string \| undefined` | SHA-256 content hash, used internally by the manifest. Optional — only present when the hash was computed during the staleness check. |
 
 ---
 

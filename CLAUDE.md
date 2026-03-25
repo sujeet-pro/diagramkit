@@ -55,7 +55,7 @@ To add support for a new diagram format (e.g. PlantUML):
 2. **DiagramType union** — add `'plantuml'` to the `DiagramType` type in `src/types.ts`
 3. **Renderer branch** — add an `else if (type === 'plantuml')` branch in `src/renderer.ts:render()`
 4. **Pool page** — add a `getPlantumlPage()` method to `BrowserPool` in `src/pool.ts`, following the excalidraw/drawio pattern if the renderer needs a bundled IIFE, or the mermaid pattern if it loads a script directly
-5. **Browser entry** (if needed) — create `src/renderers/plantuml-entry.ts` with a `__renderPlantuml()` global, add it to `vite.config.ts` pack entries
+5. **Browser entry** (if needed) — create `src/renderers/plantuml-entry.ts` with a `__renderPlantuml()` global, add it to `vite.config.ts` pack entries (so the entry file is included in the build output)
 6. **Renderer logic** — add the rendering logic as an `else if` branch in `src/renderer.ts` (there is no class-based renderer pattern or `src/renderers/index.ts`)
 7. **Tests** — add extension tests, a fixture file, and e2e test coverage
 8. **Docs & skills** — add `docs/diagrams/plantuml.md` and `agent_skills/diagram-plantuml/SKILL.md`
@@ -104,7 +104,8 @@ e2e/
   cli-render.e2e.test.ts  CLI rendering e2e (vitest, flags/output dirs/filtering)
   test-utils.ts           Shared e2e helpers (fixture workspace, CLI runner, validators)
   README.md               Lists all e2e test cases
-  fixtures/               Sample .mmd, .excalidraw, .drawio.xml for testing
+  fixtures/
+    mixed-diagrams/      Sample .mmd, .excalidraw, .drawio.xml for testing
 docs/                 VitePress documentation site
 agent_skills/         User-installable Claude Code skills (shipped in npm package)
   diagrams/
@@ -170,7 +171,7 @@ loadConfig(overrides?, dir?)      // Merged config: defaults -> global -> local 
 getExtensionMap(overrides?)       // Get extension-to-type mapping
 warmup() / dispose()              // Browser lifecycle
 postProcessDarkSvg(svg)           // Color contrast fix (handles style="" and fill="" attributes)
-atomicWrite(path, content)        // Atomic .tmp + rename write
+atomicWrite(path, content: Buffer) // Atomic .tmp + rename write
 ```
 
 ## Coding conventions

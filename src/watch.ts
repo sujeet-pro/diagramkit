@@ -1,7 +1,7 @@
 import { watch as chokidarWatch } from 'chokidar'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname } from 'node:path'
 import { loadConfig } from './config'
-import { getAllExtensions, getExtensionMap, getMatchedExtension } from './extensions'
+import { getExtensionMap, getMatchedExtension } from './extensions'
 import { hashFile, updateManifest } from './manifest'
 import { renderDiagramFileToDisk } from './renderer'
 import type { DiagramFile, DiagramType, WatchOptions } from './types'
@@ -31,18 +31,14 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   const format = opts.renderOptions?.format ?? config.defaultFormat
   const theme = opts.renderOptions?.theme ?? config.defaultTheme
   const extensionMap = getExtensionMap(config.extensionMap)
-  const allExts = getAllExtensions(extensionMap)
-
   const log = opts.logger?.log ?? console.log
   const warn = opts.logger?.warn ?? console.warn
 
   log('Watching for diagram changes...\n')
 
-  // Build glob patterns for all known extensions
-  const patterns = allExts.map((ext) => join(dir, `**/*${ext}`))
   const outputDirPattern = config.outputDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-  const watcher = chokidarWatch(patterns, {
+  // Watch the directory (not globs) — chokidar v5 does not fire events for glob patterns
+  const watcher = chokidarWatch(dir, {
     ignoreInitial: true,
     ignored: [/node_modules/, /\/dist\//, new RegExp(`(^|/)${outputDirPattern}(/|$)`)],
   })
@@ -110,12 +106,19 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
     )
   }
 
+  const isDiagramFile = (path: string) => {
+    const ext = getMatchedExtension(basename(path), extensionMap)
+    return ext != null
+  }
+
   watcher.on('change', (path) => {
+    if (!isDiagramFile(path)) return
     log(`Changed: ${path}`)
     debouncedHandle(path)
   })
 
   watcher.on('add', (path) => {
+    if (!isDiagramFile(path)) return
     log(`Added: ${path}`)
     debouncedHandle(path)
   })
