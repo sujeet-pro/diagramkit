@@ -1,6 +1,6 @@
 {
   "name": "diagramkit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, and .drawio to SVG/PNG/JPEG/WebP with light/dark mode support",
   "keywords": [
     "cli",
