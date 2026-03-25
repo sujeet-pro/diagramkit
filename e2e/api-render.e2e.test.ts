@@ -5,8 +5,8 @@
  * `renderAll()`, asserts the output files and manifest, then cleans up.
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { dispose, render, renderAll, renderFile } from '../src/index'
 import { readManifest } from '../src/manifest'

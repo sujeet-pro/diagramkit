@@ -58,7 +58,7 @@ To add support for a new diagram format (e.g. PlantUML):
 5. **Browser entry** (if needed) — create `src/renderers/plantuml-entry.ts` with a `__renderPlantuml()` global, add it to `vite.config.ts` pack entries
 6. **Renderer logic** — add the rendering logic as an `else if` branch in `src/renderer.ts` (there is no class-based renderer pattern or `src/renderers/index.ts`)
 7. **Tests** — add extension tests, a fixture file, and e2e test coverage
-8. **Docs & skills** — add `docs/diagrams/plantuml.md` and `agent_skills/diagram-plantuml.md`
+8. **Docs & skills** — add `docs/diagrams/plantuml.md` and `agent_skills/diagram-plantuml/SKILL.md`
 
 The manifest, discovery, output naming, and watch systems all work automatically via the extension map — no changes needed there.
 

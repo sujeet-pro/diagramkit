@@ -102,6 +102,24 @@ interface DiagramFile {
 
 ---
 
+### `StaleFile`
+
+A `DiagramFile` that has been identified as needing re-rendering. Returned by `filterStaleFiles()`. Extends `DiagramFile` with an internal content hash used by the manifest system.
+
+```typescript
+type StaleFile = DiagramFile & {
+  /** SHA-256 content hash of the source file */
+  _hash: string
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| *(inherited)* | | All fields from `DiagramFile` |
+| `_hash` | `string` | SHA-256 content hash, used internally by the manifest |
+
+---
+
 ## Render Options
 
 ### `RenderOptions`
@@ -178,6 +196,31 @@ interface RenderResult {
 
 ---
 
+### `RenderAllResult`
+
+Returned by `renderAll()`.
+
+```typescript
+interface RenderAllResult {
+  /** Files that were rendered */
+  rendered: string[]
+
+  /** Files skipped (unchanged, manifest cache hit) */
+  skipped: string[]
+
+  /** Files that failed to render */
+  failed: string[]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `rendered` | `string[]` | File paths that were rendered |
+| `skipped` | `string[]` | File paths skipped due to manifest cache hit |
+| `failed` | `string[]` | File paths that failed to render |
+
+---
+
 ## Batch Options
 
 ### `BatchOptions`
@@ -229,6 +272,9 @@ interface WatchOptions {
 
   /** Configuration overrides */
   config?: Partial<DiagramkitConfig>
+
+  /** Optional logger for library consumers to control output */
+  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
 }
 ```
 
@@ -238,6 +284,7 @@ interface WatchOptions {
 | `onChange` | `(file: string) => void` | No | Called with the file path after each re-render |
 | `renderOptions` | `RenderOptions` | No | Options passed to the renderer |
 | `config` | `Partial<DiagramkitConfig>` | No | Config overrides |
+| `logger` | `{ log, warn }` | No | Custom logger for controlling output |
 
 ---
 

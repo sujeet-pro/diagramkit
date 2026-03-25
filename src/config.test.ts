@@ -15,7 +15,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
-import { getDefaultConfig, loadConfig, loadGlobalConfig, loadLocalConfig } from './config'
+import { getDefaultConfig, loadConfig } from './config'
 
 describe('config loading', () => {
   const originalEnv = {
@@ -62,10 +62,9 @@ describe('config loading', () => {
       JSON.stringify({ outputDir: '_generated', defaultTheme: 'dark' }),
     )
 
-    expect(loadLocalConfig(nested)).toEqual({
-      outputDir: '_generated',
-      defaultTheme: 'dark',
-    })
+    const config = loadConfig(undefined, nested)
+    expect(config.outputDir).toBe('_generated')
+    expect(config.defaultTheme).toBe('dark')
   })
 
   it('applies overrides on top of merged config', () => {
@@ -128,7 +127,7 @@ describe('config loading', () => {
     })
   })
 
-  it('returns null for malformed JSON in global config', () => {
+  it('ignores malformed JSON in global config and falls back to defaults', () => {
     const home = mkdtempSync(join(tmpdir(), 'diagramkit-config-badglobal-'))
     tempDirs.push(home)
 
@@ -138,16 +137,22 @@ describe('config loading', () => {
     mkdirSync(join(home, '.config', 'diagramkit'), { recursive: true })
     writeFileSync(join(home, '.config', 'diagramkit', 'config.json'), '{invalid json!!!')
 
-    expect(loadGlobalConfig()).toBeNull()
+    // Malformed global config should be ignored — defaults still apply
+    const config = loadConfig(undefined, '/nonexistent/path')
+    expect(config.outputDir).toBe('.diagrams')
+    expect(config.manifestFile).toBe('diagrams.manifest.json')
   })
 
-  it('returns null for malformed JSON in local config', () => {
+  it('ignores malformed JSON in local config and falls back to defaults', () => {
     const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-badlocal-'))
     tempDirs.push(root)
 
     writeFileSync(join(root, '.diagramkitrc.json'), 'not valid json {{{')
 
-    expect(loadLocalConfig(root)).toBeNull()
+    // Malformed local config should be ignored — defaults still apply
+    const config = loadConfig(undefined, root)
+    expect(config.outputDir).toBe('.diagrams')
+    expect(config.manifestFile).toBe('diagrams.manifest.json')
   })
 
   it('deep-merges extensionMap so layers accumulate', () => {

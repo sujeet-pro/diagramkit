@@ -187,9 +187,21 @@ function filterByType(
 
 ## Manifest
 
-::: info Internal Functions
-Functions like `hashFile`, `filterStaleFiles`, `writeManifest`, `updateManifest`, and `cleanOrphans` are internal to the manifest module and not part of the public API.
-:::
+### `filterStaleFiles(files, force, format?, config?, theme?)`
+
+Filter diagram files to only those that need re-rendering. Caches manifests per directory.
+
+```typescript
+function filterStaleFiles(
+  files: DiagramFile[],
+  force: boolean,
+  format?: OutputFormat,
+  config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
+): StaleFile[]
+```
+
+Returns files that are stale due to: content change, format/theme change, missing outputs, or disabled manifest. When `force` is `true`, all files are returned.
 
 ### `isStale(file, format?, config?, theme?, manifest?)`
 
@@ -253,6 +265,115 @@ function ensureDiagramsDir(
   sourceDir: string,
   config?: Partial<DiagramkitConfig>,
 ): string
+```
+
+---
+
+### `renderDiagramFileToDisk(file, options?)`
+
+Render a single diagram file and write output to disk. Returns the list of written filenames. Useful for custom watch implementations.
+
+```typescript
+function renderDiagramFileToDisk(
+  file: DiagramFile,
+  options?: RenderOptions & { config?: DiagramkitConfig; outDir?: string },
+): Promise<string[]>
+```
+
+---
+
+### `getExtensionMap(overrides?)`
+
+Get the full extension-to-type mapping, merged with optional overrides.
+
+```typescript
+function getExtensionMap(
+  overrides?: Record<string, DiagramType>,
+): Record<string, DiagramType>
+```
+
+---
+
+### `getDiagramType(filename, map?)`
+
+Resolve the diagram type from a filename using longest-match-first resolution.
+
+```typescript
+function getDiagramType(
+  filename: string,
+  map?: Record<string, DiagramType>,
+): DiagramType | null
+```
+
+---
+
+### `getMatchedExtension(filename, map?)`
+
+Get the matched extension string from a filename.
+
+```typescript
+function getMatchedExtension(
+  filename: string,
+  map?: Record<string, DiagramType>,
+): string | null
+```
+
+---
+
+### `getAllExtensions(map?)`
+
+Return all known diagram file extensions.
+
+```typescript
+function getAllExtensions(
+  map?: Record<string, DiagramType>,
+): string[]
+```
+
+---
+
+### `getExtensionsForType(type, map?)`
+
+Return all extensions that map to a given diagram type.
+
+```typescript
+function getExtensionsForType(
+  type: DiagramType,
+  map?: Record<string, DiagramType>,
+): string[]
+```
+
+---
+
+### `stripDiagramExtension(filename, map?)`
+
+Strip the diagram extension from a filename, returning the base name.
+
+```typescript
+function stripDiagramExtension(
+  filename: string,
+  map?: Record<string, DiagramType>,
+): string
+```
+
+---
+
+### `getDefaultConfig()`
+
+Return the default configuration values.
+
+```typescript
+function getDefaultConfig(): DiagramkitConfig
+```
+
+---
+
+### `defaultMermaidDarkTheme`
+
+The default Mermaid dark theme variables object used for dark mode rendering.
+
+```typescript
+const defaultMermaidDarkTheme: Record<string, string>
 ```
 
 ---

@@ -19,6 +19,8 @@ Format guidance: prefer SVG unless the destination explicitly needs raster outpu
 
 diagramkit render <file-or-dir> [--format svg|png|jpeg|webp] [--theme light|dark|both] [--watch] [--force]
 diagramkit render <file-or-dir> [--scale <number>] [--quality <number>] [--no-contrast] [--type <type>] [--output <dir>]
+diagramkit render <file-or-dir> [--dry-run] [--quiet] [--json]
+diagramkit render <file-or-dir> [--output-dir <name>] [--manifest-file <name>] [--no-manifest] [--same-folder]
 diagramkit warmup
 
 ## Output Convention
@@ -28,7 +30,8 @@ Rendered images go to .diagrams/ next to source files:
 
 ## JS API
 
-import { render, renderFile, renderAll, watchDiagrams, convertSvg, loadConfig, warmup, dispose } from 'diagramkit'
+import { render, renderFile, renderAll, watchDiagrams, loadConfig, warmup, dispose } from 'diagramkit'
+import { convertSvg } from 'diagramkit'          // also available from 'diagramkit/convert'
 
 render(source: string, type: DiagramType, options?: RenderOptions): Promise<RenderResult>
 renderFile(filePath: string, options?: RenderOptions): Promise<RenderResult>

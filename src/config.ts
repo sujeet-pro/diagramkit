@@ -25,7 +25,7 @@ function getGlobalConfigPath(): string | null {
   return join(base, 'diagramkit', 'config.json')
 }
 
-export function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
+function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
   const path = getGlobalConfigPath()
   if (!path || !existsSync(path)) return null
   try {
@@ -37,7 +37,7 @@ export function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
 
 /* ── Local config (.diagramkitrc.json, walks up to filesystem root) ── */
 
-export function loadLocalConfig(dir: string): Partial<DiagramkitConfig> | null {
+function loadLocalConfig(dir: string): Partial<DiagramkitConfig> | null {
   let current = dir
   while (true) {
     const path = join(current, '.diagramkitrc.json')

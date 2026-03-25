@@ -87,4 +87,38 @@ describe('convertSvg', () => {
     const lowDensity = await convertSvg(minimalSvg, { format: 'png', density: 1 })
     expect(result.length).toBeGreaterThan(lowDensity.length)
   })
+
+  it('clamps quality below 1 to 1 and produces valid JPEG output', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'jpeg', quality: -50 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+    // JPEG magic bytes
+    expect(result[0]).toBe(0xff)
+    expect(result[1]).toBe(0xd8)
+  })
+
+  it('clamps quality above 100 to 100 and produces valid JPEG output', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'jpeg', quality: 999 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+    // JPEG magic bytes
+    expect(result[0]).toBe(0xff)
+    expect(result[1]).toBe(0xd8)
+  })
+
+  it('clamps quality below 1 to 1 and produces valid WebP output', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'webp', quality: 0 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+    // WebP starts with RIFF
+    expect(result.toString('ascii', 0, 4)).toBe('RIFF')
+  })
+
+  it('clamps quality above 100 to 100 and produces valid WebP output', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'webp', quality: 200 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+    // WebP starts with RIFF
+    expect(result.toString('ascii', 0, 4)).toBe('RIFF')
+  })
 })

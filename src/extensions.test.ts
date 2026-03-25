@@ -96,3 +96,34 @@ describe('getExtensionsForType', () => {
     expect(exts).toContain('.dio')
   })
 })
+
+describe('custom extension map longest-match resolution', () => {
+  const customMap = {
+    '.chart': 'mermaid' as any,
+    '.chart.xml': 'drawio' as any,
+  }
+
+  it('getDiagramType resolves multi-part extension before shorter one', () => {
+    expect(getDiagramType('system.chart.xml', customMap)).toBe('drawio')
+  })
+
+  it('getDiagramType falls back to shorter extension when multi-part does not match', () => {
+    expect(getDiagramType('flow.chart', customMap)).toBe('mermaid')
+  })
+
+  it('getDiagramType returns null for unknown extension in custom map', () => {
+    expect(getDiagramType('readme.md', customMap)).toBeNull()
+  })
+
+  it('getMatchedExtension returns the longest matching extension from custom map', () => {
+    expect(getMatchedExtension('system.chart.xml', customMap)).toBe('.chart.xml')
+  })
+
+  it('getMatchedExtension returns shorter extension when multi-part does not match', () => {
+    expect(getMatchedExtension('flow.chart', customMap)).toBe('.chart')
+  })
+
+  it('getMatchedExtension returns null for unknown extension in custom map', () => {
+    expect(getMatchedExtension('readme.md', customMap)).toBeNull()
+  })
+})

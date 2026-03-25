@@ -33,7 +33,10 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   const extensionMap = getExtensionMap(config.extensionMap)
   const allExts = getAllExtensions(extensionMap)
 
-  console.log('Watching for diagram changes...\n')
+  const log = opts.logger?.log ?? console.log
+  const warn = opts.logger?.warn ?? console.warn
+
+  log('Watching for diagram changes...\n')
 
   // Build glob patterns for all known extensions
   const patterns = allExts.map((ext) => join(dir, `**/*${ext}`))
@@ -73,7 +76,7 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
       opts.onChange?.(path)
     } catch (err: any) {
       // Safe mode: render failed, leave output and manifest untouched
-      console.error(`  Render failed: ${path} — ${err.message}`)
+      warn(`  Render failed: ${path} — ${err.message}`)
     }
   }
 
@@ -108,12 +111,12 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   }
 
   watcher.on('change', (path) => {
-    console.log(`Changed: ${path}`)
+    log(`Changed: ${path}`)
     debouncedHandle(path)
   })
 
   watcher.on('add', (path) => {
-    console.log(`Added: ${path}`)
+    log(`Added: ${path}`)
     debouncedHandle(path)
   })
 

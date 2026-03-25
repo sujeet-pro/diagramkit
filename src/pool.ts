@@ -76,6 +76,15 @@ export class BrowserPool {
       } catch {}
       this.launching = null
     }
+    // Close open pages explicitly before dropping references
+    try {
+      await Promise.allSettled([
+        this.mermaidLightPage?.close(),
+        this.mermaidDarkPage?.close(),
+        this.excalidrawPage?.close(),
+        this.drawioPage?.close(),
+      ])
+    } catch {}
     this.mermaidLightPage = null
     this.mermaidDarkPage = null
     this.excalidrawPage = null
@@ -95,6 +104,8 @@ export class BrowserPool {
       this.browser = await chromium.launch()
       // Required to inject IIFE bundles and mermaid scripts. Pages must never navigate to external URLs.
       this.context = await this.browser.newContext({ bypassCSP: true })
+      // Defense-in-depth: block all external network requests from browser pages
+      await this.context.route('**', (route) => route.abort())
     } catch (err: any) {
       const msg = err.message ?? ''
       if (msg.includes("Executable doesn't exist") || msg.includes('browserType.launch')) {
@@ -246,7 +257,7 @@ export class BrowserPool {
 const CACHE_DIR = 'node_modules/.cache/diagramkit'
 
 async function buildOrReadCachedBundle(name: string, entryPath: string): Promise<string> {
-  const { createHash } = await import('node:crypto')
+  const { createHash, randomBytes } = await import('node:crypto')
   const {
     existsSync,
     mkdirSync,
@@ -292,7 +303,7 @@ async function buildOrReadCachedBundle(name: string, entryPath: string): Promise
       }
     }
 
-    const tmp = cacheFile + '.tmp'
+    const tmp = cacheFile + '.tmp.' + randomBytes(4).toString('hex')
     writeFileSync(tmp, code)
     renameSync(tmp, cacheFile)
   } catch {

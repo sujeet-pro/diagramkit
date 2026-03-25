@@ -1,8 +1,16 @@
-import { execFileSync } from 'child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'fs'
-import { tmpdir } from 'os'
-import { dirname, join } from 'path'
-import { fileURLToPath } from 'url'
+import { execFileSync } from 'node:child_process'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { expect } from 'vite-plus/test'
 
 export const repoRoot = fileURLToPath(new URL('..', import.meta.url))

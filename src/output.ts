@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, join, relative } from 'node:path'
 import { getExtensionMap, getMatchedExtension } from './extensions'
 import type { DiagramType, OutputFormat, RenderResult, Theme } from './types'
 
@@ -63,13 +63,21 @@ export function writeRenderResult(name: string, outDir: string, result: RenderRe
   const written: string[] = []
   if (result.light) {
     const fileName = getOutputFileName(name, 'light', result.format)
-    atomicWrite(join(outDir, fileName), result.light)
+    const filePath = join(outDir, fileName)
+    if (relative(outDir, filePath).startsWith('..')) {
+      throw new Error('Output path escapes output directory')
+    }
+    atomicWrite(filePath, result.light)
     written.push(fileName)
   }
 
   if (result.dark) {
     const fileName = getOutputFileName(name, 'dark', result.format)
-    atomicWrite(join(outDir, fileName), result.dark)
+    const filePath = join(outDir, fileName)
+    if (relative(outDir, filePath).startsWith('..')) {
+      throw new Error('Output path escapes output directory')
+    }
+    atomicWrite(filePath, result.dark)
     written.push(fileName)
   }
 

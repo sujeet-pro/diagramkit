@@ -24,7 +24,7 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers. All complaints will be reviewed and investigated promptly and fairly.
+Report unacceptable behavior via [GitHub Security Advisories](https://github.com/sujeet-pro/diagramkit/security/advisories) or by contacting the maintainer directly. All reports will be reviewed and investigated promptly and confidentially.
 
 ## Attribution
 

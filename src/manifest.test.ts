@@ -273,7 +273,7 @@ describe('manifest', () => {
   })
 
   describe('filterStaleFiles', () => {
-    it('returns all files with _hash populated when force=true', () => {
+    it('returns all files when force=true (hash deferred to updateManifest)', () => {
       const file1 = createDiagram('a.mermaid', 'flowchart TD\nA-->B')
       const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
 
@@ -287,8 +287,8 @@ describe('manifest', () => {
 
       const stale = filterStaleFiles([file1, file2], true, 'svg', undefined, 'both')
       expect(stale).toHaveLength(2)
-      expect(stale[0]._hash).toMatch(/^sha256:/)
-      expect(stale[1]._hash).toMatch(/^sha256:/)
+      // _hash is deferred for force=true — updateManifest computes it via fallback
+      expect(stale[0]._hash).toBeUndefined()
     })
 
     it('filters out up-to-date files when force=false', () => {
@@ -304,7 +304,8 @@ describe('manifest', () => {
       const stale = filterStaleFiles([file1, file2], false, 'svg', undefined, 'both')
       expect(stale).toHaveLength(1)
       expect(stale[0].name).toBe('b')
-      expect(stale[0]._hash).toMatch(/^sha256:/)
+      // _hash deferred for files without manifest entry — updateManifest computes it
+      expect(stale[0]._hash).toBeUndefined()
     })
 
     it('returns all files when useManifest is false', () => {
@@ -321,8 +322,8 @@ describe('manifest', () => {
 
       const stale = filterStaleFiles([file1, file2], false, 'svg', { useManifest: false }, 'both')
       expect(stale).toHaveLength(2)
-      expect(stale[0]._hash).toMatch(/^sha256:/)
-      expect(stale[1]._hash).toMatch(/^sha256:/)
+      // _hash deferred when manifest disabled — updateManifest computes it
+      expect(stale[0]._hash).toBeUndefined()
     })
   })
 

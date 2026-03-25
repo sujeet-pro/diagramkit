@@ -29,7 +29,7 @@ diagramkit uses Playwright to run a headless Chromium instance for rendering. In
 npx diagramkit warmup
 ```
 
-This runs `npx playwright install chromium` under the hood. You only need to do this once per environment (local machine, CI runner, CI worker, etc.).
+This installs the Playwright Chromium browser binary needed for rendering. You only need to do this once per environment (local machine, CI runner, CI worker, etc.).
 
 ## First Render
 

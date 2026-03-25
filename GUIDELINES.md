@@ -44,7 +44,7 @@
 - Fail gracefully: if an optional dep is missing, warn and skip (do not throw from batch)
 - Individual file failures do not abort a batch render — log and continue
 - Atomic writes where practical: write to `.tmp` file, then `renameSync` to final path
-- All renderers implement the `DiagramRenderer` interface from `src/types.ts`
+- The render function in `src/renderer.ts` handles all diagram types via conditional branches with exhaustive type checking
 
 ## Extension Handling
 

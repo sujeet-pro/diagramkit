@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -12,11 +12,6 @@ import {
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { getExpectedOutputNames } from './output'
 import type { DiagramFile, DiagramkitConfig, OutputFormat, Theme } from './types'
-
-/* ── Constants ── */
-
-/** @deprecated Use getDiagramsDir(sourceDir, config) instead. Kept for backward compat. */
-export const DIAGRAMS_DIR = '.diagrams'
 
 /* ── Types ── */
 
@@ -104,7 +99,7 @@ export function writeManifest(
     throw new Error(`manifestFile "${manifestFile}" resolves outside the output directory`)
   }
 
-  const tmp = target + '.tmp'
+  const tmp = target + '.tmp.' + randomBytes(4).toString('hex')
   writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n')
   renameSync(tmp, target)
 }
@@ -119,7 +114,7 @@ export function hashFile(filePath: string): string {
 
 /* ── Staleness checking ── */
 
-export type StaleFile = DiagramFile & { _hash: string }
+export type StaleFile = DiagramFile & { _hash?: string }
 
 /** Check if a single diagram file is stale (changed since last render). Uses a pre-read manifest. */
 export function isStale(
@@ -159,7 +154,8 @@ export function filterStaleFiles(
   config?: Partial<DiagramkitConfig>,
   theme?: Theme,
 ): StaleFile[] {
-  if (force) return files.map((f) => ({ ...f, _hash: hashFile(f.path) }))
+  // When forced, all files are stale — defer hashing to updateManifest
+  if (force) return files.map((f) => ({ ...f }))
 
   const manifestCache = new Map<string, Manifest>()
 
@@ -168,32 +164,45 @@ export function filterStaleFiles(
       manifestCache.set(f.dir, readManifest(f.dir, config))
     }
     const manifest = manifestCache.get(f.dir)!
-    const hash = hashFile(f.path)
     const name = basename(f.path)
     const entry = manifest.diagrams[name]
 
+    // Manifest disabled — always stale, defer hashing to updateManifest
     if (config?.useManifest === false) {
+      result.push({ ...f })
+      return result
+    }
+
+    // No manifest entry — file never rendered, defer hashing
+    if (!entry) {
+      result.push({ ...f })
+      return result
+    }
+
+    // Format or theme changed — re-render regardless of content
+    if (format && entry.format !== format) {
+      result.push({ ...f })
+      return result
+    }
+    if (theme && entry.theme !== theme) {
+      result.push({ ...f })
+      return result
+    }
+
+    // Missing output files — re-render needed
+    const outDir = getDiagramsDir(f.dir, config)
+    if (entry.outputs.some((output) => !existsSync(join(outDir, output)))) {
+      result.push({ ...f })
+      return result
+    }
+
+    // Content hash comparison — only case that requires reading the file
+    const hash = hashFile(f.path)
+    if (entry.hash !== hash) {
       result.push({ ...f, _hash: hash })
       return result
     }
 
-    if (!entry || entry.hash !== hash) {
-      result.push({ ...f, _hash: hash })
-      return result
-    }
-    if (format && entry.format !== format) {
-      result.push({ ...f, _hash: hash })
-      return result
-    }
-    if (theme && entry.theme !== theme) {
-      result.push({ ...f, _hash: hash })
-      return result
-    }
-    const outDir = getDiagramsDir(f.dir, config)
-    if (entry.outputs.some((output) => !existsSync(join(outDir, output)))) {
-      result.push({ ...f, _hash: hash })
-      return result
-    }
     return result
   }, [])
 }

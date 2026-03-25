@@ -224,7 +224,7 @@ await renderAll({
 })
 
 // Browser lifecycle
-await warmup() // Pre-install chromium
+await warmup() // Pre-warm the browser pool
 await dispose() // Clean up browser
 ```
 

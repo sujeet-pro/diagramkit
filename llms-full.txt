@@ -117,32 +117,30 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
 
 ### Manifest
 
-  hashFile(filePath: string): string
-    SHA-256 content hash (first 16 hex chars), prefixed with "sha256:".
-
   isStale(file: DiagramFile, format?, config?, theme?, manifest?): boolean
     Check if a file has changed since last render.
 
-  filterStaleFiles(files: DiagramFile[], force: boolean, format?, config?, theme?): DiagramFile[]
+  filterStaleFiles(files: DiagramFile[], force: boolean, format?, config?, theme?): StaleFile[]
     Filter to only files that need re-rendering.
 
-  updateManifest(files: DiagramFile[], format?, config?): void
-    Update manifests after successful renders. Groups by directory.
-
-  cleanOrphans(files: DiagramFile[], config?): void
-    Remove orphaned outputs for deleted source files.
-
   readManifest(sourceDir: string, config?): Manifest
-  writeManifest(sourceDir: string, manifest: Manifest, config?): void
+    Read the manifest for a source directory.
+
   ensureDiagramsDir(sourceDir: string, config?): string
+    Get/create the output directory for a source directory.
+
   getDiagramsDir(sourceDir: string, config?): string
+    Get the output directory path for a source directory.
+
+  Note: hashFile, updateManifest, writeManifest, and cleanOrphans are internal
+  and not exported from the public API.
 
 ### Color Utilities
 
   postProcessDarkSvg(svg: string): string
     Fix dark SVG contrast by darkening high-luminance fills while preserving hue.
 
-  hexToRgb(hex: string): [number, number, number]
+  hexToRgb(hex: string): [number, number, number] | null
   rgbToHsl(r: number, g: number, b: number): [number, number, number]
   hslToHex(h: number, s: number, l: number): string
   relativeLuminance(r: number, g: number, b: number): number
@@ -206,6 +204,7 @@ For raster output — PNG, JPEG, WebP (optional, for targets like email or Confl
     dir?: string           // Root directory to scan. Default: cwd()
     force?: boolean        // Force re-render, ignoring manifest. Default: false
     type?: DiagramType     // Filter to specific diagram type
+    logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
   }
 
 ### WatchOptions
