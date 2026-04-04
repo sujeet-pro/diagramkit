@@ -1,0 +1,11 @@
+{
+  displayName: 'Reference',
+  description: 'API, CLI, configuration, and type reference',
+  orderBy: 'manual',
+  items: [
+    'cli',
+    'api',
+    'config',
+    'types',
+  ],
+}

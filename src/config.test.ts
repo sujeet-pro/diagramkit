@@ -1,32 +1,43 @@
 /**
  * User scenario:
  * A team can define defaults in the library, override them globally for a machine, refine them
- * per repository with `.diagramkitrc.json`, and still override everything for one render call.
+ * per repository with `diagramkit.config.json5`, and still override everything for one render call.
  *
  * What this file verifies:
  * - built-in defaults are stable
  * - local config files are discovered by walking parent directories
- * - merge precedence remains defaults -> global -> local -> per-call overrides
- *
- * These tests keep configuration behavior honest without needing to spin up a browser.
+ * - merge precedence remains defaults -> global -> env -> local -> per-call overrides
+ * - json5 and legacy .diagramkitrc.json configs are both supported
+ * - environment variable overrides work
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
-import { getDefaultConfig, loadConfig } from './config'
+import { defineConfig, getDefaultConfig, loadConfig } from './config'
 
 describe('config loading', () => {
   const originalEnv = {
     HOME: process.env.HOME,
     XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+    DIAGRAMKIT_FORMAT: process.env.DIAGRAMKIT_FORMAT,
+    DIAGRAMKIT_THEME: process.env.DIAGRAMKIT_THEME,
+    DIAGRAMKIT_OUTPUT_DIR: process.env.DIAGRAMKIT_OUTPUT_DIR,
+    DIAGRAMKIT_NO_MANIFEST: process.env.DIAGRAMKIT_NO_MANIFEST,
   }
   const tempDirs: string[] = []
 
   afterEach(() => {
-    process.env.HOME = originalEnv.HOME
-    process.env.XDG_CONFIG_HOME = originalEnv.XDG_CONFIG_HOME
+    // Restore env vars, using delete for originally-undefined values
+    // (process.env coerces undefined to string 'undefined')
+    for (const [key, val] of Object.entries(originalEnv)) {
+      if (val === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = val
+      }
+    }
 
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true })
@@ -36,22 +47,49 @@ describe('config loading', () => {
   it('returns expected defaults', () => {
     const config = getDefaultConfig()
     expect(config).toEqual({
-      outputDir: '.diagrams',
-      manifestFile: 'diagrams.manifest.json',
+      outputDir: '.diagramkit',
+      manifestFile: 'manifest.json',
       useManifest: true,
       sameFolder: false,
-      defaultFormat: 'svg',
+      defaultFormats: ['svg'],
       defaultTheme: 'both',
+      outputPrefix: '',
+      outputSuffix: '',
     })
   })
 
   it('returns defaults when no config files exist', () => {
     const config = loadConfig(undefined, '/nonexistent/path')
-    expect(config.outputDir).toBe('.diagrams')
-    expect(config.manifestFile).toBe('diagrams.manifest.json')
+    expect(config.outputDir).toBe('.diagramkit')
+    expect(config.manifestFile).toBe('manifest.json')
   })
 
-  it('finds the nearest local config by walking parent directories', () => {
+  it('defineConfig is an identity function', () => {
+    const input = { outputDir: 'custom', defaultTheme: 'dark' as const }
+    expect(defineConfig(input)).toBe(input)
+  })
+
+  it('finds the nearest local json5 config by walking parent directories', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-json5-'))
+    const nested = join(root, 'docs', 'diagrams')
+    tempDirs.push(root)
+
+    mkdirSync(nested, { recursive: true })
+    writeFileSync(
+      join(root, 'diagramkit.config.json5'),
+      `{
+        // json5 config with comments
+        outputDir: '_generated',
+        defaultTheme: 'dark',
+      }`,
+    )
+
+    const config = loadConfig(undefined, nested)
+    expect(config.outputDir).toBe('_generated')
+    expect(config.defaultTheme).toBe('dark')
+  })
+
+  it('finds the nearest legacy .diagramkitrc.json by walking parent directories', () => {
     const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-local-'))
     const nested = join(root, 'docs', 'diagrams')
     tempDirs.push(root)
@@ -71,17 +109,51 @@ describe('config loading', () => {
     const config = loadConfig({
       outputDir: 'images',
       useManifest: false,
-      defaultFormat: 'png',
+      defaultFormats: ['png'],
     })
 
     expect(config.outputDir).toBe('images')
     expect(config.useManifest).toBe(false)
-    expect(config.defaultFormat).toBe('png')
-    expect(config.manifestFile).toBe('diagrams.manifest.json')
+    expect(config.defaultFormats).toEqual(['png'])
+    expect(config.manifestFile).toBe('manifest.json')
     expect(config.sameFolder).toBe(false)
   })
 
-  it('merges defaults, global config, local config, and overrides in the documented order', () => {
+  it('migrates old defaultFormat (string) to defaultFormats (array)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-migrate-'))
+    tempDirs.push(root)
+
+    writeFileSync(join(root, '.diagramkitrc.json'), JSON.stringify({ defaultFormat: 'png' }))
+
+    const config = loadConfig(undefined, root)
+    expect(config.defaultFormats).toEqual(['png'])
+  })
+
+  it('reads env var overrides', () => {
+    process.env.DIAGRAMKIT_FORMAT = 'png,webp'
+    process.env.DIAGRAMKIT_THEME = 'dark'
+    process.env.DIAGRAMKIT_OUTPUT_DIR = '_env_output'
+    process.env.DIAGRAMKIT_NO_MANIFEST = 'true'
+
+    const config = loadConfig()
+    expect(config.defaultFormats).toEqual(['png', 'webp'])
+    expect(config.defaultTheme).toBe('dark')
+    expect(config.outputDir).toBe('_env_output')
+    expect(config.useManifest).toBe(false)
+  })
+
+  it('local config overrides env vars', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-envlocal-'))
+    tempDirs.push(root)
+
+    process.env.DIAGRAMKIT_OUTPUT_DIR = '_env_output'
+    writeFileSync(join(root, 'diagramkit.config.json5'), `{ outputDir: '_local_output' }`)
+
+    const config = loadConfig(undefined, root)
+    expect(config.outputDir).toBe('_local_output')
+  })
+
+  it('merges defaults, global config, env, local config, and overrides in the documented order', () => {
     const home = mkdtempSync(join(tmpdir(), 'diagramkit-config-home-'))
     const repo = mkdtempSync(join(tmpdir(), 'diagramkit-config-repo-'))
     const nested = join(repo, 'docs', 'api')
@@ -112,7 +184,7 @@ describe('config loading', () => {
     const config = loadConfig(
       {
         manifestFile: 'override.manifest.json',
-        defaultFormat: 'webp',
+        defaultFormats: ['webp'],
       },
       nested,
     )
@@ -122,8 +194,10 @@ describe('config loading', () => {
       manifestFile: 'override.manifest.json',
       useManifest: false,
       sameFolder: false,
-      defaultFormat: 'webp',
+      defaultFormats: ['webp'],
       defaultTheme: 'dark',
+      outputPrefix: '',
+      outputSuffix: '',
     })
   })
 
@@ -139,8 +213,8 @@ describe('config loading', () => {
 
     // Malformed global config should be ignored — defaults still apply
     const config = loadConfig(undefined, '/nonexistent/path')
-    expect(config.outputDir).toBe('.diagrams')
-    expect(config.manifestFile).toBe('diagrams.manifest.json')
+    expect(config.outputDir).toBe('.diagramkit')
+    expect(config.manifestFile).toBe('manifest.json')
   })
 
   it('ignores malformed JSON in local config and falls back to defaults', () => {
@@ -151,8 +225,8 @@ describe('config loading', () => {
 
     // Malformed local config should be ignored — defaults still apply
     const config = loadConfig(undefined, root)
-    expect(config.outputDir).toBe('.diagrams')
-    expect(config.manifestFile).toBe('diagrams.manifest.json')
+    expect(config.outputDir).toBe('.diagramkit')
+    expect(config.manifestFile).toBe('manifest.json')
   })
 
   it('deep-merges extensionMap so layers accumulate', () => {
@@ -183,5 +257,11 @@ describe('config loading', () => {
         '.custom': 'excalidraw',
       }),
     )
+  })
+
+  it('validates outputPrefix and outputSuffix as strings', () => {
+    const config = loadConfig({ outputPrefix: 'diagram-', outputSuffix: '-v2' })
+    expect(config.outputPrefix).toBe('diagram-')
+    expect(config.outputSuffix).toBe('-v2')
   })
 })

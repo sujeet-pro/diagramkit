@@ -54,8 +54,8 @@
 
 ## Configuration
 
-- Merge order: defaults -> global (`~/.config/diagramkit/config.json`) -> local (`.diagramkitrc.json`) -> overrides
-- Config walks up the directory tree to find `.diagramkitrc.json`
+- Merge order: defaults -> global (`~/.config/diagramkit/config.json5`) -> env vars (`DIAGRAMKIT_*`) -> local (`diagramkit.config.json5` or `.ts`) -> overrides
+- Config walks up the directory tree to find `diagramkit.config.json5` or `diagramkit.config.ts`
 - All config fields have sensible defaults in `getDefaultConfig()`
 
 ## Error Handling
@@ -78,4 +78,4 @@
 - vite-plus for library build (`vp pack`)
 - `vite-plugin-dts` for type declaration generation
 - Output to `dist/` — ESM only (`.mjs` + `.d.mts`)
-- Published files: `dist/`, `agent_skills/`, and `INSTALL_SKILLS.md`
+- Published files: `dist/`, `llms.txt`, and `llms-full.txt`

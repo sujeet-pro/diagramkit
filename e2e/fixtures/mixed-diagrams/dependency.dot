@@ -1,0 +1,7 @@
+digraph Dependencies {
+  rankdir=LR;
+
+  Client -> Api;
+  Api -> Auth;
+  Api -> Database;
+}

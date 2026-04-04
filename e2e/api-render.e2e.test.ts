@@ -41,27 +41,30 @@ describe('API rendering e2e', () => {
 
     await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
 
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
     const archLight = expectSvgFile(join(outDir, 'architecture-light.svg'))
     const archDark = expectSvgFile(join(outDir, 'architecture-dark.svg'))
     expectSvgFile(join(outDir, 'whiteboard-light.svg'))
     expectSvgFile(join(outDir, 'whiteboard-dark.svg'))
     expectSvgFile(join(outDir, 'system-light.svg'))
     expectSvgFile(join(outDir, 'system-dark.svg'))
+    expectSvgFile(join(outDir, 'dependency-light.svg'))
+    expectSvgFile(join(outDir, 'dependency-dark.svg'))
 
     expect(archLight).not.toBe(archDark)
 
     const manifest = readManifest(workspace)
     expect(Object.keys(manifest.diagrams).sort()).toEqual([
       'architecture.mmd',
+      'dependency.dot',
       'system.drawio.xml',
       'whiteboard.excalidraw',
     ])
-    expect(manifest.diagrams['architecture.mmd']?.outputs).toEqual([
+    expect(manifest.diagrams['architecture.mmd']?.outputs.map((o) => o.file)).toEqual([
       'architecture-light.svg',
       'architecture-dark.svg',
     ])
-    expect(manifest.diagrams['architecture.mmd']?.format).toBe('svg')
+    expect(manifest.diagrams['architecture.mmd']?.formats).toEqual(['svg'])
     expect(manifest.diagrams['architecture.mmd']?.theme).toBe('both')
   }, 120_000)
 
@@ -77,16 +80,20 @@ describe('API rendering e2e', () => {
 
     const outDir = join(workspace, '_renders')
     expectRasterFile(join(outDir, 'architecture-light.png'), 'png')
+    expectRasterFile(join(outDir, 'dependency-light.png'), 'png')
     expectRasterFile(join(outDir, 'whiteboard-light.png'), 'png')
     expectRasterFile(join(outDir, 'system-light.png'), 'png')
 
     expectNotExists(join(outDir, 'architecture-dark.png'))
 
     const manifest = readJson<{
-      diagrams: Record<string, { outputs: string[]; format: string; theme: string }>
+      diagrams: Record<
+        string,
+        { outputs: Array<{ file: string }>; formats: string[]; theme: string }
+      >
     }>(join(outDir, 'custom.manifest.json'))
-    expect(manifest.diagrams['architecture.mmd'].outputs).toEqual(['architecture-light.png'])
-    expect(manifest.diagrams['architecture.mmd'].format).toBe('png')
+    expect(manifest.diagrams['architecture.mmd'].outputs[0].file).toBe('architecture-light.png')
+    expect(manifest.diagrams['architecture.mmd'].formats).toEqual(['png'])
     expect(manifest.diagrams['architecture.mmd'].theme).toBe('light')
   }, 120_000)
 
@@ -101,22 +108,24 @@ describe('API rendering e2e', () => {
     })
 
     expectSvgFile(join(workspace, 'architecture-dark.svg'))
+    expectSvgFile(join(workspace, 'dependency-dark.svg'))
     expectSvgFile(join(workspace, 'whiteboard-dark.svg'))
     expectSvgFile(join(workspace, 'system-dark.svg'))
 
     expectNotExists(join(workspace, 'architecture-light.svg'))
-    expectNotExists(join(workspace, 'diagrams.manifest.json'))
-    expectNotExists(join(workspace, '.diagrams'))
+    expectNotExists(join(workspace, 'manifest.json'))
+    expectNotExists(join(workspace, '.diagramkit'))
 
     // Sources must remain intact
     expect(readFileSync(join(workspace, 'architecture.mmd'), 'utf-8')).toContain('flowchart TD')
     expect(existsSync(join(workspace, 'whiteboard.excalidraw'))).toBe(true)
     expect(existsSync(join(workspace, 'system.drawio.xml'))).toBe(true)
+    expect(existsSync(join(workspace, 'dependency.dot'))).toBe(true)
   }, 120_000)
 
   it('skips unchanged files, re-renders modified, cleans orphans', async () => {
     const workspace = createWorkspace('e2e-api-incremental')
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
 
     // Initial render
     await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
@@ -165,6 +174,7 @@ describe('API rendering e2e', () => {
     const manifest = readManifest(workspace)
     expect(manifest.diagrams['whiteboard.excalidraw']).toBeUndefined()
     expect(manifest.diagrams['architecture.mmd']).toBeDefined()
+    expect(manifest.diagrams['dependency.dot']).toBeDefined()
     expect(manifest.diagrams['system.drawio.xml']).toBeDefined()
   }, 120_000)
 
@@ -173,7 +183,7 @@ describe('API rendering e2e', () => {
 
     await renderAll({ dir: workspace, format: 'svg', theme: 'both', type: 'mermaid' })
 
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
     expectSvgFile(join(outDir, 'architecture-light.svg'))
     expectSvgFile(join(outDir, 'architecture-dark.svg'))
     expectNotExists(join(outDir, 'whiteboard-light.svg'))
@@ -185,8 +195,9 @@ describe('API rendering e2e', () => {
 
     await renderAll({ dir: workspace, format: 'jpeg', theme: 'light' })
 
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
     expectRasterFile(join(outDir, 'architecture-light.jpeg'), 'jpeg')
+    expectRasterFile(join(outDir, 'dependency-light.jpeg'), 'jpeg')
     expectRasterFile(join(outDir, 'whiteboard-light.jpeg'), 'jpeg')
     expectRasterFile(join(outDir, 'system-light.jpeg'), 'jpeg')
 
@@ -198,8 +209,9 @@ describe('API rendering e2e', () => {
 
     await renderAll({ dir: workspace, format: 'webp', theme: 'light' })
 
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
     expectRasterFile(join(outDir, 'architecture-light.webp'), 'webp')
+    expectRasterFile(join(outDir, 'dependency-light.webp'), 'webp')
     expectRasterFile(join(outDir, 'whiteboard-light.webp'), 'webp')
     expectRasterFile(join(outDir, 'system-light.webp'), 'webp')
 
@@ -223,6 +235,31 @@ describe('API rendering e2e', () => {
     expect(lightSvg).toContain('<svg')
     expect(darkSvg).toContain('<svg')
     expect(lightSvg).not.toBe(darkSvg)
+  }, 120_000)
+
+  it('render() supports graphviz DOT source strings', async () => {
+    const result = await render('digraph { A -> B }', 'graphviz', { theme: 'both', format: 'svg' })
+
+    expect(result.light).toBeDefined()
+    expect(result.dark).toBeDefined()
+
+    const lightSvg = result.light!.toString('utf-8')
+    const darkSvg = result.dark!.toString('utf-8')
+    expect(lightSvg).toContain('<svg')
+    expect(darkSvg).toContain('<svg')
+    expect(lightSvg).not.toContain('fill="white" stroke="none"')
+    expect(darkSvg).toContain('#e5e7eb')
+  }, 120_000)
+
+  it('renderFile() supports graphviz files', async () => {
+    const filePath = join(fixturesDir, 'dependency.dot')
+    const result = await renderFile(filePath, { format: 'svg', theme: 'both' })
+
+    expect(result.format).toBe('svg')
+    expect(result.light).toBeDefined()
+    expect(result.dark).toBeDefined()
+    expect(result.light!.toString('utf-8')).toContain('<svg')
+    expect(result.dark!.toString('utf-8')).toContain('#e5e7eb')
   }, 120_000)
 
   it('renderFile() returns RenderResult with SVG buffers', async () => {
@@ -263,7 +300,7 @@ describe('API rendering e2e', () => {
     // First render: all files should be rendered, none skipped
     const result1 = await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
 
-    expect(result1.rendered).toHaveLength(3)
+    expect(result1.rendered).toHaveLength(4)
     expect(result1.skipped).toHaveLength(0)
     expect(result1.failed).toHaveLength(0)
 
@@ -276,7 +313,7 @@ describe('API rendering e2e', () => {
     const result2 = await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
 
     expect(result2.rendered).toHaveLength(0)
-    expect(result2.skipped).toHaveLength(3)
+    expect(result2.skipped).toHaveLength(4)
     expect(result2.failed).toHaveLength(0)
   }, 120_000)
 
@@ -341,7 +378,7 @@ describe('API rendering e2e', () => {
       config: { useManifest: false },
     })
 
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
 
     // .mermaid alias should render
     expectSvgFile(join(outDir, 'flow-light.svg'))
@@ -364,7 +401,7 @@ describe('API rendering e2e', () => {
       },
     })
 
-    expectSvgFile(join(workspace, '.diagrams', 'flow-light.svg'))
+    expectSvgFile(join(workspace, '.diagramkit', 'flow-light.svg'))
   }, 120_000)
 
   it('cleans nested orphan outputs even when the tree no longer contains any diagrams', async () => {
@@ -379,13 +416,13 @@ describe('API rendering e2e', () => {
     writeFileSync(join(nestedDir, 'flow.mermaid'), 'graph TD; A-->B')
 
     await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
-    expectSvgFile(join(nestedDir, '.diagrams', 'flow-light.svg'))
+    expectSvgFile(join(nestedDir, '.diagramkit', 'flow-light.svg'))
 
     rmSync(join(nestedDir, 'flow.mermaid'))
     await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
 
-    expectNotExists(join(nestedDir, '.diagrams', 'flow-light.svg'))
-    expectNotExists(join(nestedDir, '.diagrams', 'diagrams.manifest.json'))
-    expectNotExists(join(nestedDir, '.diagrams'))
+    expectNotExists(join(nestedDir, '.diagramkit', 'flow-light.svg'))
+    expectNotExists(join(nestedDir, '.diagramkit', 'manifest.json'))
+    expectNotExists(join(nestedDir, '.diagramkit'))
   }, 120_000)
 })

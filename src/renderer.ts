@@ -1,17 +1,25 @@
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { postProcessDarkSvg } from './color/contrast'
-import { loadConfig } from './config'
+import { getFileOverrides, loadConfig } from './config'
 import { filterByType, findDiagramFiles } from './discovery'
 import { getAllExtensions, getDiagramType, getExtensionMap } from './extensions'
-import { cleanOrphans, ensureDiagramsDir, filterStaleFiles, updateManifest } from './manifest'
-import { writeRenderResult } from './output'
+import { renderGraphviz } from './graphviz'
+import {
+  cleanOrphans,
+  ensureDiagramsDir,
+  filterStaleFiles,
+  updateManifest,
+  type OutputMetadata,
+} from './manifest'
+import { writeRenderResult, type OutputNamingOptions } from './output'
 import { getPool } from './pool'
 import type {
   BatchOptions,
   DiagramFile,
   DiagramType,
   DiagramkitConfig,
+  OutputFormat,
   RenderOptions,
   RenderResult,
 } from './types'
@@ -29,6 +37,7 @@ export interface RenderAllResult {
 
 /**
  * Render a single diagram from source content.
+ * This is the low-level API — always produces a single format.
  */
 export async function render(
   source: string,
@@ -39,8 +48,9 @@ export async function render(
   const theme = options.theme ?? 'both'
   const contrastOptimize = options.contrastOptimize ?? true
 
-  const pool = getPool()
-  await pool.acquire()
+  const needsBrowser = type !== 'graphviz'
+  const pool = needsBrowser ? getPool() : null
+  if (pool) await pool.acquire()
 
   try {
     let lightSvg: string | undefined
@@ -51,7 +61,7 @@ export async function render(
 
     if (type === 'mermaid') {
       if (theme === 'light' || theme === 'both') {
-        const page = await pool.getMermaidLightPage()
+        const page = await pool!.getMermaidLightPage()
         lightSvg = await page.evaluate(
           async ({ diagram, id }: { diagram: string; id: string }) => {
             const container = (document as any).getElementById('container')!
@@ -65,7 +75,7 @@ export async function render(
 
       if (theme === 'dark' || theme === 'both') {
         const darkTheme = options.mermaidDarkTheme ?? defaultMermaidDarkTheme
-        const page = await pool.getMermaidDarkPage(darkTheme)
+        const page = await pool!.getMermaidDarkPage(darkTheme)
         darkSvg = await page.evaluate(
           async ({ diagram, id }: { diagram: string; id: string }) => {
             const container = (document as any).getElementById('container')!
@@ -80,7 +90,7 @@ export async function render(
         }
       }
     } else if (type === 'excalidraw') {
-      const page = await pool.getExcalidrawPage()
+      const page = await pool!.getExcalidrawPage()
 
       if (theme === 'light' || theme === 'both') {
         lightSvg = await page.evaluate(
@@ -100,7 +110,7 @@ export async function render(
         )
       }
     } else if (type === 'drawio') {
-      const page = await pool.getDrawioPage()
+      const page = await pool!.getDrawioPage()
 
       if (theme === 'light' || theme === 'both') {
         lightSvg = await page.evaluate(
@@ -121,6 +131,10 @@ export async function render(
         // draw.io entry handles dark mode color adjustments in the browser
         // via adjustColorForDark() — skip Node-side postProcessDarkSvg to avoid double-darkening
       }
+    } else if (type === 'graphviz') {
+      const rendered = await renderGraphviz(source, { theme, contrastOptimize })
+      lightSvg = rendered.lightSvg
+      darkSvg = rendered.darkSvg
     } else {
       const _exhaustive: never = type
       throw new Error(`Unsupported diagram type: ${String(_exhaustive)}`)
@@ -130,7 +144,7 @@ export async function render(
     if (format !== 'svg') {
       const { convertSvg } = await import('./convert')
       const convertOpts = {
-        format: format as 'png' | 'jpeg' | 'webp',
+        format: format as 'png' | 'jpeg' | 'webp' | 'avif',
         density: options.scale,
         quality: options.quality,
       }
@@ -171,7 +185,7 @@ export async function render(
       height,
     }
   } finally {
-    pool.release()
+    pool?.release()
   }
 }
 
@@ -195,27 +209,84 @@ export async function renderFile(
 }
 
 /**
- * Render one discovered diagram file and persist the variants to disk.
+ * Render one discovered diagram file and persist all format variants to disk.
+ * Always renders SVG first, then converts to each additional requested format.
  * This is shared by batch rendering, watch mode, and CLI single-file flows.
  */
 export async function renderDiagramFileToDisk(
   file: DiagramFile,
-  options: RenderOptions & { config?: DiagramkitConfig; outDir?: string } = {},
+  options: RenderOptions & {
+    config?: DiagramkitConfig
+    outDir?: string
+    formats?: OutputFormat[]
+  } = {},
 ): Promise<string[]> {
-  const result = await renderFile(file.path, options)
+  const formats = options.formats ?? (options.format ? [options.format] : ['svg'])
   const outDir = options.outDir ?? ensureDiagramsDir(file.dir, options.config)
-  return writeRenderResult(file.name, outDir, result)
+  const naming: OutputNamingOptions = {
+    prefix: options.config?.outputPrefix ?? '',
+    suffix: options.config?.outputSuffix ?? '',
+  }
+
+  // Always render SVG first (the core pipeline produces SVG)
+  const svgResult = await renderFile(file.path, { ...options, format: 'svg' })
+
+  const allWritten: string[] = []
+  const outputMeta: OutputMetadata[] = []
+
+  for (const fmt of formats) {
+    let result: RenderResult
+    if (fmt === 'svg') {
+      result = svgResult
+    } else {
+      // Convert SVG buffers to raster format
+      const { convertSvg } = await import('./convert')
+      const convertOpts = {
+        format: fmt as 'png' | 'jpeg' | 'webp' | 'avif',
+        density: options.scale,
+        quality: options.quality,
+      }
+      result = {
+        light: svgResult.light ? await convertSvg(svgResult.light, convertOpts) : undefined,
+        dark: svgResult.dark ? await convertSvg(svgResult.dark, convertOpts) : undefined,
+        format: fmt,
+      }
+    }
+
+    const written = writeRenderResult(file.name, outDir, result, naming)
+    allWritten.push(...written)
+
+    // Collect per-output metadata for manifest
+    for (const fileName of written) {
+      const theme: 'light' | 'dark' = fileName.includes('-dark.') ? 'dark' : 'light'
+      outputMeta.push({
+        file: fileName,
+        format: fmt,
+        theme,
+        width: svgResult.width,
+        height: svgResult.height,
+        quality: fmt !== 'svg' ? (options.quality ?? 90) : undefined,
+        scale: fmt !== 'svg' ? (options.scale ?? 2) : undefined,
+      })
+    }
+  }
+
+  // Attach metadata to file for manifest update
+  ;(file as any)._outputMeta = outputMeta
+
+  return allWritten
 }
 
 /**
  * Render all diagrams in a directory tree.
- * Outputs go to sibling .diagrams/ hidden folders (configurable via config).
+ * Outputs go to sibling .diagramkit/ hidden folders (configurable via config).
  * Returns a result object listing rendered, skipped, and failed files.
  */
 export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResult> {
   const contentDir = opts.dir ?? process.cwd()
   const config = loadConfig(opts.config, contentDir)
-  const format = opts.format ?? config.defaultFormat
+  // Resolve formats: explicit formats > explicit format > config defaults
+  const formats = opts.formats ?? (opts.format ? [opts.format] : config.defaultFormats)
   const theme = opts.theme ?? config.defaultTheme
   const log = opts.logger?.log ?? console.log
   const warn = opts.logger?.warn ?? console.warn
@@ -235,7 +306,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
     filtered = filterByType(filtered, opts.type, config)
   }
 
-  const stale = filterStaleFiles(filtered, opts.force ?? false, format, config, theme)
+  const stale = filterStaleFiles(filtered, opts.force ?? false, formats, config, theme)
 
   // Track skipped files
   const staleSet = new Set(stale.map((f) => f.path))
@@ -250,7 +321,11 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
       log(`${filtered.length - stale.length} diagrams up-to-date, ${stale.length} need rendering`)
     }
 
-    const successful: DiagramFile[] = []
+    const successful: (DiagramFile & {
+      _hash?: string
+      _effectiveFormats?: OutputFormat[]
+      _outputMeta?: OutputMetadata[]
+    })[] = []
 
     // Group by diagram type for concurrent rendering across separate browser pages
     const byType = new Map<string, typeof stale>()
@@ -261,22 +336,27 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
       byType.get(type)!.push(file)
     }
 
-    const renderOpts = {
-      format,
-      theme,
-      quality: opts.quality,
-      scale: opts.scale,
-      contrastOptimize: opts.contrastOptimize,
-      mermaidDarkTheme: opts.mermaidDarkTheme,
-      config,
-    }
-
     await Promise.all(
       [...byType.values()].map(async (files) => {
         for (const file of files) {
+          // Apply per-file overrides from config
+          const fileOverride = getFileOverrides(file.path, config, contentDir)
+
+          // Use effective formats from staleness check (includes manifest-accumulated formats)
+          const effectiveFormats = fileOverride?.formats ?? file._effectiveFormats ?? formats
+          const fileTheme = fileOverride?.theme ?? theme
+          const renderOpts = {
+            formats: effectiveFormats,
+            theme: fileTheme,
+            quality: fileOverride?.quality ?? opts.quality,
+            scale: fileOverride?.scale ?? opts.scale,
+            contrastOptimize: fileOverride?.contrastOptimize ?? opts.contrastOptimize,
+            mermaidDarkTheme: opts.mermaidDarkTheme,
+            config,
+          }
           try {
             await renderDiagramFileToDisk(file, renderOpts)
-            successful.push(file)
+            successful.push({ ...file, _outputMeta: (file as any)._outputMeta })
             result.rendered.push(file.path)
           } catch (err: any) {
             warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
@@ -287,11 +367,12 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
     )
 
     if (successful.length > 0) {
-      updateManifest(successful, format, config, theme)
+      updateManifest(successful, formats, config, theme)
     }
 
+    const fmtLabel = formats.join('+')
     log(
-      `Rendered ${successful.length}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${format}`,
+      `Rendered ${successful.length}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${fmtLabel}`,
     )
   }
 

@@ -5,7 +5,7 @@ const IDLE_TIMEOUT_MS = 5_000
 /**
  * Shared browser pool for diagram rendering.
  * Manages a single Chromium instance with reusable pages for
- * mermaid (light + dark) and excalidraw rendering.
+ * mermaid (light + dark), excalidraw, and draw.io rendering.
  *
  * Uses reference counting with idle timeout for lifecycle management:
  * - acquire() launches browser if needed, increments refCount

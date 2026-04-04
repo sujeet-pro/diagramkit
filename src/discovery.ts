@@ -19,7 +19,7 @@ export function findDiagramFiles(dir: string, config?: Partial<DiagramkitConfig>
   // directory to be skipped, not just "build/diagrams". This is conservative — it avoids
   // accidentally scanning output directories at the cost of potentially skipping unrelated
   // source files that happen to live under the same top-level directory.
-  const outputDirSegment = (config?.outputDir ?? '.diagrams').split('/')[0]!
+  const outputDirSegment = (config?.outputDir ?? '.diagramkit').split('/')[0]!
   const results: DiagramFile[] = []
 
   function walk(d: string, depth = 0) {

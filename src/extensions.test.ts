@@ -36,6 +36,15 @@ describe('getDiagramType', () => {
     expect(getDiagramType('network.drawio.xml')).toBe('drawio')
   })
 
+  it('resolves .dot to graphviz', () => {
+    expect(getDiagramType('dependency.dot')).toBe('graphviz')
+  })
+
+  it('resolves .gv and .graphviz to graphviz', () => {
+    expect(getDiagramType('dependency.gv')).toBe('graphviz')
+    expect(getDiagramType('dependency.graphviz')).toBe('graphviz')
+  })
+
   it('returns null for unknown extensions', () => {
     expect(getDiagramType('readme.md')).toBeNull()
     expect(getDiagramType('style.css')).toBeNull()
@@ -47,6 +56,7 @@ describe('getMatchedExtension', () => {
     expect(getMatchedExtension('flow.mmd')).toBe('.mmd')
     expect(getMatchedExtension('arch.drawio.xml')).toBe('.drawio.xml')
     expect(getMatchedExtension('arch.drawio')).toBe('.drawio')
+    expect(getMatchedExtension('dependency.dot')).toBe('.dot')
   })
 
   it('returns null for unmatched files', () => {
@@ -59,6 +69,7 @@ describe('getExtensionMap', () => {
     const map = getExtensionMap()
     expect(map['.mermaid']).toBe('mermaid')
     expect(map['.drawio']).toBe('drawio')
+    expect(map['.dot']).toBe('graphviz')
   })
 
   it('merges custom overrides', () => {
@@ -77,6 +88,9 @@ describe('getAllExtensions', () => {
     expect(exts).toContain('.drawio')
     expect(exts).toContain('.drawio.xml')
     expect(exts).toContain('.dio')
+    expect(exts).toContain('.dot')
+    expect(exts).toContain('.gv')
+    expect(exts).toContain('.graphviz')
   })
 })
 
@@ -94,6 +108,14 @@ describe('getExtensionsForType', () => {
     expect(exts).toContain('.drawio')
     expect(exts).toContain('.drawio.xml')
     expect(exts).toContain('.dio')
+  })
+
+  it('returns graphviz extensions', () => {
+    const exts = getExtensionsForType('graphviz')
+    expect(exts).toContain('.dot')
+    expect(exts).toContain('.gv')
+    expect(exts).toContain('.graphviz')
+    expect(exts).not.toContain('.drawio')
   })
 })
 

@@ -337,7 +337,7 @@ Verify `e2e/` tests cover:
 | Error handling       | Invalid file, missing Playwright, corrupt source, permission errors                                                    |
 | Watch mode           | File change triggers re-render, new file detection                                                                     |
 | Orphan cleanup       | Deleted source file removes output and manifest entry                                                                  |
-| Config               | `.diagramkitrc.json` options affect rendering                                                                          |
+| Config               | `diagramkit.config.json5` (or `.ts`) options affect rendering                                                          |
 | Multi-format batch   | Directory with mixed diagram types renders all correctly                                                               |
 
 ### 2.3 Test Quality
@@ -400,7 +400,7 @@ getDefaultConfig() → loadGlobalConfig() → loadLocalConfig() → overrides
 
 - Each layer is a partial spread
 - Missing config files are handled gracefully
-- Walk-up directory traversal for `.diagramkitrc.json`
+- Walk-up directory traversal for `diagramkit.config.json5` or `diagramkit.config.ts`
 - CLI flags properly override config
 
 ### 3.5 Extension Map Design

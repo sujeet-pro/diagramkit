@@ -1,61 +1,106 @@
 # diagramkit
 
-> Diagram rendering CLI & library. Converts .mermaid, .excalidraw, and .drawio files to SVG/PNG/JPEG/WebP with automatic light/dark mode support.
+> Diagram rendering CLI & library. Converts .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv/.graphviz files to SVG/PNG/JPEG/WebP/AVIF with automatic light/dark mode support.
 
 ## Quick Start
 
+```bash
 npm add diagramkit
-diagramkit warmup
-diagramkit render .
+npx diagramkit warmup
+npx diagramkit render .
+```
 
 ## Supported Formats
 
-Input: .mermaid (.mmd, .mmdc), .excalidraw, .drawio (.drawio.xml, .dio)
-Output: SVG (default and preferred), PNG, JPEG, WebP
+Input: .mermaid (.mmd, .mmdc), .excalidraw, .drawio (.drawio.xml, .dio), .dot (.gv, .graphviz)
+Output: SVG (default), PNG, JPEG, WebP, AVIF
 
-Format guidance: prefer SVG unless the destination explicitly needs raster output, such as email or Confluence.
+Prefer SVG unless the destination explicitly needs raster (email, Confluence).
 
 ## CLI
 
-diagramkit render <file-or-dir> [--format svg|png|jpeg|webp] [--theme light|dark|both] [--watch] [--force]
-diagramkit render <file-or-dir> [--scale <number>] [--quality <number>] [--no-contrast] [--type <type>] [--output <dir>]
-diagramkit render <file-or-dir> [--dry-run] [--quiet] [--json]
-diagramkit render <file-or-dir> [--output-dir <name>] [--manifest-file <name>] [--no-manifest] [--same-folder]
-diagramkit warmup
+```
+diagramkit render <file-or-dir> [options]    Render diagram file(s) to images
+diagramkit warmup                            Pre-install Playwright chromium
+diagramkit init [--ts]                       Create config file
+diagramkit --version / --help / --agent-help
+```
+
+### Render Options
+
+```
+--format <formats>       Output formats, comma-separated (default: svg)
+--theme <light|dark|both> Theme variants (default: both)
+--scale <number>         Scale for raster output (default: 2)
+--quality <number>       JPEG/WebP/AVIF quality 1-100 (default: 90)
+--force                  Re-render all, ignore manifest
+--watch                  Watch for changes and re-render
+--no-contrast            Disable dark SVG contrast optimization
+--type <type>            Filter: mermaid | excalidraw | drawio | graphviz
+--output <dir>           Custom output directory
+--config <path>          Path to config file (skip auto-discovery)
+--output-dir <name>      Output folder name (default: .diagramkit)
+--manifest-file <name>   Manifest filename (default: manifest.json)
+--no-manifest            Disable manifest tracking
+--same-folder            Output next to source files
+--dry-run                Preview what would render
+--quiet                  Suppress info output
+--json                   Machine-readable JSON output
+```
+
+### Examples
+
+```bash
+diagramkit render .                                  # All diagrams in cwd
+diagramkit render flow.mermaid                       # Single file
+diagramkit render . --format svg,png                 # Multi-format
+diagramkit render ./docs --format png --scale 3      # High-res PNGs
+diagramkit render . --watch                          # Watch mode
+diagramkit render . --output ./build/images          # Custom output dir
+diagramkit render . --type mermaid --force           # Force mermaid only
+diagramkit render . --config ./custom.config.json5   # Explicit config
+```
 
 ## Output Convention
 
-Rendered images go to .diagrams/ next to source files:
-  source.mermaid -> .diagrams/source-light.svg + .diagrams/source-dark.svg
+Rendered images go to `.diagramkit/` next to source files:
 
-## JS API
-
-import { render, renderFile, renderAll, watchDiagrams, loadConfig, warmup, dispose } from 'diagramkit'
-import { convertSvg } from 'diagramkit'          // also available from 'diagramkit/convert'
-
-render(source: string, type: DiagramType, options?: RenderOptions): Promise<RenderResult>
-renderFile(filePath: string, options?: RenderOptions): Promise<RenderResult>
-renderAll(options?: BatchOptions): Promise<RenderAllResult>
-watchDiagrams(options: WatchOptions): () => Promise<void>
-convertSvg(svg: Buffer | string, options: ConvertOptions): Promise<Buffer>
-loadConfig(overrides?: Partial<DiagramkitConfig>, dir?: string): DiagramkitConfig
-warmup(): Promise<void>
-dispose(): Promise<void>
+```
+docs/
+  architecture.mermaid
+  .diagramkit/
+    architecture-light.svg
+    architecture-dark.svg
+    manifest.json
+```
 
 ## Configuration
 
-Config file: .diagramkitrc.json (walks up directory tree)
-Global config: ~/.config/diagramkit/config.json
-Merge order: defaults -> global -> local -> overrides
+Config file: `diagramkit.config.json5` or `diagramkit.config.ts`
+Global: `~/.config/diagramkit/config.json5`
+Merge order: defaults → global → env vars (DIAGRAMKIT_*) → local → CLI flags
+
+Key options: outputDir, manifestFile, useManifest, sameFolder, defaultFormats, defaultTheme, outputPrefix, outputSuffix, extensionMap, overrides (per-file settings).
+
+Per-file overrides example:
+```json5
+{
+  overrides: {
+    "hero.mermaid": { formats: ["svg", "png"], scale: 3 },
+    "docs/*.excalidraw": { theme: "light" },
+  },
+}
+```
 
 ## Dependencies
 
-All rendering engines (mermaid, excalidraw, draw.io) are bundled dependencies.
-Optional: sharp (for PNG/JPEG/WebP raster output)
+All rendering engines (mermaid, excalidraw, draw.io, graphviz) are bundled.
+Optional: `sharp` (for PNG/JPEG/WebP/AVIF raster output)
 
-## Links
+## Programmatic API
 
-- API Types: src/types.ts
-- CLI: cli/bin.ts
-- Docs: docs/
-- Skills: agent_skills/diagramkit/SKILL.md
+For programmatic usage, see the full reference: llms-full.txt
+
+```ts
+import { render, renderFile, renderAll, watchDiagrams, loadConfig, warmup, dispose } from 'diagramkit'
+```

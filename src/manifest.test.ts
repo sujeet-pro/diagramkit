@@ -5,10 +5,11 @@
  *
  * What this file verifies:
  * - output and manifest directories resolve correctly for default, custom, and same-folder modes
- * - manifest files round-trip with custom names
+ * - manifest files round-trip with custom names (v2 format with ManifestOutput objects)
  * - staleness responds to content, format, and theme changes
- * - manifest updates record the exact expected output filenames
+ * - manifest updates record structured output metadata
  * - orphan cleanup stays safe when manifest tracking is disabled or when outputs live beside sources
+ * - v1 manifests are migrated to v2 on read
  */
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -52,7 +53,7 @@ describe('manifest', () => {
 
   describe('directory helpers', () => {
     it('returns the default hidden output directory', () => {
-      expect(getDiagramsDir('/some/path')).toBe('/some/path/.diagrams')
+      expect(getDiagramsDir('/some/path')).toBe('/some/path/.diagramkit')
     })
 
     it('respects custom output directory names and same-folder mode', () => {
@@ -67,34 +68,61 @@ describe('manifest', () => {
   })
 
   describe('readManifest / writeManifest', () => {
-    it('returns an empty manifest for a new directory', () => {
-      expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
+    it('returns an empty v2 manifest for a new directory', () => {
+      expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
     })
 
-    it('reads from legacy manifest.json when diagrams.manifest.json does not exist', () => {
+    it('migrates v1 manifest with string outputs to v2 ManifestOutput objects', () => {
       const outDir = ensureDiagramsDir(testDir)
       const legacyManifest = {
-        version: 1 as const,
+        version: 1,
         diagrams: {
           'old.mermaid': {
             hash: 'sha256:legacy123456789',
             generatedAt: '2025-01-01T00:00:00.000Z',
-            outputs: ['old-light.svg'],
-            format: 'svg' as const,
-            theme: 'light' as const,
+            outputs: ['old-light.svg', 'old-dark.svg'],
+            format: 'svg',
+            theme: 'both',
           },
         },
       }
       writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(legacyManifest))
 
-      expect(readManifest(testDir)).toEqual(legacyManifest)
+      const manifest = readManifest(testDir)
+      expect(manifest.version).toBe(2)
+      expect(manifest.diagrams['old.mermaid'].formats).toEqual(['svg'])
+      // Outputs should be migrated to ManifestOutput objects
+      expect(manifest.diagrams['old.mermaid'].outputs).toEqual([
+        { file: 'old-light.svg', format: 'svg', theme: 'light' },
+        { file: 'old-dark.svg', format: 'svg', theme: 'dark' },
+      ])
+    })
+
+    it('reads from legacy diagrams.manifest.json and migrates format field', () => {
+      const outDir = ensureDiagramsDir(testDir)
+      const legacyManifest = {
+        version: 1,
+        diagrams: {
+          'old.mermaid': {
+            hash: 'sha256:legacy123456789',
+            generatedAt: '2025-01-01T00:00:00.000Z',
+            outputs: ['old-light.svg'],
+            format: 'svg',
+            theme: 'light',
+          },
+        },
+      }
+      writeFileSync(join(outDir, 'diagrams.manifest.json'), JSON.stringify(legacyManifest))
+
+      const manifest = readManifest(testDir)
+      expect(manifest.diagrams['old.mermaid'].formats).toEqual(['svg'])
     })
 
     it('returns default manifest when manifest file contains invalid JSON', () => {
       const outDir = ensureDiagramsDir(testDir)
-      writeFileSync(join(outDir, 'diagrams.manifest.json'), 'not json{{')
+      writeFileSync(join(outDir, 'manifest.json'), 'not json{{')
 
-      expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
+      expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
     })
 
     it('throws when manifestFile resolves outside the output directory', () => {
@@ -103,15 +131,15 @@ describe('manifest', () => {
       )
     })
 
-    it('round-trips manifest data with a custom manifest filename', () => {
+    it('round-trips v2 manifest data with a custom manifest filename', () => {
       const manifest = {
-        version: 1 as const,
+        version: 2 as const,
         diagrams: {
           'test.mermaid': {
             hash: 'sha256:abc123',
             generatedAt: '2026-01-01T00:00:00.000Z',
-            outputs: ['test-light.png'],
-            format: 'png' as const,
+            outputs: [{ file: 'test-light.png', format: 'png' as const, theme: 'light' as const }],
+            formats: ['png'] as 'png'[],
             theme: 'light' as const,
           },
         },
@@ -151,41 +179,72 @@ describe('manifest', () => {
       writeFileSync(join(outDir, 'test-light.svg'), '<svg width="10" height="10"/>')
       writeFileSync(join(outDir, 'test-dark.svg'), '<svg width="10" height="10"/>')
 
-      expect(isStale(file, 'svg', undefined, 'both')).toBe(false)
+      expect(isStale(file, ['svg'], undefined, 'both')).toBe(false)
     })
 
     it('returns true when content, format, or theme changes', () => {
       const file = createDiagram()
-      updateManifest([file], 'svg', undefined, 'both')
+      updateManifest([file], ['svg'], undefined, 'both')
 
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'test-light.svg'), '<svg width="10" height="10"/>')
       writeFileSync(join(outDir, 'test-dark.svg'), '<svg width="10" height="10"/>')
 
-      expect(isStale(file, 'png', undefined, 'both')).toBe(true)
-      expect(isStale(file, 'svg', undefined, 'light')).toBe(true)
+      // Requesting png: effective formats = union(['png'], ['svg']) = ['svg', 'png']
+      // Missing png outputs → stale
+      expect(isStale(file, ['png'], undefined, 'both')).toBe(true)
+      expect(isStale(file, ['svg'], undefined, 'light')).toBe(true)
 
       writeFileSync(file.path, 'flowchart TD\nB-->C')
-      expect(isStale(file, 'svg', undefined, 'both')).toBe(true)
+      expect(isStale(file, ['svg'], undefined, 'both')).toBe(true)
     })
   })
 
   describe('updateManifest', () => {
-    it('records theme-specific output names and metadata', () => {
+    it('records theme-specific output names with ManifestOutput objects', () => {
       const file = createDiagram('flow.mermaid')
-      updateManifest([file], 'png', undefined, 'light')
+      updateManifest([file], ['png'], undefined, 'light')
 
-      expect(readManifest(testDir)).toEqual({
-        version: 1,
-        diagrams: {
-          'flow.mermaid': {
-            hash: hashFile(file.path),
-            generatedAt: expect.any(String),
-            outputs: ['flow-light.png'],
-            format: 'png',
-            theme: 'light',
+      const manifest = readManifest(testDir)
+      const entry = manifest.diagrams['flow.mermaid']
+      expect(entry.hash).toBe(hashFile(file.path))
+      expect(entry.formats).toEqual(['png'])
+      expect(entry.theme).toBe('light')
+      // Outputs should be ManifestOutput objects
+      expect(entry.outputs).toEqual([
+        expect.objectContaining({ file: 'flow-light.png', format: 'png', theme: 'light' }),
+      ])
+    })
+
+    it('stores custom output metadata when provided', () => {
+      const file = createDiagram('meta.mermaid')
+      const fileWithMeta = {
+        ...file,
+        _outputMeta: [
+          {
+            file: 'meta-light.png',
+            format: 'png' as const,
+            theme: 'light' as const,
+            width: 800,
+            height: 600,
+            quality: 90,
+            scale: 2,
           },
-        },
+        ],
+      }
+
+      updateManifest([fileWithMeta], ['png'], undefined, 'light')
+
+      const manifest = readManifest(testDir)
+      const entry = manifest.diagrams['meta.mermaid']
+      expect(entry.outputs[0]).toEqual({
+        file: 'meta-light.png',
+        format: 'png',
+        theme: 'light',
+        width: 800,
+        height: 600,
+        quality: 90,
+        scale: 2,
       })
     })
   })
@@ -199,7 +258,7 @@ describe('manifest', () => {
 
       cleanOrphans([file], { useManifest: false })
 
-      expect(readManifest(testDir)).toEqual({ version: 1, diagrams: {} })
+      expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
       expect(existsSync(join(outDir, 'test-light.svg'))).toBe(true)
       expect(existsSync(join(outDir, 'test-dark.svg'))).toBe(true)
     })
@@ -208,7 +267,7 @@ describe('manifest', () => {
       const file = createDiagram()
       const companionFile = createDiagram('keep.mermaid', 'flowchart TD\nX-->Y')
 
-      updateManifest([file, companionFile], 'svg', { sameFolder: true }, 'both')
+      updateManifest([file, companionFile], ['svg'], { sameFolder: true }, 'both')
       writeFileSync(join(testDir, 'test-light.svg'), '<svg/>')
       writeFileSync(join(testDir, 'test-dark.svg'), '<svg/>')
       writeFileSync(join(testDir, 'keep-light.svg'), '<svg/>')
@@ -233,7 +292,7 @@ describe('manifest', () => {
       const file = createDiagram()
       const outDir = ensureDiagramsDir(testDir)
 
-      updateManifest([file], 'svg', undefined, 'both')
+      updateManifest([file], ['svg'], undefined, 'both')
       writeFileSync(join(outDir, 'test-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'test-dark.svg'), '<svg/>')
       // An extra file that is not tracked in the manifest
@@ -259,7 +318,7 @@ describe('manifest', () => {
         ext: '.mermaid',
       }
 
-      updateManifest([file], 'svg', undefined, 'light')
+      updateManifest([file], ['svg'], undefined, 'light')
       const outDir = ensureDiagramsDir(nestedDir)
       writeFileSync(join(outDir, 'flow-light.svg'), '<svg/>')
 
@@ -267,7 +326,7 @@ describe('manifest', () => {
       cleanOrphans([], undefined, [testDir])
 
       expect(existsSync(join(outDir, 'flow-light.svg'))).toBe(false)
-      expect(existsSync(join(outDir, 'diagrams.manifest.json'))).toBe(false)
+      expect(existsSync(join(outDir, 'manifest.json'))).toBe(false)
       expect(existsSync(outDir)).toBe(false)
     })
   })
@@ -278,14 +337,14 @@ describe('manifest', () => {
       const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
 
       // Pre-render so files would normally be up-to-date
-      updateManifest([file1, file2], 'svg', undefined, 'both')
+      updateManifest([file1, file2], ['svg'], undefined, 'both')
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'a-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'a-dark.svg'), '<svg/>')
       writeFileSync(join(outDir, 'b-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'b-dark.svg'), '<svg/>')
 
-      const stale = filterStaleFiles([file1, file2], true, 'svg', undefined, 'both')
+      const stale = filterStaleFiles([file1, file2], true, ['svg'], undefined, 'both')
       expect(stale).toHaveLength(2)
       // _hash is deferred for force=true — updateManifest computes it via fallback
       expect(stale[0]._hash).toBeUndefined()
@@ -296,12 +355,12 @@ describe('manifest', () => {
       const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
 
       // Only update manifest for file1
-      updateManifest([file1], 'svg', undefined, 'both')
+      updateManifest([file1], ['svg'], undefined, 'both')
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'a-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'a-dark.svg'), '<svg/>')
 
-      const stale = filterStaleFiles([file1, file2], false, 'svg', undefined, 'both')
+      const stale = filterStaleFiles([file1, file2], false, ['svg'], undefined, 'both')
       expect(stale).toHaveLength(1)
       expect(stale[0].name).toBe('b')
       // _hash deferred for files without manifest entry — updateManifest computes it
@@ -313,14 +372,14 @@ describe('manifest', () => {
       const file2 = createDiagram('b.mermaid', 'flowchart TD\nC-->D')
 
       // Even after updating the manifest, all files should be returned
-      updateManifest([file1, file2], 'svg', undefined, 'both')
+      updateManifest([file1, file2], ['svg'], undefined, 'both')
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'a-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'a-dark.svg'), '<svg/>')
       writeFileSync(join(outDir, 'b-light.svg'), '<svg/>')
       writeFileSync(join(outDir, 'b-dark.svg'), '<svg/>')
 
-      const stale = filterStaleFiles([file1, file2], false, 'svg', { useManifest: false }, 'both')
+      const stale = filterStaleFiles([file1, file2], false, ['svg'], { useManifest: false }, 'both')
       expect(stale).toHaveLength(2)
       // _hash deferred when manifest disabled — updateManifest computes it
       expect(stale[0]._hash).toBeUndefined()
@@ -333,7 +392,7 @@ describe('manifest', () => {
       const fakeHash = 'sha256:deadbeefdeadbeef'
       const fileWithHash = { ...file, _hash: fakeHash }
 
-      updateManifest([fileWithHash], 'svg', undefined, 'both')
+      updateManifest([fileWithHash], ['svg'], undefined, 'both')
 
       const manifest = readManifest(testDir)
       expect(manifest.diagrams['cached.mermaid'].hash).toBe(fakeHash)
