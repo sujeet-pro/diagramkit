@@ -6,6 +6,11 @@ import type { DiagramType, OutputFormat, RenderResult, Theme } from './types'
 
 type OutputVariant = 'light' | 'dark'
 
+export interface OutputNamingOptions {
+  prefix?: string
+  suffix?: string
+}
+
 export function atomicWrite(path: string, content: Buffer): void {
   const tmp = path + '.tmp.' + randomBytes(4).toString('hex')
   try {
@@ -29,16 +34,30 @@ export function getOutputFileName(
   name: string,
   variant: OutputVariant,
   format: OutputFormat = 'svg',
+  naming?: OutputNamingOptions,
 ): string {
-  return `${name}-${variant}.${format}`
+  const prefix = naming?.prefix ?? ''
+  const suffix = naming?.suffix ?? ''
+  return `${prefix}${name}${suffix}-${variant}.${format}`
 }
 
 export function getExpectedOutputNames(
   name: string,
   format: OutputFormat = 'svg',
   theme: Theme = 'both',
+  naming?: OutputNamingOptions,
 ): string[] {
-  return getOutputVariants(theme).map((variant) => getOutputFileName(name, variant, format))
+  return getOutputVariants(theme).map((variant) => getOutputFileName(name, variant, format, naming))
+}
+
+/** Get expected output names across multiple formats. */
+export function getExpectedOutputNamesMulti(
+  name: string,
+  formats: OutputFormat[],
+  theme: Theme = 'both',
+  naming?: OutputNamingOptions,
+): string[] {
+  return formats.flatMap((fmt) => getExpectedOutputNames(name, fmt, theme, naming))
 }
 
 /**
@@ -57,12 +76,17 @@ export function stripDiagramExtension(
  * Write whichever variants were returned by the renderer.
  * We derive filenames from the actual render result so callers do not need to keep theme state in sync.
  */
-export function writeRenderResult(name: string, outDir: string, result: RenderResult): string[] {
+export function writeRenderResult(
+  name: string,
+  outDir: string,
+  result: RenderResult,
+  naming?: OutputNamingOptions,
+): string[] {
   mkdirSync(outDir, { recursive: true })
 
   const written: string[] = []
   if (result.light) {
-    const fileName = getOutputFileName(name, 'light', result.format)
+    const fileName = getOutputFileName(name, 'light', result.format, naming)
     const filePath = join(outDir, fileName)
     if (relative(outDir, filePath).startsWith('..')) {
       throw new Error('Output path escapes output directory')
@@ -72,7 +96,7 @@ export function writeRenderResult(name: string, outDir: string, result: RenderRe
   }
 
   if (result.dark) {
-    const fileName = getOutputFileName(name, 'dark', result.format)
+    const fileName = getOutputFileName(name, 'dark', result.format, naming)
     const filePath = join(outDir, fileName)
     if (relative(outDir, filePath).startsWith('..')) {
       throw new Error('Output path escapes output directory')

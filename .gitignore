@@ -103,9 +103,18 @@ dist
 
 # diagramkit output
 .diagrams/
+.diagramkit/
+
+# Auto-generated agentic files (managed by Pagesmith AI)
+AGENTS.md
+GEMINI.md
 
 # vitepress build output
 **/.vitepress/dist
+
+# Pagesmith docs build output
+gh-pages/
+docs-dist/
 
 # vitepress cache directory
 **/.vitepress/cache

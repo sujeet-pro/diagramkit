@@ -33,6 +33,9 @@ export async function convertSvg(svg: Buffer | string, options: ConvertOptions):
     case 'webp':
       pipeline = pipeline.webp({ quality })
       break
+    case 'avif':
+      pipeline = pipeline.avif({ quality })
+      break
   }
 
   return pipeline.toBuffer()

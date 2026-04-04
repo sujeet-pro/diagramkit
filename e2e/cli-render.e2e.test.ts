@@ -76,8 +76,8 @@ describe('CLI rendering e2e', () => {
 
     runCli(['render', 'flow.custom-diagram', '--theme', 'light'], workspace)
 
-    expectSvgFile(join(workspace, '.diagrams', 'flow-light.svg'))
-    expectNotExists(join(workspace, '.diagrams', 'flow.custom-light.svg'))
+    expectSvgFile(join(workspace, '.diagramkit', 'flow-light.svg'))
+    expectNotExists(join(workspace, '.diagramkit', 'flow.custom-light.svg'))
   }, 120_000)
 
   it('renders directory with custom output-dir and manifest-file', () => {
@@ -101,16 +101,17 @@ describe('CLI rendering e2e', () => {
 
     const outDir = join(workspace, 'rendered')
     expectRasterFile(join(outDir, 'architecture-light.png'), 'png')
+    expectRasterFile(join(outDir, 'dependency-light.png'), 'png')
     expectRasterFile(join(outDir, 'whiteboard-light.png'), 'png')
     expectRasterFile(join(outDir, 'system-light.png'), 'png')
 
     expectNotExists(join(outDir, 'architecture-dark.png'))
     expect(existsSync(join(outDir, 'cli.manifest.json'))).toBe(true)
 
-    const manifest = readJson<{ diagrams: Record<string, { outputs: string[]; theme: string }> }>(
-      join(outDir, 'cli.manifest.json'),
-    )
-    expect(manifest.diagrams['architecture.mmd'].outputs).toEqual(['architecture-light.png'])
+    const manifest = readJson<{
+      diagrams: Record<string, { outputs: Array<{ file: string }>; theme: string }>
+    }>(join(outDir, 'cli.manifest.json'))
+    expect(manifest.diagrams['architecture.mmd'].outputs[0].file).toBe('architecture-light.png')
     expect(manifest.diagrams['architecture.mmd'].theme).toBe('light')
   }, 120_000)
 
@@ -135,20 +136,22 @@ describe('CLI rendering e2e', () => {
 
     expectSvgFile(join(workspace, 'architecture-light.svg'))
     expectSvgFile(join(workspace, 'architecture-dark.svg'))
+    expectNotExists(join(workspace, 'dependency-light.svg'))
 
     expectNotExists(join(workspace, 'whiteboard-light.svg'))
     expectNotExists(join(workspace, 'system-light.svg'))
-    expectNotExists(join(workspace, 'diagrams.manifest.json'))
-    expectNotExists(join(workspace, '.diagrams'))
+    expectNotExists(join(workspace, 'manifest.json'))
+    expectNotExists(join(workspace, '.diagramkit'))
 
     expect(readFileSync(join(workspace, 'architecture.mmd'), 'utf-8')).toContain('flowchart TD')
     expect(existsSync(join(workspace, 'whiteboard.excalidraw'))).toBe(true)
     expect(existsSync(join(workspace, 'system.drawio.xml'))).toBe(true)
+    expect(existsSync(join(workspace, 'dependency.dot'))).toBe(true)
   }, 120_000)
 
   it('--force re-renders already up-to-date files', () => {
     const workspace = createWorkspace('e2e-cli-force')
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
 
     // First render
     runCli(['render', '.', '--format', 'svg', '--theme', 'light'], workspace)
@@ -181,7 +184,7 @@ describe('CLI rendering e2e', () => {
     expect(stdout).toContain('diagram')
 
     // No output directory or files should be created
-    expectNotExists(join(workspace, '.diagrams'))
+    expectNotExists(join(workspace, '.diagramkit'))
 
     // No SVGs in the workspace root either
     const files = readdirSync(workspace)
@@ -189,14 +192,19 @@ describe('CLI rendering e2e', () => {
     expect(svgFiles).toHaveLength(0)
   }, 120_000)
 
-  it('--output rejects directory renders and points users to --output-dir', () => {
-    const workspace = createWorkspace('e2e-cli-output-dir-reject')
+  it('--output sends directory renders to a custom output folder', () => {
+    const workspace = createWorkspace('e2e-cli-output-dir')
 
-    const result = runCliSafe(['render', '.', '--output', './rendered'], workspace)
+    runCli(
+      ['render', '.', '--output', './rendered', '--format', 'svg', '--theme', 'light'],
+      workspace,
+    )
 
-    expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain('--output is only supported for single-file renders')
-    expectNotExists(join(workspace, 'rendered'))
+    const outDir = join(workspace, 'rendered')
+    expectSvgFile(join(outDir, 'architecture-light.svg'))
+    expectSvgFile(join(outDir, 'dependency-light.svg'))
+    // Custom --output disables manifest
+    expectNotExists(join(outDir, 'manifest.json'))
   }, 120_000)
 
   it('--json outputs parseable JSON for directory render', () => {
@@ -231,7 +239,7 @@ describe('CLI rendering e2e', () => {
     expect(stdout.trim()).toBe('')
 
     // But files should still be rendered
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
     expectSvgFile(join(outDir, 'architecture-light.svg'))
   }, 120_000)
 
@@ -274,12 +282,12 @@ describe('CLI rendering e2e', () => {
     // Render with contrast optimization (default)
     runCli(['render', 'architecture.mmd', '--theme', 'dark', '--format', 'svg'], workspace)
     const withContrast = readFileSync(
-      join(workspace, '.diagrams', 'architecture-dark.svg'),
+      join(workspace, '.diagramkit', 'architecture-dark.svg'),
       'utf-8',
     )
 
     // Clean up for fresh render
-    rmSync(join(workspace, '.diagrams'), { recursive: true, force: true })
+    rmSync(join(workspace, '.diagramkit'), { recursive: true, force: true })
 
     // Render without contrast optimization
     runCli(
@@ -287,7 +295,7 @@ describe('CLI rendering e2e', () => {
       workspace,
     )
     const withoutContrast = readFileSync(
-      join(workspace, '.diagrams', 'architecture-dark.svg'),
+      join(workspace, '.diagramkit', 'architecture-dark.svg'),
       'utf-8',
     )
 
@@ -301,7 +309,7 @@ describe('CLI rendering e2e', () => {
 
   it('--scale 3 produces a larger PNG than default scale', () => {
     const workspace = createWorkspace('e2e-cli-scale')
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
 
     // Render at default scale (2)
     runCli(['render', 'architecture.mmd', '--format', 'png', '--theme', 'light'], workspace)
@@ -331,11 +339,11 @@ describe('CLI rendering e2e', () => {
       workspace,
     )
 
-    const outPath = join(workspace, '.diagrams', 'architecture-light.jpeg')
+    const outPath = join(workspace, '.diagramkit', 'architecture-light.jpeg')
     expectRasterFile(outPath, 'jpeg')
   }, 120_000)
 
-  it('init creates .diagramkitrc.json with valid JSON', () => {
+  it('init creates diagramkit.config.json5 with valid config', () => {
     const workspace = createWorkspace('e2e-cli-init')
 
     // Remove any fixture files — init doesn't need them
@@ -345,31 +353,22 @@ describe('CLI rendering e2e', () => {
 
     const stdout = runCli(['init'], workspace)
 
-    const configPath = join(workspace, '.diagramkitrc.json')
+    const configPath = join(workspace, 'diagramkit.config.json5')
     expect(existsSync(configPath)).toBe(true)
 
-    const config = JSON.parse(readFileSync(configPath, 'utf-8'))
-    expect(config).toHaveProperty('outputDir')
-    expect(config).toHaveProperty('defaultFormat')
-    expect(config).toHaveProperty('defaultTheme')
-    expect(stdout).toContain('.diagramkitrc.json')
+    const content = readFileSync(configPath, 'utf-8')
+    expect(content).toContain('outputDir')
+    expect(content).toContain('defaultFormats')
+    expect(content).toContain('defaultTheme')
+    expect(stdout).toContain('diagramkit.config.json5')
   }, 120_000)
 
-  it('install-skills copies skill files to .claude/skills/diagramkit/', () => {
-    const workspace = createWorkspace('e2e-cli-install-skills')
+  it('--agent-help outputs llms-full.txt content', () => {
+    const stdout = runCli(['--agent-help'])
 
-    const stdout = runCli(['install-skills'], workspace)
-
-    const skillsDir = join(workspace, '.claude', 'skills', 'diagramkit')
-    expect(existsSync(skillsDir)).toBe(true)
-
-    // Should contain at least the main skill directories
-    const entries = readdirSync(skillsDir)
-    expect(entries.length).toBeGreaterThan(0)
-    expect(entries).toContain('diagrams')
-    expect(entries).toContain('diagramkit')
-
-    expect(stdout).toContain('Skills installed')
+    expect(stdout).toContain('diagramkit')
+    expect(stdout).toContain('Full Reference')
+    expect(stdout).toContain('DiagramType')
   }, 120_000)
 
   it('warmup installs Playwright chromium successfully', () => {
@@ -386,7 +385,7 @@ describe('CLI rendering e2e', () => {
     rmSync(join(workspace, 'whiteboard.excalidraw'))
     rmSync(join(workspace, 'system.drawio.xml'))
 
-    const outDir = join(workspace, '.diagrams')
+    const outDir = join(workspace, '.diagramkit')
     const outputFile = join(outDir, 'architecture-light.svg')
 
     // Start CLI in watch mode as a background process

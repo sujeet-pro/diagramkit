@@ -1,0 +1,11 @@
+{
+  headerLinks: [
+    { label: 'Guide', path: '/guide' },
+    { label: 'Reference', path: '/reference' },
+  ],
+  footerLinks: [
+    { label: 'Guide', path: '/guide' },
+    { label: 'Reference', path: '/reference' },
+    { label: 'GitHub', path: 'https://github.com/sujeet-pro/diagramkit' },
+  ],
+}

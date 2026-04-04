@@ -1,0 +1,14 @@
+{
+  displayName: 'Guide',
+  description: 'Learn how to use diagramkit',
+  orderBy: 'manual',
+  items: [
+    'getting-started',
+    'cli',
+    'configuration',
+    'image-formats',
+    'watch-mode',
+    'js-api',
+    'diagrams',
+  ],
+}

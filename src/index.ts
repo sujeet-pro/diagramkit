@@ -13,40 +13,11 @@ export { watchDiagrams } from './watch'
 
 /* ── Configuration ── */
 
-export { loadConfig, getDefaultConfig } from './config'
-
-/* ── Extensions ── */
-
-export {
-  getAllExtensions,
-  getDiagramType,
-  getExtensionMap,
-  getExtensionsForType,
-  getMatchedExtension,
-} from './extensions'
+export { defineConfig, loadConfig, getDefaultConfig, getFileOverrides } from './config'
 
 /* ── Image conversion ── */
 
 export { convertSvg } from './convert'
-
-/* ── File operations ── */
-
-export { filterByType, findDiagramFiles } from './discovery'
-export {
-  getDiagramsDir,
-  ensureDiagramsDir,
-  filterStaleFiles,
-  isStale,
-  readManifest,
-} from './manifest'
-
-/* ── Color utilities ── */
-
-export { postProcessDarkSvg } from './color/contrast'
-
-/* ── Output utilities ── */
-
-export { atomicWrite, stripDiagramExtension } from './output'
 
 /* ── Types ── */
 
@@ -56,10 +27,11 @@ export type {
   DiagramFile,
   DiagramkitConfig,
   DiagramType,
+  FileOverride,
   OutputFormat,
   RenderOptions,
   RenderResult,
   Theme,
   WatchOptions,
 } from './types'
-export type { Manifest, ManifestEntry, StaleFile } from './manifest'
+export type { Manifest, ManifestEntry, ManifestOutput, StaleFile } from './manifest'

@@ -10,6 +10,9 @@ const DEFAULT_EXTENSION_MAP: Record<string, DiagramType> = {
   '.drawio': 'drawio',
   '.drawio.xml': 'drawio',
   '.dio': 'drawio',
+  '.graphviz': 'graphviz',
+  '.dot': 'graphviz',
+  '.gv': 'graphviz',
 }
 
 const DEFAULT_SORTED_KEYS = Object.keys(DEFAULT_EXTENSION_MAP).sort((a, b) => b.length - a.length)

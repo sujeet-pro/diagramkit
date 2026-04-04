@@ -2,7 +2,7 @@ import { watch as chokidarWatch } from 'chokidar'
 import { basename, dirname } from 'node:path'
 import { loadConfig } from './config'
 import { getExtensionMap, getMatchedExtension } from './extensions'
-import { hashFile, updateManifest } from './manifest'
+import { hashFile, readManifest, updateManifest } from './manifest'
 import { renderDiagramFileToDisk } from './renderer'
 import type { DiagramFile, DiagramType, WatchOptions } from './types'
 
@@ -28,7 +28,9 @@ function toDiagramFile(
 export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   const dir = opts.dir
   const config = loadConfig(opts.config, dir)
-  const format = opts.renderOptions?.format ?? config.defaultFormat
+  const requestedFormats =
+    opts.renderOptions?.formats ??
+    (opts.renderOptions?.format ? [opts.renderOptions.format] : config.defaultFormats)
   const theme = opts.renderOptions?.theme ?? config.defaultTheme
   const extensionMap = getExtensionMap(config.extensionMap)
   const log = opts.logger?.log ?? console.log
@@ -55,8 +57,18 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
     if (!file) return
 
     try {
+      // Accumulate formats from manifest so previously generated formats are re-rendered
+      let effectiveFormats = requestedFormats
+      if (config.useManifest) {
+        const manifest = readManifest(file.dir, config)
+        const entry = manifest.diagrams[basename(file.path)]
+        if (entry?.formats) {
+          effectiveFormats = [...new Set([...requestedFormats, ...entry.formats])]
+        }
+      }
+
       await renderDiagramFileToDisk(file, {
-        format,
+        formats: effectiveFormats,
         theme,
         scale: opts.renderOptions?.scale,
         quality: opts.renderOptions?.quality,
@@ -66,8 +78,12 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
       })
       if (config.useManifest) {
         // Pre-compute hash so updateManifest does not re-read and re-hash the file
-        const fileWithHash = { ...file, _hash: hashFile(file.path) }
-        updateManifest([fileWithHash], format, config, theme)
+        const fileWithHash = {
+          ...file,
+          _hash: hashFile(file.path),
+          _effectiveFormats: effectiveFormats,
+        }
+        updateManifest([fileWithHash], requestedFormats, config, theme)
       }
       opts.onChange?.(path)
     } catch (err: any) {

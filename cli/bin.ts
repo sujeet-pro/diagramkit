@@ -3,6 +3,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { OutputFormat } from '../src/types'
 
 const args = process.argv.slice(2)
 
@@ -10,55 +11,61 @@ const args = process.argv.slice(2)
 
 function printHelp() {
   console.log(`
-diagramkit — Render .mermaid, .excalidraw, and .drawio files to SVG/PNG/JPEG/WebP
+diagramkit — Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv files to SVG/PNG/JPEG/WebP/AVIF
 
 Usage:
   diagramkit render <file-or-dir> [options]
   diagramkit warmup
-  diagramkit init
-  diagramkit install-skills [--global]
+  diagramkit init [--ts]
   diagramkit --version
   diagramkit --help
+  diagramkit --agent-help
 
 Commands:
   render <file-or-dir>     Render diagram file(s) to images
   warmup                   Pre-install Playwright chromium browser
-  init                     Create a .diagramkitrc.json config file
-  install-skills           Copy diagramkit agent skills to .claude/skills/ (or ~/.claude/skills/ with --global)
+  init [--ts]              Create a diagramkit.config.json5 config file (--ts for TypeScript)
 
 Render options:
-  --format <svg|png|jpeg|webp>      Output format (default: svg)
-  --theme <light|dark|both>         Theme variants (default: both)
-  --scale <number>                  Scale factor for raster output (default: 2)
-  --quality <number>                JPEG/WebP quality 1-100 (default: 90)
-  --force                           Re-render all, ignore manifest
-  --watch                           Watch for changes and re-render
-  --no-contrast                     Disable dark SVG contrast optimization
-  --type <mermaid|excalidraw|drawio> Filter to specific diagram type
-  --output <dir>                    Custom output directory (single file only)
-  --dry-run                         Show what would be rendered without rendering
+  --format <formats>                  Output formats, comma-separated (default: svg)
+                                      e.g. --format svg,png or --format png,webp,avif
+  --theme <light|dark|both>           Theme variants (default: both)
+  --scale <number>                    Scale factor for raster output (default: 2)
+  --quality <number>                  JPEG/WebP/AVIF quality 1-100 (default: 90)
+  --force                             Re-render all, ignore manifest
+  --watch                             Watch for changes and re-render
+  --no-contrast                       Disable dark SVG contrast optimization
+  --type <mermaid|excalidraw|drawio|graphviz> Filter to specific diagram type
+  --output <dir>                      Custom output directory (all outputs go here)
+  --dry-run                           Show what would be rendered without rendering
 
 Configuration options:
-  --output-dir <name>               Output folder name (default: .diagrams)
-  --manifest-file <name>            Manifest filename (default: diagrams.manifest.json)
-  --no-manifest                     Disable manifest tracking
-  --same-folder                     Output in same folder as source files
+  --config <path>                     Path to config file (skip auto-discovery)
+  --output-dir <name>                 Output folder name (default: .diagramkit)
+  --manifest-file <name>              Manifest filename (default: manifest.json)
+  --no-manifest                       Disable manifest tracking
+  --same-folder                       Output in same folder as source files
 
 Output options:
-  --quiet                           Suppress informational output, only show errors
-  --json                            Output results as JSON (for CI/scripting)
+  --quiet                             Suppress informational output, only show errors
+  --json                              Output results as JSON (for CI/scripting)
 
 General:
-  -h, --help                        Show this help
-  -v, --version                     Show version
+  -h, --help                          Show this help
+  -v, --version                       Show version
+  --agent-help                        Output full reference for LLM agents
 
 Examples:
   diagramkit render .                                  # Render all in cwd
   diagramkit render flow.mermaid                       # Single file
   diagramkit render arch.drawio --format png           # Draw.io to PNG
+  diagramkit render graph.dot --theme dark             # Graphviz DOT to dark SVG
+  diagramkit render . --format svg,png                 # SVG + PNG for all diagrams
   diagramkit render ./docs --format webp --scale 3     # High-res WebPs
   diagramkit render . --watch                          # Watch mode
+  diagramkit render . --output ./build/images          # All outputs to one folder
   diagramkit render . --same-folder --no-manifest      # Flat output
+  diagramkit render . --config ./custom.config.json5   # Explicit config file
   diagramkit render . --dry-run                        # Preview what would render
   diagramkit render . --quiet                          # Minimal output
 `)
@@ -82,6 +89,27 @@ function printVersion() {
     } catch {}
   }
   console.log('diagramkit (unknown version)')
+}
+
+/* ── Agent help ── */
+
+function printAgentHelp() {
+  // Resolve llms-full.txt from the package root (works from both source and dist)
+  const candidates = [
+    new URL('../llms-full.txt', import.meta.url),
+    new URL('../../llms-full.txt', import.meta.url),
+  ]
+  for (const url of candidates) {
+    try {
+      const content = readFileSync(fileURLToPath(url), 'utf-8')
+      if (content.includes('diagramkit')) {
+        console.log(content)
+        return
+      }
+    } catch {}
+  }
+  console.error('Could not locate llms-full.txt. Try running from the package directory.')
+  process.exit(1)
 }
 
 /* ── Arg parsing ── */
@@ -112,9 +140,15 @@ function getFlagValue(name: string): string | undefined {
 
 /* ── Validation ── */
 
-const VALID_FORMATS = ['svg', 'png', 'jpeg', 'webp'] as const
+const VALID_FORMATS = ['svg', 'png', 'jpeg', 'jpg', 'webp', 'avif'] as const
 const VALID_THEMES = ['light', 'dark', 'both'] as const
-const VALID_TYPES = ['mermaid', 'excalidraw', 'drawio'] as const
+const VALID_TYPES = ['mermaid', 'excalidraw', 'drawio', 'graphviz'] as const
+
+/** Normalize format name (e.g. 'jpg' → 'jpeg') */
+function normalizeFormat(f: string): OutputFormat {
+  if (f === 'jpg') return 'jpeg'
+  return f as OutputFormat
+}
 
 function validateEnum<T extends string>(value: string, valid: readonly T[], label: string): T {
   if (!valid.includes(value as T)) {
@@ -133,6 +167,22 @@ function validatePositiveNumber(value: string, label: string): number {
   return num
 }
 
+/** Parse comma-separated formats, validate each, and normalize (e.g. jpg → jpeg). */
+function parseFormats(raw: string): OutputFormat[] {
+  const parts = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (parts.length === 0) {
+    console.error('--format requires at least one format')
+    process.exit(1)
+  }
+  return parts.map((f) => {
+    validateEnum(f, VALID_FORMATS, 'format')
+    return normalizeFormat(f)
+  })
+}
+
 /* ── Unknown flag detection ── */
 
 function warnUnknownFlags() {
@@ -149,13 +199,15 @@ function warnUnknownFlags() {
     'dry-run',
     'quiet',
     'json',
+    'config',
     'output-dir',
     'manifest-file',
     'no-manifest',
     'same-folder',
     'help',
     'version',
-    'global',
+    'agent-help',
+    'ts',
   ])
   const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
 
@@ -192,71 +244,47 @@ async function commandWarmup() {
 }
 
 async function commandInit() {
-  const configPath = resolve('.diagramkitrc.json')
-  if (existsSync(configPath)) {
-    console.log('.diagramkitrc.json already exists.')
-    return
-  }
-
+  const useTs = args.includes('--ts')
   const { writeFileSync } = await import('node:fs')
-  const config = {
-    outputDir: '.diagrams',
-    manifestFile: 'diagrams.manifest.json',
-    useManifest: true,
-    sameFolder: false,
-    defaultFormat: 'svg',
-    defaultTheme: 'both',
-  }
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n')
-  console.log('Created .diagramkitrc.json')
-}
 
-async function commandInstallSkills() {
-  const isGlobal = args.includes('--global')
-  const { mkdirSync, cpSync } = await import('node:fs')
-  const { join } = await import('node:path')
-
-  // Find agent_skills directory relative to this package
-  const pkgCandidates = [
-    new URL('../agent_skills', import.meta.url),
-    new URL('../../agent_skills', import.meta.url),
-  ]
-
-  let skillsSource: string | null = null
-  for (const url of pkgCandidates) {
-    const path = fileURLToPath(url)
-    if (existsSync(path)) {
-      skillsSource = path
-      break
+  if (useTs) {
+    const configPath = resolve('diagramkit.config.ts')
+    if (existsSync(configPath)) {
+      console.log('diagramkit.config.ts already exists.')
+      return
     }
+    const content = `import { defineConfig } from 'diagramkit'
+
+export default defineConfig({
+  outputDir: '.diagramkit',
+  defaultFormats: ['svg'],
+  defaultTheme: 'both',
+})
+`
+    writeFileSync(configPath, content)
+    console.log('Created diagramkit.config.ts')
+  } else {
+    const configPath = resolve('diagramkit.config.json5')
+    if (existsSync(configPath)) {
+      console.log('diagramkit.config.json5 already exists.')
+      return
+    }
+    // Also check for legacy config
+    if (existsSync(resolve('.diagramkitrc.json'))) {
+      console.log('.diagramkitrc.json exists. Consider migrating to diagramkit.config.json5.')
+      return
+    }
+    const content = `{
+  // diagramkit configuration
+  // Docs: https://projects.sujeet.pro/diagramkit/guide/configuration
+  outputDir: '.diagramkit',
+  defaultFormats: ['svg'],
+  defaultTheme: 'both',
+}
+`
+    writeFileSync(configPath, content)
+    console.log('Created diagramkit.config.json5')
   }
-
-  if (!skillsSource) {
-    console.error('Could not find agent_skills directory in diagramkit package.')
-    process.exit(1)
-  }
-
-  const homeDir = process.env.HOME || process.env.USERPROFILE || ''
-  const targetBase = isGlobal
-    ? join(homeDir, '.claude', 'skills')
-    : join(process.cwd(), '.claude', 'skills')
-
-  const targetDir = join(targetBase, 'diagramkit')
-
-  mkdirSync(targetDir, { recursive: true })
-  cpSync(skillsSource, targetDir, { recursive: true })
-
-  const location = isGlobal ? `~/.claude/skills/diagramkit/` : `.claude/skills/diagramkit/`
-  console.log(`Skills installed to ${location}`)
-  console.log(`\nAvailable skills:`)
-  console.log(`  /diagrams             — Engine selection orchestrator`)
-  console.log(`  /diagram-mermaid      — Mermaid source file authoring`)
-  console.log(`  /diagram-excalidraw   — Excalidraw source file authoring`)
-  console.log(`  /diagram-drawio       — Draw.io source file authoring`)
-  console.log(`  /diagramkit           — Render diagrams to images`)
-  console.log(`  /image-convert        — SVG to raster conversion`)
-  console.log(`  /diagrams-troubleshoot — Diagnose and fix common issues`)
-  console.log(`  /diagrams-ci-cd       — CI/CD integration guide`)
 }
 
 async function commandRender() {
@@ -268,6 +296,7 @@ async function commandRender() {
     'quality',
     'type',
     'output',
+    'config',
     'output-dir',
     'manifest-file',
   ])
@@ -311,6 +340,7 @@ async function commandRender() {
   const noManifest = args.includes('--no-manifest')
   const sameFolder = args.includes('--same-folder')
   const customOutput = getFlagValue('output')
+  const configFilePath = getFlagValue('config')
 
   const configOverrides: Partial<import('../src/types').DiagramkitConfig> = {}
   if (outputDir) configOverrides.outputDir = outputDir
@@ -329,52 +359,72 @@ async function commandRender() {
   const stat = statSync(resolvedTarget)
   const { loadConfig } = await import('../src/config')
   const configRoot = stat.isFile() ? dirname(resolvedTarget) : resolvedTarget
-  const resolvedConfig = loadConfig(configOverrides, configRoot)
-  const format = validateEnum(rawFormat ?? resolvedConfig.defaultFormat, VALID_FORMATS, 'format')
+  const resolvedConfigFile = configFilePath ? resolve(configFilePath) : undefined
+  const resolvedConfig = loadConfig(configOverrides, configRoot, resolvedConfigFile)
+
+  // Parse formats: comma-separated or from config defaults
+  const formats: OutputFormat[] = rawFormat
+    ? parseFormats(rawFormat)
+    : resolvedConfig.defaultFormats
   const theme = validateEnum(rawTheme ?? resolvedConfig.defaultTheme, VALID_THEMES, 'theme')
 
   if (stat.isFile()) {
     // Single file render
-    const { renderFile, dispose } = await import('../src/index')
+    const { renderDiagramFileToDisk } = await import('../src/renderer')
+    const { dispose } = await import('../src/pool')
     try {
       if (dryRun) {
         console.log(`Would render: ${resolvedTarget}`)
         return
       }
 
-      const result = await renderFile(resolvedTarget, {
-        format,
+      const [
+        path,
+        { ensureDiagramsDir, updateManifest, readManifest },
+        { stripDiagramExtension },
+        { getMatchedExtension },
+      ] = await Promise.all([
+        import('node:path'),
+        import('../src/manifest'),
+        import('../src/output'),
+        import('../src/extensions'),
+      ])
+
+      const name = stripDiagramExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap)
+      const ext =
+        getMatchedExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap) ?? ''
+      const fileDir = path.dirname(resolvedTarget)
+      const outDir = customOutput
+        ? resolve(customOutput)
+        : ensureDiagramsDir(fileDir, resolvedConfig)
+
+      // Accumulate formats from manifest (unless custom output, which skips manifest)
+      let effectiveFormats = formats
+      if (!customOutput && resolvedConfig.useManifest) {
+        const manifest = readManifest(fileDir, resolvedConfig)
+        const entry = manifest.diagrams[path.basename(resolvedTarget)]
+        if (entry?.formats) {
+          effectiveFormats = [...new Set([...formats, ...entry.formats])]
+        }
+      }
+
+      // Render using multi-format renderDiagramFileToDisk
+      const diagramFile = { path: resolvedTarget, name, dir: fileDir, ext }
+      const written = await renderDiagramFileToDisk(diagramFile, {
+        formats: effectiveFormats,
         theme,
         scale,
         quality,
         contrastOptimize: !noContrast,
         config: resolvedConfig,
+        outDir,
       })
-
-      // Write output files
-      const [
-        path,
-        { ensureDiagramsDir, updateManifest },
-        { stripDiagramExtension, writeRenderResult },
-      ] = await Promise.all([
-        import('node:path'),
-        import('../src/manifest'),
-        import('../src/output'),
-      ])
-      const outDir = customOutput
-        ? resolve(customOutput)
-        : ensureDiagramsDir(path.dirname(resolvedTarget), resolvedConfig)
-      const name = stripDiagramExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap)
-      const written = writeRenderResult(name, outDir, result)
 
       // Update manifest for incremental builds (skip for custom output dirs)
       if (!customOutput) {
-        const { getMatchedExtension } = await import('../src/extensions')
-        const ext =
-          getMatchedExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap) ?? ''
         updateManifest(
-          [{ path: resolvedTarget, name, dir: path.dirname(resolvedTarget), ext }],
-          format,
+          [{ ...diagramFile, _effectiveFormats: effectiveFormats }],
+          formats,
           resolvedConfig,
           theme,
         )
@@ -395,22 +445,12 @@ async function commandRender() {
   }
 
   // Directory render
-  if (customOutput) {
-    console.error(
-      '--output is only supported for single-file renders. Use --output-dir for directories.',
-    )
-    process.exit(1)
-  }
-
   if (dryRun) {
-    const {
-      findDiagramFiles,
-      filterByType: filterByTypeFn,
-      filterStaleFiles,
-    } = await import('../src/index')
+    const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/discovery')
+    const { filterStaleFiles } = await import('../src/manifest')
     let files = findDiagramFiles(resolvedTarget, resolvedConfig)
     if (type) files = filterByTypeFn(files, type, resolvedConfig)
-    const stale = filterStaleFiles(files, force, format, resolvedConfig, theme)
+    const stale = filterStaleFiles(files, force, formats, resolvedConfig, theme)
 
     if (jsonOutput) {
       console.log(
@@ -433,20 +473,26 @@ async function commandRender() {
   const noop = () => {}
   const logger = quiet || jsonOutput ? { log: noop, warn: quiet ? noop : console.warn } : undefined
 
-  const { renderAll, dispose } = await import('../src/index')
+  const { renderAll } = await import('../src/renderer')
+  const { dispose } = await import('../src/pool')
+
+  // When --output is used for directory, set sameFolder + outputDir to redirect everything
+  const dirConfigOverrides = customOutput
+    ? { ...resolvedConfig, sameFolder: false, outputDir: customOutput, useManifest: false }
+    : resolvedConfig
 
   let renderResult
   try {
     renderResult = await renderAll({
       dir: resolvedTarget,
-      format,
+      formats,
       theme,
       scale,
       quality,
       force,
       type,
       contrastOptimize: !noContrast,
-      config: resolvedConfig,
+      config: dirConfigOverrides,
       logger,
     })
   } finally {
@@ -465,11 +511,11 @@ async function commandRender() {
   }
 
   if (watchMode) {
-    const { watchDiagrams } = await import('../src/index')
+    const { watchDiagrams } = await import('../src/watch')
     const cleanup = watchDiagrams({
       dir: resolvedTarget,
       config: configOverrides,
-      renderOptions: { format, theme, scale, quality, contrastOptimize: !noContrast },
+      renderOptions: { formats, theme, scale, quality, contrastOptimize: !noContrast },
       onChange: (file) => {
         if (!quiet) console.log(`  Re-rendered: ${file}`)
       },
@@ -499,6 +545,11 @@ async function main() {
     return
   }
 
+  if (getFlag('agent-help')) {
+    printAgentHelp()
+    return
+  }
+
   const command = args[0]
 
   if (command === 'warmup') {
@@ -508,11 +559,6 @@ async function main() {
 
   if (command === 'init') {
     await commandInit()
-    return
-  }
-
-  if (command === 'install-skills') {
-    await commandInstallSkills()
     return
   }
 

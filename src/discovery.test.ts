@@ -31,21 +31,32 @@ describe('discovery', () => {
     writeFileSync(join(root, 'architecture.mmd'), 'flowchart TD\nA-->B')
     writeFileSync(join(root, 'whiteboard.excalidraw'), '{"elements":[],"appState":{},"files":{}}')
     writeFileSync(join(root, 'system.drawio.xml'), '<mxGraphModel />')
+    writeFileSync(join(root, 'dependency.dot'), 'digraph { A -> B }')
 
     const files = findDiagramFiles(root)
 
-    expect(files.map((file) => file.name).sort()).toEqual(['architecture', 'system', 'whiteboard'])
-    expect(files.map((file) => file.ext).sort()).toEqual(['.drawio.xml', '.excalidraw', '.mmd'])
+    expect(files.map((file) => file.name).sort()).toEqual([
+      'architecture',
+      'dependency',
+      'system',
+      'whiteboard',
+    ])
+    expect(files.map((file) => file.ext).sort()).toEqual([
+      '.dot',
+      '.drawio.xml',
+      '.excalidraw',
+      '.mmd',
+    ])
   })
 
   it('skips hidden directories and node_modules', () => {
     const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-hidden-'))
     tempDirs.push(root)
 
-    mkdirSync(join(root, '.diagrams'), { recursive: true })
+    mkdirSync(join(root, '.diagramkit'), { recursive: true })
     mkdirSync(join(root, '.git'), { recursive: true })
     mkdirSync(join(root, 'node_modules', 'pkg'), { recursive: true })
-    writeFileSync(join(root, '.diagrams', 'generated.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, '.diagramkit', 'generated.mermaid'), 'flowchart TD\nA-->B')
     writeFileSync(join(root, '.git', 'ignored.mmd'), 'flowchart TD\nA-->B')
     writeFileSync(join(root, 'node_modules', 'pkg', 'ignored.drawio'), '<mxGraphModel />')
     writeFileSync(join(root, 'kept.mermaid'), 'flowchart TD\nA-->B')
@@ -123,12 +134,28 @@ describe('discovery', () => {
     writeFileSync(join(root, 'board.excalidraw'), '{"elements":[]}')
     writeFileSync(join(root, 'system.drawio.xml'), '<mxGraphModel />')
     writeFileSync(join(root, 'other.dio'), '<mxGraphModel />')
+    writeFileSync(join(root, 'dependency.gv'), 'digraph { A -> B }')
 
     const files = findDiagramFiles(root)
     const drawioFiles = filterByType(files, 'drawio')
 
     expect(drawioFiles).toHaveLength(2)
     expect(drawioFiles.map((f) => f.name).sort()).toEqual(['other', 'system'])
+  })
+
+  it('filters by graphviz type', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-graphviz-'))
+    tempDirs.push(root)
+
+    writeFileSync(join(root, 'flow.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'dependency.dot'), 'digraph { A -> B }')
+    writeFileSync(join(root, 'topology.graphviz'), 'graph { A -- B }')
+
+    const files = findDiagramFiles(root)
+    const graphvizFiles = filterByType(files, 'graphviz')
+
+    expect(graphvizFiles).toHaveLength(2)
+    expect(graphvizFiles.map((f) => f.name).sort()).toEqual(['dependency', 'topology'])
   })
 
   it('returns empty array for non-existent directory', () => {

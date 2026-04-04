@@ -4,6 +4,7 @@ export default defineConfig({
   pack: {
     entry: {
       index: 'src/index.ts',
+      utils: 'src/utils.ts',
       'color/index': 'src/color/index.ts',
       convert: 'src/convert.ts',
       'cli/bin': 'cli/bin.ts',

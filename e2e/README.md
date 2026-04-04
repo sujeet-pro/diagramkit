@@ -18,7 +18,7 @@ Requires `npm run build` first — CLI tests run against the built `dist/cli/bin
 
 | #   | Name                                                    | What it verifies                                            |
 | --- | ------------------------------------------------------- | ----------------------------------------------------------- |
-| 1   | Render all types to SVG (both themes)                   | `renderAll` produces 6 SVGs, manifest has 3 entries         |
+| 1   | Render all types to SVG (both themes)                   | `renderAll` produces 8 SVGs, manifest has 4 entries         |
 | 2   | Raster PNG with custom output dir and manifest filename | Custom `outputDir` + `manifestFile` config, PNG magic bytes |
 | 3   | Same-folder output without manifest                     | `sameFolder` + `useManifest: false`, sources intact         |
 | 4   | Manifest skip + incremental rebuild + orphan cleanup    | mtime unchanged on skip, updated on change, orphan cleanup  |
@@ -39,5 +39,5 @@ e2e/
   api-render.e2e.test.ts   API rendering tests (vitest)
   cli-render.e2e.test.ts   CLI rendering tests (vitest)
   test-utils.ts            Shared helpers (workspace, assertions, CLI runner)
-  fixtures/                Diagram source files (mermaid, excalidraw, drawio)
+  fixtures/                Diagram source files (mermaid, excalidraw, drawio, graphviz)
 ```

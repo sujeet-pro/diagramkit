@@ -1,7 +1,7 @@
 {
   "name": "diagramkit",
   "version": "0.0.2",
-  "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, and .drawio to SVG/PNG/JPEG/WebP with light/dark mode support",
+  "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, .drawio, and .dot/.gv Graphviz diagrams to SVG/PNG/JPEG/WebP with light/dark mode support",
   "keywords": [
     "cli",
     "cli-tool",
@@ -15,6 +15,8 @@
     "drawio-to-svg",
     "excalidraw",
     "excalidraw-to-svg",
+    "graphviz",
+    "graphviz-to-svg",
     "headless-rendering",
     "incremental-build",
     "jpeg",
@@ -43,8 +45,6 @@
   },
   "files": [
     "dist",
-    "agent_skills",
-    "INSTALL_SKILLS.md",
     "llms.txt",
     "llms-full.txt",
     "!dist/**/*.map"
@@ -58,6 +58,10 @@
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
     },
+    "./utils": {
+      "import": "./dist/utils.mjs",
+      "types": "./dist/utils.d.mts"
+    },
     "./color": {
       "import": "./dist/color/index.mjs",
       "types": "./dist/color/index.d.mts"
@@ -68,8 +72,12 @@
     }
   },
   "scripts": {
-    "build": "vp pack",
-    "build:docs": "npm run docs:build",
+    "build": "npm run lib:build && npm run docs:build",
+    "preview": "npm run build && npm run docs:preview",
+    "lib:build": "vp pack",
+    "docs:dev": "pagesmith dev",
+    "docs:build": "pagesmith build && cp llms.txt llms-full.txt gh-pages/",
+    "docs:preview": "pagesmith preview",
     "test": "vp test run",
     "test:unit": "vp test run src/ --pool forks --fileParallelism",
     "test:e2e": "vp test run e2e/ --pool forks --fileParallelism",
@@ -77,15 +85,15 @@
     "check": "vp check",
     "check:fix": "vp check --fix",
     "typecheck": "tsc --noEmit",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs",
     "prepare": "vp config",
-    "validate": "npm run check && npm run typecheck && npm run build && npm run build:docs && npm run test:unit && npm run test:e2e"
+    "validate": "npm run check && npm run typecheck && npm run build && npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
+    "@viz-js/viz": "^3.25.0",
     "chokidar": "^5.0.0",
+    "jiti": "^2.6.1",
+    "json5": "^2.2.3",
     "mermaid": "^11.13.0",
     "playwright": "^1.58.2",
     "react": "^19.2.4",
@@ -93,12 +101,12 @@
     "rolldown": "^1.0.0-rc.11"
   },
   "devDependencies": {
+    "@pagesmith/docs": "^0.2.0",
     "@types/node": "^25.5.0",
     "esbuild": "^0.27.4",
     "sharp": "^0.34.5",
     "typescript": "^6.0.2",
-    "vite-plus": "^0.1.13",
-    "vitepress": "^1.6.4"
+    "vite-plus": "^0.1.13"
   },
   "peerDependencies": {
     "sharp": "^0.34.5"

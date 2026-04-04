@@ -40,15 +40,16 @@ vi.mock('./renderer', () => ({
 vi.mock('./manifest', () => ({
   hashFile: vi.fn(() => 'sha256:mockhash1234'),
   updateManifest: vi.fn(),
+  readManifest: vi.fn(() => ({ version: 1, diagrams: {} })),
 }))
 
 vi.mock('./config', () => ({
   loadConfig: vi.fn(() => ({
-    outputDir: '.diagrams',
-    manifestFile: 'diagrams.manifest.json',
+    outputDir: '.diagramkit',
+    manifestFile: 'manifest.json',
     useManifest: true,
     sameFolder: false,
-    defaultFormat: 'svg',
+    defaultFormats: ['svg'],
     defaultTheme: 'both',
   })),
 }))
@@ -59,13 +60,15 @@ vi.mock('./extensions', () => ({
     '.mmd': 'mermaid',
     '.excalidraw': 'excalidraw',
     '.drawio': 'drawio',
+    '.dot': 'graphviz',
   })),
-  getAllExtensions: vi.fn(() => ['.mermaid', '.mmd', '.excalidraw', '.drawio']),
+  getAllExtensions: vi.fn(() => ['.mermaid', '.mmd', '.excalidraw', '.drawio', '.dot']),
   getMatchedExtension: vi.fn((filename: string) => {
     if (filename.endsWith('.mermaid')) return '.mermaid'
     if (filename.endsWith('.mmd')) return '.mmd'
     if (filename.endsWith('.excalidraw')) return '.excalidraw'
     if (filename.endsWith('.drawio')) return '.drawio'
+    if (filename.endsWith('.dot')) return '.dot'
     return null
   }),
 }))
@@ -172,5 +175,17 @@ describe('watchDiagrams', () => {
     await vi.advanceTimersByTimeAsync(250)
 
     expect(renderCalls).toHaveLength(0)
+  })
+
+  it('watches graphviz files', async () => {
+    watchDiagrams({ dir: '/test' })
+
+    const handler = watcherHandlers.change
+    if (!handler) throw new Error('change handler not registered')
+
+    handler('/test/dependency.dot')
+    await vi.advanceTimersByTimeAsync(250)
+
+    expect(renderCalls).toEqual(['/test/dependency.dot'])
   })
 })

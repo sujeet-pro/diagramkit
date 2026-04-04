@@ -5,11 +5,9 @@
  *
  * What this file verifies:
  * - output names are derived from the requested theme and format
+ * - prefix/suffix options modify filenames correctly
  * - multi-part diagram extensions are stripped correctly before naming outputs
  * - disk writes only emit the variants that were actually rendered
- *
- * These checks stay unit-level on purpose so naming regressions are caught before slower
- * end-to-end rendering tests run.
  */
 
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -50,10 +48,25 @@ describe('output helpers', () => {
     expect(getOutputFileName('architecture', 'dark', 'jpeg')).toBe('architecture-dark.jpeg')
   })
 
+  it('applies prefix and suffix to output names', () => {
+    const naming = { prefix: 'diagram-', suffix: '-v2' }
+    expect(getOutputFileName('arch', 'light', 'svg', naming)).toBe('diagram-arch-v2-light.svg')
+    expect(getOutputFileName('arch', 'dark', 'png', naming)).toBe('diagram-arch-v2-dark.png')
+  })
+
+  it('applies prefix/suffix through getExpectedOutputNames', () => {
+    const naming = { prefix: 'img-', suffix: '' }
+    expect(getExpectedOutputNames('flow', 'svg', 'both', naming)).toEqual([
+      'img-flow-light.svg',
+      'img-flow-dark.svg',
+    ])
+  })
+
   it('strips canonical and alias diagram extensions before naming files', () => {
     expect(stripDiagramExtension('architecture.mermaid')).toBe('architecture')
     expect(stripDiagramExtension('architecture.mmd')).toBe('architecture')
     expect(stripDiagramExtension('system.drawio.xml')).toBe('system')
+    expect(stripDiagramExtension('dependency.dot')).toBe('dependency')
   })
 
   it('strips custom configured extensions using the merged extension map', () => {
@@ -75,6 +88,22 @@ describe('output helpers', () => {
     expect(existsSync(join(outDir, 'whiteboard-light.svg'))).toBe(true)
     expect(existsSync(join(outDir, 'whiteboard-dark.svg'))).toBe(false)
     expect(readFileSync(join(outDir, 'whiteboard-light.svg'), 'utf-8')).toContain('<svg')
+  })
+
+  it('writes with prefix/suffix naming', () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'diagramkit-output-naming-'))
+    tempDirs.push(outDir)
+
+    const written = writeRenderResult(
+      'flow',
+      outDir,
+      { format: 'svg', light: Buffer.from('<svg/>'), dark: Buffer.from('<svg/>') },
+      { prefix: 'doc-', suffix: '-final' },
+    )
+
+    expect(written).toEqual(['doc-flow-final-light.svg', 'doc-flow-final-dark.svg'])
+    expect(existsSync(join(outDir, 'doc-flow-final-light.svg'))).toBe(true)
+    expect(existsSync(join(outDir, 'doc-flow-final-dark.svg'))).toBe(true)
   })
 
   it('writes only the dark variant when only dark is provided', () => {
@@ -119,5 +148,7 @@ describe('output helpers', () => {
     expect(stripDiagramExtension('system.drawio.xml')).toBe('system')
     expect(stripDiagramExtension('flow.drawio')).toBe('flow')
     expect(stripDiagramExtension('chart.mmdc')).toBe('chart')
+    expect(stripDiagramExtension('dependency.gv')).toBe('dependency')
+    expect(stripDiagramExtension('topology.graphviz')).toBe('topology')
   })
 })

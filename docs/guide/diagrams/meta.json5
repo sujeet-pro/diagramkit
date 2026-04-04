@@ -1,0 +1,11 @@
+{
+  displayName: 'Diagram Engines',
+  description: 'Per-engine guides for Mermaid, Excalidraw, Draw.io, and Graphviz',
+  orderBy: 'manual',
+  items: [
+    'mermaid',
+    'excalidraw',
+    'drawio',
+    'graphviz',
+  ],
+}
