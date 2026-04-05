@@ -1,43 +1,30 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
-import { postProcessDarkSvg } from './color/contrast'
-import { getFileOverrides, loadConfig } from './config'
-import { filterByType, findDiagramFiles } from './discovery'
+import { getEngineProfile } from './engine-profiles'
+import { engineRenderers } from './render-engines'
 import { getAllExtensions, getDiagramType, getExtensionMap } from './extensions'
-import { renderGraphviz } from './graphviz'
-import {
-  cleanOrphans,
-  ensureDiagramsDir,
-  filterStaleFiles,
-  updateManifest,
-  type OutputMetadata,
-} from './manifest'
-import { writeRenderResult, type OutputNamingOptions } from './output'
+import { ensureDiagramsDir } from './manifest'
+import { defaultMermaidDarkTheme } from './mermaid-theme'
+import { writeRenderResult } from './output'
 import { getPool } from './pool'
-import type {
-  BatchOptions,
-  DiagramFile,
-  DiagramType,
-  DiagramkitConfig,
-  OutputFormat,
-  RenderOptions,
-  RenderResult,
+import {
+  DiagramkitError,
+  type DiagramFile,
+  type DiagramType,
+  type DiagramkitConfig,
+  type OutputFormat,
+  type OutputMetadata,
+  type OutputNamingOptions,
+  type RenderableFile,
+  type RenderOptions,
+  type RenderResult,
 } from './types'
-
-/* ── Batch result ── */
-
-export interface RenderAllResult {
-  /** Files that were successfully rendered */
-  rendered: string[]
-  /** Files that were skipped (up-to-date) */
-  skipped: string[]
-  /** Files that failed to render */
-  failed: string[]
-}
 
 /**
  * Render a single diagram from source content.
- * This is the low-level API — always produces a single format.
+ * This is the low-level API and always produces a single format.
+ * The pipeline is SVG-first; raster formats are converted from SVG.
+ * For multi-format output, prefer `renderDiagramFileToDisk()`/`renderAll()`.
  */
 export async function render(
   source: string,
@@ -48,104 +35,29 @@ export async function render(
   const theme = options.theme ?? 'both'
   const contrastOptimize = options.contrastOptimize ?? true
 
-  const needsBrowser = type !== 'graphviz'
-  const pool = needsBrowser ? getPool() : null
+  const needsBrowser = getEngineProfile(type).requiresBrowserPool
+  const pool = needsBrowser ? (options.pool ?? getPool()) : null
   if (pool) await pool.acquire()
 
   try {
-    let lightSvg: string | undefined
-    let darkSvg: string | undefined
-
     // Unique prefix avoids mermaid element ID collisions across concurrent renders
     const renderId = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-
-    if (type === 'mermaid') {
-      if (theme === 'light' || theme === 'both') {
-        const page = await pool!.getMermaidLightPage()
-        lightSvg = await page.evaluate(
-          async ({ diagram, id }: { diagram: string; id: string }) => {
-            const container = (document as any).getElementById('container')!
-            container.innerHTML = ''
-            const { svg } = await (globalThis as any).mermaid.render(id, diagram, container)
-            return svg as string
-          },
-          { diagram: source.trim(), id: `${renderId}-light` },
-        )
-      }
-
-      if (theme === 'dark' || theme === 'both') {
-        const darkTheme = options.mermaidDarkTheme ?? defaultMermaidDarkTheme
-        const page = await pool!.getMermaidDarkPage(darkTheme)
-        darkSvg = await page.evaluate(
-          async ({ diagram, id }: { diagram: string; id: string }) => {
-            const container = (document as any).getElementById('container')!
-            container.innerHTML = ''
-            const { svg } = await (globalThis as any).mermaid.render(id, diagram, container)
-            return svg as string
-          },
-          { diagram: source.trim(), id: `${renderId}-dark` },
-        )
-        if (contrastOptimize && darkSvg) {
-          darkSvg = postProcessDarkSvg(darkSvg)
-        }
-      }
-    } else if (type === 'excalidraw') {
-      const page = await pool!.getExcalidrawPage()
-
-      if (theme === 'light' || theme === 'both') {
-        lightSvg = await page.evaluate(
-          async ({ json, darkMode }) => {
-            return await (globalThis as any).__renderExcalidraw(json, darkMode)
-          },
-          { json: source, darkMode: false },
-        )
-      }
-
-      if (theme === 'dark' || theme === 'both') {
-        darkSvg = await page.evaluate(
-          async ({ json, darkMode }) => {
-            return await (globalThis as any).__renderExcalidraw(json, darkMode)
-          },
-          { json: source, darkMode: true },
-        )
-      }
-    } else if (type === 'drawio') {
-      const page = await pool!.getDrawioPage()
-
-      if (theme === 'light' || theme === 'both') {
-        lightSvg = await page.evaluate(
-          async ({ xml, darkMode }) => {
-            return (globalThis as any).__renderDrawio(xml, darkMode)
-          },
-          { xml: source, darkMode: false },
-        )
-      }
-
-      if (theme === 'dark' || theme === 'both') {
-        darkSvg = await page.evaluate(
-          async ({ xml, darkMode }) => {
-            return (globalThis as any).__renderDrawio(xml, darkMode)
-          },
-          { xml: source, darkMode: true },
-        )
-        // draw.io entry handles dark mode color adjustments in the browser
-        // via adjustColorForDark() — skip Node-side postProcessDarkSvg to avoid double-darkening
-      }
-    } else if (type === 'graphviz') {
-      const rendered = await renderGraphviz(source, { theme, contrastOptimize })
-      lightSvg = rendered.lightSvg
-      darkSvg = rendered.darkSvg
-    } else {
-      const _exhaustive: never = type
-      throw new Error(`Unsupported diagram type: ${String(_exhaustive)}`)
-    }
+    const engine = engineRenderers[type]
+    const { lightSvg, darkSvg } = await engine({
+      source,
+      theme,
+      contrastOptimize,
+      renderId,
+      mermaidDarkTheme: options.mermaidDarkTheme ?? defaultMermaidDarkTheme,
+      pool: pool ?? undefined,
+    })
 
     // Convert to raster if needed (via sharp, dynamically imported)
     if (format !== 'svg') {
       const { convertSvg } = await import('./convert')
       const convertOpts = {
         format: format as 'png' | 'jpeg' | 'webp' | 'avif',
-        density: options.scale,
+        scale: options.scale,
         quality: options.quality,
       }
 
@@ -191,7 +103,8 @@ export async function render(
 
 /**
  * Render a diagram file from disk.
- * Detects type from file extension using the extension alias map.
+ * Detects type from file extension using the configured extension map
+ * (`.drawio.xml`/`.dio`, `.mmd`, etc).
  */
 export async function renderFile(
   filePath: string,
@@ -202,7 +115,19 @@ export async function renderFile(
   const type = getDiagramType(name, extensionMap)
   if (!type) {
     const supported = getAllExtensions(extensionMap).join(', ')
-    throw new Error(`Unknown diagram type for file: "${name}". Supported extensions: ${supported}`)
+    throw new DiagramkitError(
+      'UNKNOWN_TYPE',
+      `Unknown diagram type for file: "${name}". Supported extensions: ${supported}. ` +
+        'For custom extensions, add them to extensionMap in your diagramkit config.',
+    )
+  }
+  const MAX_SOURCE_SIZE = 10 * 1024 * 1024 // 10 MB
+  const fileSize = statSync(filePath).size
+  if (fileSize > MAX_SOURCE_SIZE) {
+    throw new DiagramkitError(
+      'CONFIG_INVALID',
+      `Source file "${name}" is ${(fileSize / 1024 / 1024).toFixed(1)} MB, exceeding the 10 MB limit.`,
+    )
   }
   const source = readFileSync(filePath, 'utf-8')
   return render(source, type, options)
@@ -234,21 +159,24 @@ export async function renderDiagramFileToDisk(
   const allWritten: string[] = []
   const outputMeta: OutputMetadata[] = []
 
+  // Import convertSvg once if any raster formats are requested
+  const needsRaster = formats.some((f) => f !== 'svg')
+  const doConvert = needsRaster ? (await import('./convert')).convertSvg : undefined
+
   for (const fmt of formats) {
     let result: RenderResult
     if (fmt === 'svg') {
       result = svgResult
     } else {
       // Convert SVG buffers to raster format
-      const { convertSvg } = await import('./convert')
       const convertOpts = {
         format: fmt as 'png' | 'jpeg' | 'webp' | 'avif',
-        density: options.scale,
+        scale: options.scale,
         quality: options.quality,
       }
       result = {
-        light: svgResult.light ? await convertSvg(svgResult.light, convertOpts) : undefined,
-        dark: svgResult.dark ? await convertSvg(svgResult.dark, convertOpts) : undefined,
+        light: svgResult.light ? await doConvert!(svgResult.light, convertOpts) : undefined,
+        dark: svgResult.dark ? await doConvert!(svgResult.dark, convertOpts) : undefined,
         format: fmt,
       }
     }
@@ -271,152 +199,10 @@ export async function renderDiagramFileToDisk(
     }
   }
 
-  // Attach metadata to file for manifest update
-  ;(file as any)._outputMeta = outputMeta
+  // Attach metadata to file for manifest update (used by renderAll/watch to pass to updateManifest)
+  ;(file as RenderableFile)._outputMeta = outputMeta
 
   return allWritten
 }
 
-/**
- * Render all diagrams in a directory tree.
- * Outputs go to sibling .diagramkit/ hidden folders (configurable via config).
- * Returns a result object listing rendered, skipped, and failed files.
- */
-export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResult> {
-  const contentDir = opts.dir ?? process.cwd()
-  const config = loadConfig(opts.config, contentDir)
-  // Resolve formats: explicit formats > explicit format > config defaults
-  const formats = opts.formats ?? (opts.format ? [opts.format] : config.defaultFormats)
-  const theme = opts.theme ?? config.defaultTheme
-  const log = opts.logger?.log ?? console.log
-  const warn = opts.logger?.warn ?? console.warn
-
-  const result: RenderAllResult = { rendered: [], skipped: [], failed: [] }
-
-  const allFiles = findDiagramFiles(contentDir, config)
-
-  if (allFiles.length === 0) {
-    cleanOrphans([], config, [contentDir])
-    log('No diagram files found.')
-    return result
-  }
-
-  let filtered = allFiles
-  if (opts.type) {
-    filtered = filterByType(filtered, opts.type, config)
-  }
-
-  const stale = filterStaleFiles(filtered, opts.force ?? false, formats, config, theme)
-
-  // Track skipped files
-  const staleSet = new Set(stale.map((f) => f.path))
-  for (const f of filtered) {
-    if (!staleSet.has(f.path)) result.skipped.push(f.path)
-  }
-
-  if (stale.length === 0) {
-    log(`All ${filtered.length} diagrams up-to-date (skipped)`)
-  } else {
-    if (!opts.force && stale.length < filtered.length) {
-      log(`${filtered.length - stale.length} diagrams up-to-date, ${stale.length} need rendering`)
-    }
-
-    const successful: (DiagramFile & {
-      _hash?: string
-      _effectiveFormats?: OutputFormat[]
-      _outputMeta?: OutputMetadata[]
-    })[] = []
-
-    // Group by diagram type for concurrent rendering across separate browser pages
-    const byType = new Map<string, typeof stale>()
-    const extensionMap = getExtensionMap(config.extensionMap)
-    for (const file of stale) {
-      const type = getDiagramType(basename(file.path), extensionMap)!
-      if (!byType.has(type)) byType.set(type, [])
-      byType.get(type)!.push(file)
-    }
-
-    await Promise.all(
-      [...byType.values()].map(async (files) => {
-        for (const file of files) {
-          // Apply per-file overrides from config
-          const fileOverride = getFileOverrides(file.path, config, contentDir)
-
-          // Use effective formats from staleness check (includes manifest-accumulated formats)
-          const effectiveFormats = fileOverride?.formats ?? file._effectiveFormats ?? formats
-          const fileTheme = fileOverride?.theme ?? theme
-          const renderOpts = {
-            formats: effectiveFormats,
-            theme: fileTheme,
-            quality: fileOverride?.quality ?? opts.quality,
-            scale: fileOverride?.scale ?? opts.scale,
-            contrastOptimize: fileOverride?.contrastOptimize ?? opts.contrastOptimize,
-            mermaidDarkTheme: opts.mermaidDarkTheme,
-            config,
-          }
-          try {
-            await renderDiagramFileToDisk(file, renderOpts)
-            successful.push({ ...file, _outputMeta: (file as any)._outputMeta })
-            result.rendered.push(file.path)
-          } catch (err: any) {
-            warn(`  FAIL: ${basename(file.path)} — ${err.message}`)
-            result.failed.push(file.path)
-          }
-        }
-      }),
-    )
-
-    if (successful.length > 0) {
-      updateManifest(successful, formats, config, theme)
-    }
-
-    const fmtLabel = formats.join('+')
-    log(
-      `Rendered ${successful.length}/${stale.length} diagram${stale.length === 1 ? '' : 's'} to ${fmtLabel}`,
-    )
-  }
-
-  cleanOrphans(allFiles, config, [contentDir])
-  return result
-}
-
-/* ── Default dark theme (exported for custom overrides) ── */
-
-export const defaultMermaidDarkTheme: Record<string, string> = {
-  background: '#111111',
-  primaryColor: '#2d2d2d',
-  primaryTextColor: '#e5e5e5',
-  primaryBorderColor: '#555555',
-  secondaryColor: '#333333',
-  secondaryTextColor: '#cccccc',
-  secondaryBorderColor: '#555555',
-  tertiaryColor: '#252525',
-  tertiaryTextColor: '#cccccc',
-  tertiaryBorderColor: '#555555',
-  lineColor: '#cccccc',
-  textColor: '#e5e5e5',
-  mainBkg: '#2d2d2d',
-  nodeBkg: '#2d2d2d',
-  nodeBorder: '#555555',
-  clusterBkg: '#1e1e1e',
-  clusterBorder: '#555555',
-  titleColor: '#e5e5e5',
-  edgeLabelBackground: '#1e1e1e',
-  actorBorder: '#555555',
-  actorBkg: '#2d2d2d',
-  actorTextColor: '#e5e5e5',
-  actorLineColor: '#888888',
-  signalColor: '#cccccc',
-  signalTextColor: '#e5e5e5',
-  labelBoxBkgColor: '#2d2d2d',
-  labelBoxBorderColor: '#555555',
-  labelTextColor: '#e5e5e5',
-  loopTextColor: '#e5e5e5',
-  noteBorderColor: '#555555',
-  noteBkgColor: '#333333',
-  noteTextColor: '#e5e5e5',
-  activationBorderColor: '#555555',
-  activationBkgColor: '#333333',
-  defaultLinkColor: '#cccccc',
-  arrowheadColor: '#cccccc',
-}
+export { defaultMermaidDarkTheme } from './mermaid-theme'

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import type { OutputFormat } from '../src/types'
+import { basename, dirname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import type { DiagramType, DiagramkitConfig, OutputFormat, Theme } from '../src/types'
 
 const args = process.argv.slice(2)
 
@@ -15,8 +15,10 @@ diagramkit — Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv file
 
 Usage:
   diagramkit render <file-or-dir> [options]
+  diagramkit <file-or-dir> [options]        Alias for "diagramkit render"
   diagramkit warmup
-  diagramkit init [--ts]
+  diagramkit doctor
+  diagramkit init [--ts] [--yes]
   diagramkit --version
   diagramkit --help
   diagramkit --agent-help
@@ -24,7 +26,8 @@ Usage:
 Commands:
   render <file-or-dir>     Render diagram file(s) to images
   warmup                   Pre-install Playwright chromium browser
-  init [--ts]              Create a diagramkit.config.json5 config file (--ts for TypeScript)
+  doctor                   Validate runtime dependencies and environment
+  init [--ts] [--yes]      Create config file (interactive by default, --yes for defaults)
 
 Render options:
   --format <formats>                  Output formats, comma-separated (default: svg)
@@ -38,13 +41,20 @@ Render options:
   --type <mermaid|excalidraw|drawio|graphviz> Filter to specific diagram type
   --output <dir>                      Custom output directory (all outputs go here)
   --dry-run                           Show what would be rendered without rendering
+  --plan                              Show stale plan with reasons (directory mode)
 
 Configuration options:
   --config <path>                     Path to config file (skip auto-discovery)
+                                      Auto-discovery order: diagramkit.config.ts, diagramkit.config.json5, .diagramkitrc.json (walk up directories)
   --output-dir <name>                 Output folder name (default: .diagramkit)
   --manifest-file <name>              Manifest filename (default: manifest.json)
   --no-manifest                       Disable manifest tracking
   --same-folder                       Output in same folder as source files
+  --output-prefix <string>             Prefix for output filenames (default: '')
+  --output-suffix <string>             Suffix for output filenames (default: '')
+  --strict-config                     Fail on config warnings/invalid values
+  --max-type-lanes <1-4>              Max concurrent engine lanes (default: 4)
+  --log-level <level>                 Logging verbosity: silent,error,warn,info,verbose
 
 Output options:
   --quiet                             Suppress informational output, only show errors
@@ -53,6 +63,7 @@ Output options:
 General:
   -h, --help                          Show this help
   -v, --version                       Show version
+  -y, --yes                           Accept defaults for interactive commands
   --agent-help                        Output full reference for LLM agents
 
 Examples:
@@ -115,23 +126,55 @@ function printAgentHelp() {
 /* ── Arg parsing ── */
 
 // Explicit short-flag mappings — avoids collisions between flags starting with same letter
-const SHORT_FLAGS: Record<string, string> = { h: 'help', v: 'version', f: 'force', w: 'watch' }
+const SHORT_FLAGS: Record<string, string> = {
+  h: 'help',
+  v: 'version',
+  y: 'yes',
+  f: 'force',
+  w: 'watch',
+}
 
-function getFlag(name: string): boolean {
-  if (args.includes(`--${name}`)) return true
+export function getFlag(name: string, argv: string[] = args): boolean {
+  if (argv.includes(`--${name}`)) return true
   for (const [short, long] of Object.entries(SHORT_FLAGS)) {
-    if (long === name && args.includes(`-${short}`)) return true
+    if (long === name && argv.includes(`-${short}`)) return true
   }
   return false
 }
 
-function getFlagValue(name: string): string | undefined {
-  const idx = args.indexOf(`--${name}`)
-  if (idx !== -1 && idx + 1 < args.length) {
-    const value = args[idx + 1]!
-    if (value.startsWith('--')) {
-      console.error(`Missing value for --${name}`)
-      process.exit(1)
+// Flags that accept a value — used to detect missing values vs. next-flag collisions
+const FLAGS_REQUIRING_VALUE = new Set([
+  'format',
+  'theme',
+  'scale',
+  'quality',
+  'type',
+  'output',
+  'config',
+  'output-dir',
+  'manifest-file',
+  'output-prefix',
+  'output-suffix',
+  'max-type-lanes',
+  'log-level',
+])
+
+export function getFlagValue(
+  name: string,
+  argv: string[] = args,
+  exitOnError = true,
+): string | undefined {
+  const idx = argv.indexOf(`--${name}`)
+  if (idx !== -1 && idx + 1 < argv.length) {
+    const value = argv[idx + 1]!
+    // Reject if the next token looks like a flag (starts with -)
+    if (value.startsWith('-')) {
+      const message = `Missing value for --${name}`
+      if (exitOnError) {
+        console.error(message)
+        process.exit(1)
+      }
+      throw new Error(message)
     }
     return value
   }
@@ -143,6 +186,17 @@ function getFlagValue(name: string): string | undefined {
 const VALID_FORMATS = ['svg', 'png', 'jpeg', 'jpg', 'webp', 'avif'] as const
 const VALID_THEMES = ['light', 'dark', 'both'] as const
 const VALID_TYPES = ['mermaid', 'excalidraw', 'drawio', 'graphviz'] as const
+const VALID_LOG_LEVELS = [
+  'silent',
+  'error',
+  'errors',
+  'warn',
+  'warning',
+  'warnings',
+  'info',
+  'log',
+  'verbose',
+] as const
 
 /** Normalize format name (e.g. 'jpg' → 'jpeg') */
 function normalizeFormat(f: string): OutputFormat {
@@ -150,42 +204,103 @@ function normalizeFormat(f: string): OutputFormat {
   return f as OutputFormat
 }
 
-function validateEnum<T extends string>(value: string, valid: readonly T[], label: string): T {
+export function validateEnum<T extends string>(
+  value: string,
+  valid: readonly T[],
+  label: string,
+  exitOnError = true,
+): T {
   if (!valid.includes(value as T)) {
-    console.error(`Invalid ${label}: "${value}". Must be one of: ${valid.join(', ')}`)
-    process.exit(1)
+    const message = `Invalid ${label}: "${value}". Must be one of: ${valid.join(', ')}`
+    if (exitOnError) {
+      console.error(message)
+      process.exit(1)
+    }
+    throw new Error(message)
   }
   return value as T
 }
 
-function validatePositiveNumber(value: string, label: string): number {
+export function validatePositiveNumber(value: string, label: string, exitOnError = true): number {
   const num = parseFloat(value)
   if (isNaN(num) || num <= 0) {
-    console.error(`Invalid ${label}: "${value}". Must be a positive number.`)
-    process.exit(1)
+    const message = `Invalid ${label}: "${value}". Must be a positive number.`
+    if (exitOnError) {
+      console.error(message)
+      process.exit(1)
+    }
+    throw new Error(message)
   }
   return num
 }
 
-/** Parse comma-separated formats, validate each, and normalize (e.g. jpg → jpeg). */
-function parseFormats(raw: string): OutputFormat[] {
+export function levenshteinDistance(a: string, b: string): number {
+  const rows = a.length + 1
+  const cols = b.length + 1
+  const dp = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0))
+  for (let i = 0; i < rows; i++) dp[i]![0] = i
+  for (let j = 0; j < cols; j++) dp[0]![j] = j
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      dp[i]![j] = Math.min(dp[i - 1]![j]! + 1, dp[i]![j - 1]! + 1, dp[i - 1]![j - 1]! + cost)
+    }
+  }
+  return dp[rows - 1]![cols - 1]!
+}
+
+function suggestClosest(value: string, candidates: string[]): string | undefined {
+  let best: { candidate: string; distance: number } | null = null
+  for (const candidate of candidates) {
+    const distance = levenshteinDistance(value, candidate)
+    if (!best || distance < best.distance) {
+      best = { candidate, distance }
+    }
+  }
+  if (!best || best.distance > 3) return undefined
+  return best.candidate
+}
+
+/** Parse comma-separated formats, normalize (e.g. jpg → jpeg), and drop invalid entries with a warning. */
+export function parseFormats(raw: string, exitOnError = true): OutputFormat[] {
   const parts = raw
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
   if (parts.length === 0) {
-    console.error('--format requires at least one format')
-    process.exit(1)
+    const message = '--format requires at least one format'
+    if (exitOnError) {
+      console.error(message)
+      process.exit(1)
+    }
+    throw new Error(message)
   }
-  return parts.map((f) => {
-    validateEnum(f, VALID_FORMATS, 'format')
-    return normalizeFormat(f)
-  })
+  const valid: OutputFormat[] = []
+  const dropped: string[] = []
+  for (const f of parts) {
+    if (!VALID_FORMATS.includes(f as (typeof VALID_FORMATS)[number])) {
+      dropped.push(f)
+      continue
+    }
+    valid.push(normalizeFormat(f))
+  }
+  if (dropped.length > 0) {
+    console.warn(`Warning: dropped unsupported format(s): ${dropped.join(', ')}`)
+  }
+  if (valid.length === 0) {
+    const message = '--format did not include any valid formats'
+    if (exitOnError) {
+      console.error(message)
+      process.exit(1)
+    }
+    throw new Error(message)
+  }
+  return valid
 }
 
 /* ── Unknown flag detection ── */
 
-function warnUnknownFlags() {
+export function warnUnknownFlags(argv: string[] = args) {
   const knownFlags = new Set([
     'format',
     'theme',
@@ -197,6 +312,7 @@ function warnUnknownFlags() {
     'type',
     'output',
     'dry-run',
+    'plan',
     'quiet',
     'json',
     'config',
@@ -204,23 +320,33 @@ function warnUnknownFlags() {
     'manifest-file',
     'no-manifest',
     'same-folder',
+    'output-prefix',
+    'output-suffix',
+    'strict-config',
+    'max-type-lanes',
+    'log-level',
     'help',
     'version',
+    'yes',
     'agent-help',
     'ts',
   ])
   const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
 
-  for (const arg of args) {
+  for (const arg of argv) {
     if (arg.startsWith('--')) {
       const name = arg.slice(2)
       if (!knownFlags.has(name)) {
-        console.warn(`Warning: unknown flag "${arg}"`)
+        const suggestion = suggestClosest(name, [...knownFlags])
+        const hint = suggestion ? ` (did you mean --${suggestion}?)` : ''
+        console.warn(`Warning: unknown flag "${arg}"${hint}`)
       }
     } else if (arg.startsWith('-') && arg.length === 2) {
       const short = arg.slice(1)
       if (!knownShortFlags.has(short)) {
-        console.warn(`Warning: unknown flag "${arg}"`)
+        const suggestion = suggestClosest(short, [...knownShortFlags])
+        const hint = suggestion ? ` (did you mean -${suggestion}?)` : ''
+        console.warn(`Warning: unknown flag "${arg}"${hint}`)
       }
     }
   }
@@ -243,69 +369,267 @@ async function commandWarmup() {
   console.log('Done.')
 }
 
+/** Check if Playwright chromium browser is installed. Returns false if not needed (graphviz-only). */
+async function ensurePlaywrightBrowser(needsBrowser: boolean): Promise<void> {
+  if (!needsBrowser) return
+  try {
+    const { chromium } = await import('playwright')
+    const execPath = chromium.executablePath()
+    if (!existsSync(execPath)) {
+      console.error(
+        'Chromium browser not found. Run "diagramkit warmup" to install it.\n' +
+          '  Expected: ' +
+          execPath,
+      )
+      process.exit(1)
+    }
+  } catch {
+    console.error(
+      'Playwright is not installed. Run "npm install playwright" then "diagramkit warmup".',
+    )
+    process.exit(1)
+  }
+}
+
+/** Returns true if the diagram type requires a browser (all except graphviz). */
+function typeNeedsBrowser(type: import('../src/types').DiagramType): boolean {
+  return type !== 'graphviz'
+}
+
 async function commandInit() {
-  const useTs = args.includes('--ts')
+  const useYes = getFlag('yes')
+  const useTs = getFlag('ts')
   const { writeFileSync } = await import('node:fs')
+  const { basename } = await import('node:path')
+  const { getDefaultConfig } = await import('../src/config')
+  const { getDiagramType, getExtensionMap } = await import('../src/extensions')
+  const { findDiagramFiles } = await import('../src/discovery')
+  const defaults = getDefaultConfig()
+  const defaultConfigPath = resolve(useTs ? 'diagramkit.config.ts' : 'diagramkit.config.json5')
+  const legacyPath = resolve('.diagramkitrc.json')
+  if (existsSync(legacyPath)) {
+    console.log('.diagramkitrc.json exists. Consider migrating to diagramkit.config.json5.')
+    return
+  }
 
-  if (useTs) {
-    const configPath = resolve('diagramkit.config.ts')
-    if (existsSync(configPath)) {
-      console.log('diagramkit.config.ts already exists.')
-      return
+  const toMinimalConfig = (cfg: DiagramkitConfig): Partial<DiagramkitConfig> => {
+    const out: Partial<DiagramkitConfig> = {}
+    if (cfg.outputDir !== defaults.outputDir) out.outputDir = cfg.outputDir
+    if (cfg.defaultTheme !== defaults.defaultTheme) out.defaultTheme = cfg.defaultTheme
+    if (cfg.defaultFormats.join(',') !== defaults.defaultFormats.join(',')) {
+      out.defaultFormats = cfg.defaultFormats
     }
-    const content = `import { defineConfig } from 'diagramkit'
+    return out
+  }
 
-export default defineConfig({
-  outputDir: '.diagramkit',
-  defaultFormats: ['svg'],
-  defaultTheme: 'both',
-})
+  const toTsConfig = (
+    cfg: Partial<DiagramkitConfig>,
+  ): string => `import { defineConfig } from 'diagramkit'
+
+export default defineConfig(${JSON.stringify(cfg, null, 2)})
 `
-    writeFileSync(configPath, content)
-    console.log('Created diagramkit.config.ts')
-  } else {
-    const configPath = resolve('diagramkit.config.json5')
-    if (existsSync(configPath)) {
-      console.log('diagramkit.config.json5 already exists.')
-      return
-    }
-    // Also check for legacy config
-    if (existsSync(resolve('.diagramkitrc.json'))) {
-      console.log('.diagramkitrc.json exists. Consider migrating to diagramkit.config.json5.')
-      return
-    }
-    const content = `{
+
+  const toJson5Config = (cfg: Partial<DiagramkitConfig>): string => `{
   // diagramkit configuration
   // Docs: https://projects.sujeet.pro/diagramkit/guide/configuration
-  outputDir: '.diagramkit',
-  defaultFormats: ['svg'],
-  defaultTheme: 'both',
+${Object.entries(cfg)
+  .map(([key, value]) => `  ${key}: ${JSON.stringify(value)},`)
+  .join('\n')}
 }
 `
-    writeFileSync(configPath, content)
-    console.log('Created diagramkit.config.json5')
+
+  const writeConfig = (cfg: DiagramkitConfig): void => {
+    if (existsSync(defaultConfigPath)) {
+      console.log(`${basename(defaultConfigPath)} already exists.`)
+      return
+    }
+    const minimal = toMinimalConfig(cfg)
+    const content = useTs ? toTsConfig(minimal) : toJson5Config(minimal)
+    writeFileSync(defaultConfigPath, content)
+    console.log(`Created ${basename(defaultConfigPath)}`)
   }
+
+  if (useYes || !process.stdin.isTTY || !process.stdout.isTTY) {
+    writeConfig(defaults)
+    return
+  }
+
+  const typeOrder: DiagramType[] = ['mermaid', 'excalidraw', 'drawio', 'graphviz']
+  const detectedTypes = new Set<DiagramType>()
+  const extensionMap = getExtensionMap()
+  for (const file of findDiagramFiles(process.cwd())) {
+    const type = getDiagramType(basename(file.path), extensionMap)
+    if (type) detectedTypes.add(type)
+  }
+  const initialTypeSelection = (
+    detectedTypes.size > 0 ? [...detectedTypes] : typeOrder
+  ) as DiagramType[]
+
+  const { intro, outro, multiselect, select, text, confirm, cancel, isCancel, note } =
+    await import('@clack/prompts')
+
+  intro('diagramkit init')
+  note(`Detected types: ${initialTypeSelection.join(', ')}`, 'Project scan')
+  const selectedTypes = await multiselect({
+    message: 'Which diagram types does this project use?',
+    options: typeOrder.map((type) => ({ value: type, label: type })),
+    initialValues: initialTypeSelection,
+    required: false,
+  })
+  if (isCancel(selectedTypes)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const formatChoice = await select({
+    message: 'Preferred output format?',
+    options: [
+      { value: 'svg', label: 'SVG (default)' },
+      { value: 'png', label: 'PNG' },
+      { value: 'svg,png', label: 'SVG + PNG' },
+    ],
+    initialValue: 'svg',
+  })
+  if (isCancel(formatChoice)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const themeChoice = await select({
+    message: 'Preferred theme output?',
+    options: [
+      { value: 'both', label: 'Both (light + dark)' },
+      { value: 'light', label: 'Light only' },
+      { value: 'dark', label: 'Dark only' },
+    ],
+    initialValue: 'both',
+  })
+  if (isCancel(themeChoice)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const outputChoice = await select({
+    message: 'Output directory?',
+    options: [
+      { value: '.diagramkit', label: '.diagramkit (default)' },
+      { value: 'images', label: 'images/' },
+      { value: '__custom__', label: 'Custom path...' },
+    ],
+    initialValue: '.diagramkit',
+  })
+  if (isCancel(outputChoice)) {
+    cancel('Aborted.')
+    return
+  }
+
+  let outputDir = outputChoice as string
+  if (outputDir === '__custom__') {
+    const custom = await text({
+      message: 'Enter output directory',
+      placeholder: '.diagramkit',
+      defaultValue: '.diagramkit',
+    })
+    if (isCancel(custom)) {
+      cancel('Aborted.')
+      return
+    }
+    outputDir = String(custom).trim() || '.diagramkit'
+  }
+
+  const useTsChoice = await select({
+    message: 'Config file format?',
+    options: [
+      { value: 'json5', label: 'JSON5' },
+      { value: 'ts', label: 'TypeScript' },
+    ],
+    initialValue: useTs ? 'ts' : 'json5',
+  })
+  if (isCancel(useTsChoice)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const finalUseTs = useTsChoice === 'ts'
+  const generatedConfig: DiagramkitConfig = {
+    ...defaults,
+    defaultFormats: parseFormats(String(formatChoice)),
+    defaultTheme: validateEnum(String(themeChoice), VALID_THEMES, 'theme'),
+    outputDir,
+  }
+  const previewContent = finalUseTs
+    ? toTsConfig(toMinimalConfig(generatedConfig))
+    : toJson5Config(toMinimalConfig(generatedConfig))
+
+  note(
+    previewContent,
+    `Preview (${finalUseTs ? 'diagramkit.config.ts' : 'diagramkit.config.json5'})`,
+  )
+  note(`Selected types: ${(selectedTypes as string[]).join(', ') || '(none)'}`, 'Type selection')
+  const shouldWrite = await confirm({ message: 'Write this config file?' })
+  if (isCancel(shouldWrite) || !shouldWrite) {
+    cancel('Aborted.')
+    return
+  }
+
+  const finalPath = resolve(finalUseTs ? 'diagramkit.config.ts' : 'diagramkit.config.json5')
+  if (existsSync(finalPath)) {
+    console.log(`${basename(finalPath)} already exists.`)
+    return
+  }
+  writeFileSync(finalPath, previewContent)
+  outro(`Created ${basename(finalPath)}`)
+}
+
+function emitJson(payload: unknown): void {
+  console.log(JSON.stringify(payload))
+}
+
+function buildRenderJsonEnvelope(input: {
+  targetPath: string
+  kind: 'file' | 'directory'
+  dryRun: boolean
+  plan: boolean
+  options: Record<string, unknown>
+  result?: unknown
+  summary?: Record<string, unknown>
+}): Record<string, unknown> {
+  return {
+    schemaVersion: 1,
+    command: 'render',
+    target: {
+      kind: input.kind,
+      path: input.targetPath,
+    },
+    phase: input.dryRun || input.plan ? 'dry-run' : 'execute',
+    options: input.options,
+    ...(input.result ? { result: input.result } : {}),
+    ...(input.summary ? { summary: input.summary } : {}),
+  }
+}
+
+async function commandDoctor(jsonOutput: boolean): Promise<void> {
+  const { runDoctor } = await import('../src/doctor')
+  const result = await runDoctor()
+  if (jsonOutput) {
+    emitJson(result)
+  } else {
+    console.log(`diagramkit doctor (v${result.diagramkitVersion})`)
+    for (const check of result.checks) {
+      console.log(`[${check.status}] ${check.id}: ${check.message}`)
+    }
+  }
+  if (!result.ok) process.exitCode = 1
 }
 
 async function commandRender() {
   // Find the first positional argument after "render" by skipping flags and their values
-  const FLAGS_WITH_VALUES = new Set([
-    'format',
-    'theme',
-    'scale',
-    'quality',
-    'type',
-    'output',
-    'config',
-    'output-dir',
-    'manifest-file',
-  ])
   let target = '.'
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!
     if (arg.startsWith('--')) {
       const name = arg.slice(2)
-      if (FLAGS_WITH_VALUES.has(name)) i++ // skip the value too
+      if (FLAGS_REQUIRING_VALUE.has(name)) i++ // skip the value too
       continue
     }
     if (arg.startsWith('-')) continue
@@ -323,16 +647,29 @@ async function commandRender() {
 
   const rawScale = getFlagValue('scale')
   const scale = rawScale ? validatePositiveNumber(rawScale, 'scale') : 2
+  if (rawScale && scale > 10) {
+    console.error(`Invalid scale: "${rawScale}". Must be greater than 0 and at most 10.`)
+    process.exit(1)
+  }
 
   const rawQuality = getFlagValue('quality')
   const quality = rawQuality ? validatePositiveNumber(rawQuality, 'quality') : 90
+  if (rawQuality && (quality < 1 || quality > 100)) {
+    console.warn('Warning: --quality should be between 1 and 100. Value will be clamped.')
+  }
 
   const force = getFlag('force')
   const watchMode = getFlag('watch')
   const noContrast = args.includes('--no-contrast')
   const dryRun = args.includes('--dry-run')
+  const plan = args.includes('--plan')
   const quiet = args.includes('--quiet')
   const jsonOutput = args.includes('--json')
+  const strictConfig = args.includes('--strict-config')
+  const rawLogLevel = getFlagValue('log-level')
+  const logLevel = rawLogLevel
+    ? validateEnum(rawLogLevel, VALID_LOG_LEVELS, 'log-level')
+    : ('info' as const)
 
   // Config overrides from CLI flags
   const outputDir = getFlagValue('output-dir')
@@ -341,12 +678,20 @@ async function commandRender() {
   const sameFolder = args.includes('--same-folder')
   const customOutput = getFlagValue('output')
   const configFilePath = getFlagValue('config')
+  const maxTypeLanesRaw = getFlagValue('max-type-lanes')
+  const maxTypeLanes = maxTypeLanesRaw
+    ? Math.max(1, Math.min(4, validatePositiveNumber(maxTypeLanesRaw, 'max-type-lanes')))
+    : undefined
 
   const configOverrides: Partial<import('../src/types').DiagramkitConfig> = {}
   if (outputDir) configOverrides.outputDir = outputDir
   if (manifestFile) configOverrides.manifestFile = manifestFile
   if (noManifest) configOverrides.useManifest = false
   if (sameFolder) configOverrides.sameFolder = true
+  const outputPrefix = getFlagValue('output-prefix')
+  const outputSuffix = getFlagValue('output-suffix')
+  if (outputPrefix !== undefined) configOverrides.outputPrefix = outputPrefix
+  if (outputSuffix !== undefined) configOverrides.outputSuffix = outputSuffix
 
   const resolvedTarget = resolve(target)
 
@@ -360,7 +705,9 @@ async function commandRender() {
   const { loadConfig } = await import('../src/config')
   const configRoot = stat.isFile() ? dirname(resolvedTarget) : resolvedTarget
   const resolvedConfigFile = configFilePath ? resolve(configFilePath) : undefined
-  const resolvedConfig = loadConfig(configOverrides, configRoot, resolvedConfigFile)
+  const resolvedConfig = loadConfig(configOverrides, configRoot, resolvedConfigFile, {
+    strict: strictConfig,
+  })
 
   // Parse formats: comma-separated or from config defaults
   const formats: OutputFormat[] = rawFormat
@@ -369,159 +716,354 @@ async function commandRender() {
   const theme = validateEnum(rawTheme ?? resolvedConfig.defaultTheme, VALID_THEMES, 'theme')
 
   if (stat.isFile()) {
-    // Single file render
-    const { renderDiagramFileToDisk } = await import('../src/renderer')
-    const { dispose } = await import('../src/pool')
-    try {
-      if (dryRun) {
-        console.log(`Would render: ${resolvedTarget}`)
-        return
-      }
-
-      const [
-        path,
-        { ensureDiagramsDir, updateManifest, readManifest },
-        { stripDiagramExtension },
-        { getMatchedExtension },
-      ] = await Promise.all([
-        import('node:path'),
-        import('../src/manifest'),
-        import('../src/output'),
-        import('../src/extensions'),
-      ])
-
-      const name = stripDiagramExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap)
-      const ext =
-        getMatchedExtension(path.basename(resolvedTarget), resolvedConfig.extensionMap) ?? ''
-      const fileDir = path.dirname(resolvedTarget)
-      const outDir = customOutput
-        ? resolve(customOutput)
-        : ensureDiagramsDir(fileDir, resolvedConfig)
-
-      // Accumulate formats from manifest (unless custom output, which skips manifest)
-      let effectiveFormats = formats
-      if (!customOutput && resolvedConfig.useManifest) {
-        const manifest = readManifest(fileDir, resolvedConfig)
-        const entry = manifest.diagrams[path.basename(resolvedTarget)]
-        if (entry?.formats) {
-          effectiveFormats = [...new Set([...formats, ...entry.formats])]
-        }
-      }
-
-      // Render using multi-format renderDiagramFileToDisk
-      const diagramFile = { path: resolvedTarget, name, dir: fileDir, ext }
-      const written = await renderDiagramFileToDisk(diagramFile, {
-        formats: effectiveFormats,
-        theme,
-        scale,
-        quality,
-        contrastOptimize: !noContrast,
-        config: resolvedConfig,
-        outDir,
-      })
-
-      // Update manifest for incremental builds (skip for custom output dirs)
-      if (!customOutput) {
-        updateManifest(
-          [{ ...diagramFile, _effectiveFormats: effectiveFormats }],
-          formats,
-          resolvedConfig,
-          theme,
-        )
-      }
-
-      if (jsonOutput) {
-        console.log(JSON.stringify({ rendered: written.map((f) => path.join(outDir, f)) }))
-      } else if (!quiet) {
-        for (const fileName of written) {
-          const outPath = path.join(outDir, fileName)
-          console.log(`  Written: ${outPath}`)
-        }
-      }
-    } finally {
-      await dispose()
-    }
-    return
-  }
-
-  // Directory render
-  if (dryRun) {
-    const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/discovery')
-    const { filterStaleFiles } = await import('../src/manifest')
-    let files = findDiagramFiles(resolvedTarget, resolvedConfig)
-    if (type) files = filterByTypeFn(files, type, resolvedConfig)
-    const stale = filterStaleFiles(files, force, formats, resolvedConfig, theme)
-
-    if (jsonOutput) {
-      console.log(
-        JSON.stringify({
-          total: files.length,
-          stale: stale.map((f) => f.path),
-          upToDate: files.length - stale.length,
-        }),
-      )
-    } else {
-      console.log(`Found ${files.length} diagram files, ${stale.length} need rendering:`)
-      for (const f of stale) {
-        console.log(`  ${f.path}`)
-      }
-    }
-    return
-  }
-
-  // Use the logger option to suppress output in quiet mode instead of monkey-patching console
-  const noop = () => {}
-  const logger = quiet || jsonOutput ? { log: noop, warn: quiet ? noop : console.warn } : undefined
-
-  const { renderAll } = await import('../src/renderer')
-  const { dispose } = await import('../src/pool')
-
-  // When --output is used for directory, set sameFolder + outputDir to redirect everything
-  const dirConfigOverrides = customOutput
-    ? { ...resolvedConfig, sameFolder: false, outputDir: customOutput, useManifest: false }
-    : resolvedConfig
-
-  let renderResult
-  try {
-    renderResult = await renderAll({
-      dir: resolvedTarget,
+    await renderSingleFile({
+      target: resolvedTarget,
+      formats,
+      theme,
+      scale,
+      quality,
+      noContrast,
+      dryRun,
+      quiet,
+      jsonOutput,
+      customOutput,
+      config: resolvedConfig,
+      logLevel,
+    })
+  } else {
+    await renderDirectory({
+      target: resolvedTarget,
       formats,
       theme,
       scale,
       quality,
       force,
       type,
-      contrastOptimize: !noContrast,
-      config: dirConfigOverrides,
+      noContrast,
+      dryRun,
+      quiet,
+      jsonOutput,
+      watchMode,
+      plan,
+      customOutput,
+      config: resolvedConfig,
+      configOverrides,
+      configFile: resolvedConfigFile,
+      maxTypeLanes,
+      strictConfig,
+      logLevel,
+    })
+  }
+}
+
+/* ── Single-file render ── */
+
+interface SingleFileOpts {
+  target: string
+  formats: OutputFormat[]
+  theme: Theme
+  scale: number
+  quality: number
+  noContrast: boolean
+  dryRun: boolean
+  quiet: boolean
+  jsonOutput: boolean
+  customOutput: string | undefined
+  config: import('../src/types').DiagramkitConfig
+  logLevel: import('../src/types').LogLevel
+}
+
+async function renderSingleFile(opts: SingleFileOpts) {
+  const { target, formats, config: resolvedConfig, customOutput, jsonOutput, quiet } = opts
+  const { createLeveledLogger } = await import('../src/logging')
+  const cliLogger = createLeveledLogger(opts.logLevel)
+
+  if (opts.dryRun) {
+    if (jsonOutput) {
+      emitJson(
+        buildRenderJsonEnvelope({
+          targetPath: target,
+          kind: 'file',
+          dryRun: true,
+          plan: false,
+          options: {
+            formats,
+            theme: opts.theme,
+            scale: opts.scale,
+            quality: opts.quality,
+          },
+          result: { wouldRender: true },
+        }),
+      )
+    } else {
+      cliLogger.info(`Would render: ${target}`)
+    }
+    return
+  }
+
+  const { getDiagramType: getType } = await import('../src/extensions')
+  const { basename: bn } = await import('node:path')
+  const fileType = getType(bn(target), resolvedConfig.extensionMap)
+  if (fileType && typeNeedsBrowser(fileType)) {
+    await ensurePlaywrightBrowser(true)
+  }
+
+  const { renderDiagramFileToDisk } = await import('../src/renderer')
+  const { dispose } = await import('../src/pool')
+  try {
+    const [
+      path,
+      { ensureDiagramsDir, updateManifest, readManifest },
+      { stripDiagramExtension },
+      { getMatchedExtension },
+    ] = await Promise.all([
+      import('node:path'),
+      import('../src/manifest'),
+      import('../src/output'),
+      import('../src/extensions'),
+    ])
+
+    const name = stripDiagramExtension(path.basename(target), resolvedConfig.extensionMap)
+    const ext = getMatchedExtension(path.basename(target), resolvedConfig.extensionMap) ?? ''
+    const fileDir = path.dirname(target)
+    const outDir = customOutput ? resolve(customOutput) : ensureDiagramsDir(fileDir, resolvedConfig)
+
+    // Accumulate formats from manifest (unless custom output, which skips manifest)
+    let effectiveFormats = formats
+    if (!customOutput && resolvedConfig.useManifest) {
+      const manifest = readManifest(fileDir, resolvedConfig)
+      const entry = manifest.diagrams[path.basename(target)]
+      if (entry?.formats) {
+        effectiveFormats = [...new Set([...formats, ...entry.formats])]
+      }
+    }
+
+    const diagramFile = { path: target, name, dir: fileDir, ext }
+    const written = await renderDiagramFileToDisk(diagramFile, {
+      formats: effectiveFormats,
+      theme: opts.theme,
+      scale: opts.scale,
+      quality: opts.quality,
+      contrastOptimize: !opts.noContrast,
+      config: resolvedConfig,
+      outDir,
+    })
+
+    if (!customOutput) {
+      updateManifest(
+        [{ ...diagramFile, _effectiveFormats: effectiveFormats }],
+        formats,
+        resolvedConfig,
+        opts.theme,
+      )
+    }
+
+    if (jsonOutput) {
+      emitJson(
+        buildRenderJsonEnvelope({
+          targetPath: target,
+          kind: 'file',
+          dryRun: false,
+          plan: false,
+          options: {
+            formats,
+            theme: opts.theme,
+            scale: opts.scale,
+            quality: opts.quality,
+          },
+          result: {
+            rendered: written.map((f) => path.join(outDir, f)),
+            skipped: [],
+            failed: [],
+            failedDetails: [],
+          },
+        }),
+      )
+    } else if (!quiet) {
+      for (const fileName of written) {
+        cliLogger.info(`  Written: ${path.join(outDir, fileName)}`)
+      }
+    }
+  } finally {
+    await dispose()
+  }
+}
+
+/* ── Directory render ── */
+
+interface DirectoryOpts {
+  target: string
+  formats: OutputFormat[]
+  theme: Theme
+  scale: number
+  quality: number
+  force: boolean
+  type: import('../src/types').DiagramType | undefined
+  noContrast: boolean
+  dryRun: boolean
+  quiet: boolean
+  jsonOutput: boolean
+  watchMode: boolean
+  plan: boolean
+  customOutput: string | undefined
+  config: import('../src/types').DiagramkitConfig
+  configOverrides: Partial<import('../src/types').DiagramkitConfig>
+  configFile?: string
+  maxTypeLanes?: number
+  strictConfig?: boolean
+  logLevel: import('../src/types').LogLevel
+}
+
+async function renderDirectory(opts: DirectoryOpts) {
+  const { target, formats, config: resolvedConfig, customOutput, jsonOutput, quiet } = opts
+
+  if (opts.dryRun || opts.plan) {
+    const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/discovery')
+    const { filterStaleFiles, planStaleFiles } = await import('../src/manifest')
+    let files = findDiagramFiles(target, resolvedConfig)
+    if (opts.type) files = filterByTypeFn(files, opts.type, resolvedConfig)
+    const stale = filterStaleFiles(files, opts.force, formats, resolvedConfig, opts.theme)
+    const stalePlan = planStaleFiles(files, opts.force, formats, resolvedConfig, opts.theme)
+
+    if (jsonOutput) {
+      emitJson(
+        buildRenderJsonEnvelope({
+          targetPath: target,
+          kind: 'directory',
+          dryRun: opts.dryRun,
+          plan: opts.plan,
+          options: {
+            formats,
+            theme: opts.theme,
+            force: opts.force,
+            type: opts.type,
+          },
+          result: {
+            stale: stale.map((f) => f.path),
+            stalePlan,
+            total: files.length,
+            upToDate: files.length - stale.length,
+          },
+        }),
+      )
+    } else {
+      console.log(`Found ${files.length} diagram files, ${stale.length} need rendering:`)
+      for (const f of stalePlan) {
+        const reasons = f.reasons.map((r) => r.code).join(',')
+        console.log(`  ${f.path} [${reasons}]`)
+      }
+    }
+    return
+  }
+
+  const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/discovery')
+  const { filterStaleFiles } = await import('../src/manifest')
+  const { getDiagramType: getType, getExtensionMap } = await import('../src/extensions')
+  const extensionMap = getExtensionMap(resolvedConfig.extensionMap)
+  let discoveredFiles = findDiagramFiles(target, resolvedConfig)
+  if (opts.type) discoveredFiles = filterByTypeFn(discoveredFiles, opts.type, resolvedConfig)
+  const staleFiles = filterStaleFiles(
+    discoveredFiles,
+    opts.force,
+    formats,
+    resolvedConfig,
+    opts.theme,
+  )
+  const browserCheckFiles = opts.watchMode ? discoveredFiles : staleFiles
+  const needsBrowser = browserCheckFiles.some((file) => {
+    const detectedType = getType(basename(file.path), extensionMap)
+    return detectedType ? typeNeedsBrowser(detectedType) : false
+  })
+  if (needsBrowser) {
+    await ensurePlaywrightBrowser(true)
+  }
+
+  const noop = () => {}
+  const logger =
+    quiet || jsonOutput
+      ? { log: noop, warn: quiet ? noop : console.warn, error: quiet ? noop : console.error }
+      : undefined
+
+  const { renderAll } = await import('../src/render-all')
+  const { dispose } = await import('../src/pool')
+
+  const dirConfig = customOutput
+    ? { ...resolvedConfig, sameFolder: false, outputDir: customOutput, useManifest: false }
+    : resolvedConfig
+
+  let renderResult
+  try {
+    renderResult = await renderAll({
+      dir: target,
+      formats,
+      theme: opts.theme,
+      scale: opts.scale,
+      quality: opts.quality,
+      force: opts.force,
+      type: opts.type,
+      contrastOptimize: !opts.noContrast,
+      config: dirConfig,
       logger,
+      logLevel: opts.logLevel,
+      progress: !quiet && !jsonOutput,
+      maxConcurrentLanes: opts.maxTypeLanes,
+      includeMetrics: true,
     })
   } finally {
-    if (!watchMode) {
+    if (!opts.watchMode) {
       await dispose()
     }
   }
 
   if (jsonOutput && renderResult) {
-    console.log(JSON.stringify(renderResult))
+    emitJson(
+      buildRenderJsonEnvelope({
+        targetPath: target,
+        kind: 'directory',
+        dryRun: false,
+        plan: false,
+        options: {
+          formats,
+          theme: opts.theme,
+          scale: opts.scale,
+          quality: opts.quality,
+          force: opts.force,
+          type: opts.type,
+          maxTypeLanes: opts.maxTypeLanes ?? 4,
+        },
+        result: renderResult,
+      }),
+    )
   }
 
-  // Exit with code 1 if any renders failed
-  if (renderResult && renderResult.failed.length > 0 && !watchMode) {
+  if (renderResult && renderResult.failed.length > 0 && !opts.watchMode) {
     process.exitCode = 1
   }
 
-  if (watchMode) {
+  if (opts.watchMode) {
     const { watchDiagrams } = await import('../src/watch')
+    const watchConfig = customOutput
+      ? { ...opts.configOverrides, sameFolder: false, outputDir: customOutput, useManifest: false }
+      : opts.configOverrides
     const cleanup = watchDiagrams({
-      dir: resolvedTarget,
-      config: configOverrides,
-      renderOptions: { formats, theme, scale, quality, contrastOptimize: !noContrast },
+      dir: target,
+      config: watchConfig,
+      configFile: opts.configFile,
+      logger,
+      logLevel: opts.logLevel,
+      strictConfig: opts.strictConfig,
+      renderOptions: {
+        formats,
+        theme: opts.theme,
+        scale: opts.scale,
+        quality: opts.quality,
+        contrastOptimize: !opts.noContrast,
+      },
       onChange: (file) => {
         if (!quiet) console.log(`  Re-rendered: ${file}`)
       },
     })
 
-    // Keep process alive, clean up on exit — dispose() must complete before exit to avoid zombie Chromium
     const onSignal = () => {
       void cleanup()
         .then(() => dispose())
@@ -550,10 +1092,26 @@ async function main() {
     return
   }
 
+  if (
+    args.length > 0 &&
+    !args[0]!.startsWith('-') &&
+    !['render', 'warmup', 'doctor', 'init'].includes(args[0]!)
+  ) {
+    const maybePath = resolve(args[0]!)
+    if (existsSync(maybePath)) {
+      args.unshift('render')
+    }
+  }
+
   const command = args[0]
 
   if (command === 'warmup') {
     await commandWarmup()
+    return
+  }
+
+  if (command === 'doctor') {
+    await commandDoctor(getFlag('json'))
     return
   }
 
@@ -572,7 +1130,9 @@ async function main() {
   process.exit(1)
 }
 
-main().catch((err) => {
-  console.error(err.message ?? err)
-  process.exit(1)
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err: unknown) => {
+    console.error(err instanceof Error ? err.message : String(err))
+    process.exit(1)
+  })
+}

@@ -33,7 +33,7 @@ The manifest system (SHA-256 content hash + formats array + theme tracking) prev
 
 ### Configuration layering
 
-Config merges in a strict order: defaults → global (`~/.config/diagramkit/config.json5`) → env vars (`DIAGRAMKIT_*`) → local (`diagramkit.config.json5` or `.ts`, walks up) → per-call overrides. Each layer is a partial object spread on top of the previous. Never change this order. Legacy `.diagramkitrc.json` is still supported but deprecated.
+Config merges in a strict order: defaults → global (`~/.config/diagramkit/config.json5` or `config.json`) → env vars (`DIAGRAMKIT_*`) → local (`diagramkit.config.ts` or `.json5`, walks up) → per-call overrides. Each layer is a partial object spread on top of the previous. Never change this order. Legacy `.diagramkitrc.json` is still supported but deprecated.
 
 ### Atomic writes everywhere
 
@@ -53,10 +53,10 @@ To add support for a new diagram format (e.g. PlantUML):
 
 1. **Extension map** — add entries to `DEFAULT_EXTENSION_MAP` in `src/extensions.ts` (e.g. `.puml: 'plantuml'`)
 2. **DiagramType union** — add `'plantuml'` to the `DiagramType` type in `src/types.ts`
-3. **Renderer branch** — add an `else if (type === 'plantuml')` branch in `src/renderer.ts:render()`
-4. **Pool page** (if browser-based) — add a `getPlantumlPage()` method to `BrowserPool` in `src/pool.ts`, following the excalidraw/drawio pattern if the renderer needs a bundled IIFE, or the mermaid pattern if it loads a script directly. If the renderer does not need a browser (e.g. WASM-based like graphviz), skip this step and handle rendering directly in the renderer branch.
+3. **Engine profile** — add metadata to `ENGINE_PROFILES` in `src/engine-profiles.ts` (for example whether the type requires browser pool access)
+4. **Pool page** (if browser-based) — add a `getPlantumlPage()` method to `BrowserPool` in `src/pool.ts`, following the excalidraw/drawio pattern if the renderer needs a bundled IIFE, or the mermaid pattern if it loads a script directly
 5. **Browser entry** (if needed) — create `src/renderers/plantuml-entry.ts` with a `__renderPlantuml()` global, add it to `vite.config.ts` pack entries (so the entry file is included in the build output)
-6. **Renderer logic** — add the rendering logic as an `else if` branch in `src/renderer.ts` (there is no class-based renderer pattern or `src/renderers/index.ts`)
+6. **Renderer logic** — register a renderer in `src/render-engines.ts` and ensure `src/renderer.ts` can dispatch to it through the engine registry
 7. **Tests** — add extension tests, a fixture file, and e2e test coverage
 8. **Docs** — add `docs/guide/diagrams/plantuml/README.md`
 
@@ -76,11 +76,18 @@ type Theme = 'light' | 'dark' | 'both'
 cli/
   bin.ts              CLI entry point (manual arg parsing, no framework)
 src/
-  index.ts            Public API barrel — core ~10 function exports
+  index.ts            Public API barrel for runtime, rendering, config, and engine metadata
   utils.ts            Utility barrel (discovery, manifest, extensions, output, color)
   types.ts            All public TypeScript interfaces
   pool.ts             BrowserPool (Playwright lifecycle, ref counting, page management)
-  renderer.ts         render(), renderFile(), renderAll(), renderDiagramFileToDisk()
+  renderer.ts         render(), renderFile(), renderDiagramFileToDisk(), defaultMermaidDarkTheme
+  render-all.ts       renderAll() batch orchestration and per-type lane scheduling
+  render-engines.ts   Per-type SVG renderers (mermaid/excalidraw/drawio/graphviz)
+  engine-profiles.ts  Engine capability metadata (browser-backed vs non-browser)
+  runtime.ts          createRendererRuntime() isolated runtime wrapper
+  doctor.ts           doctor command implementation and health checks
+  logging.ts          Leveled logger (silent/error/warn/info/verbose), createLeveledLogger()
+  mermaid-theme.ts    Default mermaid dark theme variables
   discovery.ts        findDiagramFiles() recursive scan, filterByType()
   manifest.ts         SHA-256 hashing, staleness, orphan cleanup, manifest I/O
   watch.ts            chokidar file watching with safe re-render
@@ -107,20 +114,35 @@ e2e/
   test-utils.ts           Shared e2e helpers (fixture workspace, CLI runner, validators)
   README.md               Lists all e2e test cases
   fixtures/
-    mixed-diagrams/      Sample .mmd, .excalidraw, .drawio.xml for testing
+    mixed-diagrams/      Sample .mmd, .excalidraw, .drawio.xml, .dot for testing
+scripts/
+  copy-llms.mjs        Copies llms.txt and llms-full.txt to gh-pages/ after docs build
+  run-pagesmith.mjs    Wrapper for pagesmith CLI (docs dev/build/preview)
+schemas/
+  diagramkit-cli-render.v1.json  JSON schema for CLI render JSON output (schemaVersion 1)
 docs/                 Documentation site content (@pagesmith/docs convention)
   README.md           Home page (DocHome layout)
   meta.json5          Header/footer navigation
-  guide/              Guide section (getting-started, cli, configuration, image-formats, watch-mode, js-api, diagrams)
+  public/
+    favicon.svg       Site favicon
+  guide/              Guide section (getting-started, design-principles, cli, configuration, image-formats, watch-mode, js-api, api-patterns, diagrams, architecture, ai-agents, ci-cd, troubleshooting)
+    architecture/     How diagramkit works under the hood
+    ci-cd/            CI/CD integration guide (GitHub Actions, GitLab CI, Docker)
+    troubleshooting/  Common issues and solutions
     diagrams/         Per-engine guides (mermaid, excalidraw, drawio, graphviz)
   reference/          Reference section (cli, api, config, types)
 gh-pages/             Built docs output (gitignored) — includes copies of llms.txt, llms-full.txt
+GUIDELINES.md         Coding conventions
 .claude/
   skills/
     review-repo/      Project-level skill (for developing diagramkit itself, not shipped)
       SKILL.md        Full repository review with parallel agent teams
     update-docs/      Project-level skill for updating docs when implementation changes
       SKILL.md        Docs structure, workflow, markdown conventions
+    pagesmith/        Pagesmith file-based CMS helper skill
+      SKILL.md        Content collections, markdown pipeline, docs configuration
+    ps-update-all-docs/ Full-repo documentation regeneration skill
+      SKILL.md        Docs structure, skills alignment, AI context updates
 pagesmith.config.json5  Docs site configuration (name, outDir, basePath, etc.)
 ```
 
@@ -134,6 +156,12 @@ diagramkit render . --format png --theme light # Raster for email/Confluence
 diagramkit render . --format svg,png            # Multi-format: SVG + PNG in one pass
 diagramkit render . --format webp --quality 85 # WebP output when raster is required
 diagramkit render . --output ./build/images    # All outputs to one folder
+diagramkit render . --output-dir _renders      # Change default output folder name
+diagramkit render . --manifest-file cache.json # Customize manifest filename
+diagramkit render . --no-manifest              # Disable manifest tracking
+diagramkit render . --same-folder              # Write outputs next to sources
+diagramkit render . --output-prefix dk-        # Prefix output names
+diagramkit render . --output-suffix -v2        # Suffix output names
 diagramkit render . --theme dark               # Dark only
 diagramkit render . --force                    # Ignore manifest cache
 diagramkit render . --type mermaid             # Filter by type
@@ -142,11 +170,17 @@ diagramkit render . --scale 3                  # High-res raster
 diagramkit render file.mermaid --output ./out  # Custom output dir for a single file
 diagramkit render . --dry-run                  # Preview what would render
 diagramkit render . --quiet                    # Suppress info output
+diagramkit render . --log-level warn           # Logger verbosity override
 diagramkit render . --json                     # Machine-readable JSON output
 diagramkit render . --config ./custom.json5    # Explicit config file
+diagramkit render . --strict-config            # Fail on config warnings
+diagramkit render . --max-type-lanes 2         # Limit parallel engine lanes
+diagramkit docs/arch.mermaid                   # Path alias for "render"
 diagramkit warmup                              # Install Playwright chromium
 diagramkit init                                # Create diagramkit.config.json5
 diagramkit init --ts                           # Create diagramkit.config.ts
+diagramkit init --yes                          # Non-interactive config with defaults
+diagramkit doctor                              # Diagnose environment and config
 diagramkit --agent-help                        # Output full reference for LLM agents
 ```
 
@@ -155,34 +189,71 @@ diagramkit --agent-help                        # Output full reference for LLM a
 **Core API** (`diagramkit`):
 
 ```typescript
-render(source, type, options?)    // Render from string → RenderResult
-renderFile(filePath, options?)    // Render from file → RenderResult
-renderAll(options?)               // Batch render directory → RenderAllResult { rendered, skipped, failed }
-renderDiagramFileToDisk(file, options?) // Render single file + write to disk
-watchDiagrams(options)            // Watch mode with debounce
-defineConfig(config)              // Identity helper for TS config autocomplete
-loadConfig(overrides?, dir?, configFile?) // Merged config: defaults → global → env → local → overrides
+render(source, type, options?)              // Render from string → RenderResult
+renderFile(filePath, options?)              // Render from file → RenderResult
+renderAll(options?)                         // Batch render directory → RenderAllResult
+renderDiagramFileToDisk(file, options?)     // Render single file + write to disk
+watchDiagrams(options)                      // Watch mode with debounce
+createRendererRuntime()                     // Isolated runtime with its own browser pool
+defineConfig(config)                        // Identity helper for TS config autocomplete
+loadConfig(overrides?, dir?, configFile?, options?) // Merged config: defaults → global → env → local → overrides
+getDefaultConfig()                          // Get default config values
 getFileOverrides(filePath, config?, rootDir?) // Resolve per-file overrides from config
-convertSvg(svg, options)          // SVG to PNG/JPEG/WebP/AVIF via sharp
-warmup() / dispose()              // Browser lifecycle
+convertSvg(svg, options)                    // SVG to PNG/JPEG/WebP/AVIF via sharp
+warmup() / dispose()                        // Browser lifecycle
+ENGINE_PROFILES                             // Engine capability metadata (runtime, browserPool, laneOrder)
+getEngineProfile(type)                      // Get profile for a specific diagram type
+defaultMermaidDarkTheme                     // Built-in mermaid dark theme variable map
+DiagramkitError                             // Typed error class with DiagramkitErrorCode
 ```
 
 **Utilities** (`diagramkit/utils`):
 
 ```typescript
-findDiagramFiles(dir, config?)    // Recursive file discovery
-filterByType(files, type, config?) // Filter files by diagram type
-readManifest(sourceDir, config?)  // Read manifest (v2 format with per-output metadata)
-getDiagramType(filename, map?)    // Extension → DiagramType
-getExtensionMap(overrides?)       // Get extension-to-type mapping
-atomicWrite(path, content: Buffer) // Atomic .tmp + rename write
-postProcessDarkSvg(svg)           // Color contrast fix
+findDiagramFiles(dir, config?)              // Recursive file discovery
+filterByType(files, type, config?)          // Filter files by diagram type
+readManifest(sourceDir, config?)            // Read manifest (v2 format with per-output metadata)
+writeManifest(sourceDir, manifest, config?) // Write manifest atomically
+updateManifest(files, formats?, config?, theme?) // Update manifest after renders
+filterStaleFiles(files, force, formats?, config?, theme?) // Get stale files
+planStaleFiles(files, force, formats?, config?, theme?)   // Stale plan with reasons
+isStale(file, formats?, config?, theme?, manifest?)       // Check single file staleness
+hashFile(filePath)                          // SHA-256 content hash
+cleanOrphans(files, config?, roots?)        // Remove orphaned outputs
+getDiagramsDir(sourceDir, config?)          // Get output directory path
+ensureDiagramsDir(sourceDir, config?)       // Ensure output directory exists
+getDiagramType(filename, map?)              // Extension → DiagramType
+getExtensionMap(overrides?)                 // Get extension-to-type mapping
+getMatchedExtension(filename, map?)         // Get matched extension key
+getExtensionsForType(type, map?)            // Extensions for a diagram type
+getAllExtensions(map?)                       // All known extensions
+stripDiagramExtension(filename, map?)       // Strip diagram extension from filename
+atomicWrite(path, content: Buffer)          // Atomic .tmp + rename write
+writeRenderResult(name, outDir, result, naming?) // Write render output to disk
+getExpectedOutputNames(name, format?, theme?, naming?)      // Expected output filenames
+getExpectedOutputNamesMulti(name, formats, theme?, naming?) // Multi-format output names
+getOutputFileName(name, variant, format?, naming?)          // Single output filename
+getOutputVariants(theme?)                                   // Theme variants array
+renderGraphviz(source, options?)            // Graphviz rendering (WASM, no browser)
+postProcessDarkSvg(svg)                     // Color contrast fix
+```
+
+**Color** (`diagramkit/color`):
+
+```typescript
+postProcessDarkSvg(svg) // WCAG contrast optimization for dark SVGs
+```
+
+**Convert** (`diagramkit/convert`):
+
+```typescript
+convertSvg(svg, options) // SVG to PNG/JPEG/WebP/AVIF via sharp
 ```
 
 ## Coding conventions
 
-- ESM only, trailing commas, no semicolons
-- Async for all rendering (Playwright-based)
+- ESM only (exception: `createRequire` for sync config loading), trailing commas, no semicolons
+- Async rendering pipeline; browser-backed engines use Playwright and Graphviz uses WASM
 - Sync FS for file reading (readFileSync)
 - No CLI framework — manual arg parsing
 - Comments explain reasoning, not what code does
@@ -194,14 +265,15 @@ postProcessDarkSvg(svg)           // Color contrast fix
 
 ## Dependencies
 
-- `playwright` — headless Chromium for all rendering
+- `playwright` — headless Chromium for mermaid/excalidraw/drawio rendering
 - `mermaid` — loaded into browser page for mermaid diagrams
 - `chokidar` — file watching
 - `@excalidraw/excalidraw` + `react` + `react-dom` — excalidraw rendering (bundled to IIFE at runtime via rolldown)
 - `rolldown` — bundles excalidraw/drawio browser entry points as IIFE at runtime
 - `json5` — JSON5 config file parsing (comments, trailing commas)
-- `@viz-js/viz` — Graphviz rendering engine (WASM-based, used for .dot/.gv files)
+- `@viz-js/viz` — Graphviz rendering engine (WASM-based, used for .dot/.gv/.graphviz files)
 - `jiti` — TypeScript config file loading
+- `@clack/prompts` — interactive CLI prompts for `diagramkit init`
 - `sharp` (optional peer) — SVG-to-raster conversion (PNG/JPEG/WebP/AVIF); dynamically imported, only needed for raster output
 
 ## Extension aliases
@@ -226,7 +298,7 @@ postProcessDarkSvg(svg)           // Color contrast fix
 
 ## Testing strategy
 
-- **Unit tests** (`src/**/*.test.ts`): Colocated with source files. Test pure logic modules (extensions, config, manifest, output, discovery, color, convert, pool, graphviz, watch) with real temp directories and mocked FS where needed. No browser required.
+- **Unit tests** (`src/**/*.test.ts`): Colocated with source files. Test pure logic modules (extensions, config, manifest, output, discovery, color, convert, pool, graphviz, watch, render-engines, renderer, render-all, runtime, logging, cli-bin, engine-profiles, doctor) with real temp directories and mocked FS where needed. No browser required.
 - **E2E tests** (`e2e/`): Vitest-integrated tests that run with `npm run test:e2e`. Test real rendering through Playwright for all diagram types, themes, formats, CLI flags, manifest behavior, and incremental rebuilds. Each test creates and cleans up an isolated temp workspace.
 - **CI**: E2E on Node 24 (from `.node-version`).
 - Run `npm test` for all, `npm run test:unit` for fast feedback, `npm run test:e2e` for e2e.
@@ -239,20 +311,27 @@ Always run these checks before committing changes:
 ```bash
 npm run check          # Lint and format
 npm run typecheck      # Type checking
-npm run build          # Build dist (includes docs)
+npm run build          # Build library dist (lib-only, does not include docs)
 npm run test:unit      # Unit tests
 npm run test:e2e       # E2E rendering tests (Node)
+```
+
+To build both the library and documentation site:
+
+```bash
+npm run build:all      # lib:build + docs:build
 ```
 
 Or run everything at once:
 
 ```bash
-npm run validate    # All checks in sequence (lint + typecheck + build + docs + all tests)
+npm run validate    # All checks in sequence (lint + typecheck + lib build + all tests)
 ```
 
 ## LLM files
 
 - **llms.txt** — CLI-focused summary. Points to llms-full.txt for programmatic API.
+- **llms-quick.txt** — Ultra-short command-focused cheatsheet.
 - **llms-full.txt** — Comprehensive reference covering both CLI and programmatic API, types, config, architecture.
 - **`diagramkit --agent-help`** — CLI command that outputs `llms-full.txt` content, intended for LLM agents to consume within skills or tool pipelines.
 - When updating the codebase, keep these files in sync with actual behavior.
@@ -274,6 +353,8 @@ These skills are for contributors working on diagramkit itself. They live in `.c
 
 - **.claude/skills/review-repo/SKILL.md** — Full repository review with parallel agent teams. Covers code quality, tests, architecture, performance, security, docs, CLAUDE.md alignment, and skills. Use `/review-repo` to run.
 - **.claude/skills/update-docs/SKILL.md** — Update documentation when implementation changes. Covers docs structure, workflow, markdown conventions, and key implementation facts. Use `/update-docs` to run.
+- **.claude/skills/pagesmith/SKILL.md** — Pagesmith file-based CMS helper. Content collections, markdown pipeline, docs configuration, and AI artifact generation. Use `/pagesmith` to run.
+- **.claude/skills/ps-update-all-docs/SKILL.md** — Full-repo documentation regeneration for Pagesmith projects. Docs structure, skills alignment, and AI context updates. Use `/ps-update-all-docs` to run.
 
 <!-- pagesmith-ai:claude-memory:start -->
 
@@ -302,20 +383,23 @@ Working rules:
 
 Docs-specific rules:
 
-- `@pagesmith/docs` is convention-based and builds a static docs site from `content/` plus `pagesmith.config.json5`
+- `@pagesmith/docs` is convention-based and builds a static docs site from `<contentDir>` plus `pagesmith.config.json5`
 - top-level content folders become top navigation sections (for example `guide/`, `reference/`, `packages/`)
 - folder-based markdown entries should prefer `README.md` or `index.md` when a page owns sibling assets
-- the home page is `content/README.md`; optional home-specific data can live in `content/home.json5`
+- the home page is `<contentDir>/README.md`; optional home-specific data can live in `<contentDir>/home.json5`
 - sidebar labels, nav labels, and ordering live in frontmatter (`sidebarLabel`, `navLabel`, `order`)
 - footer links live in `pagesmith.config.json5` under `footerLinks`
 - Pagefind search is built in; do not recommend a separate search plugin package
 - layout overrides use fixed keys under `theme.layouts` such as `home`, `page`, and `notFound`
+- for MCP-compatible tooling, prefer `pagesmith mcp --stdio` from `@pagesmith/docs`
 
 If the pagesmith skill is installed, prefer invoking it when the user explicitly asks for Pagesmith-specific help.
 
-For the full API and configuration reference, see the REFERENCE.md file shipped with the package:
+For package usage rules and full API/config details, read the package-shipped docs from node_modules:
 
+- `node_modules/@pagesmith/docs/docs/agents/usage.md` — docs package usage contract
 - `node_modules/@pagesmith/docs/REFERENCE.md` — docs config, CLI, content structure, layout overrides
+- `node_modules/@pagesmith/core/docs/agents/usage.md` — core package usage contract
 - `node_modules/@pagesmith/core/REFERENCE.md` — core API, collections, loaders, markdown, CSS, JSX runtime
 
 ## Quick Start — @pagesmith/core

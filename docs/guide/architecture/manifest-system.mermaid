@@ -1,0 +1,21 @@
+flowchart TD
+    A[Scan Directory] --> B[Find Diagram Files]
+    B --> C{Manifest Exists?}
+    C -->|No| D[Render All]
+    C -->|Yes| E[Read Manifest]
+    E --> F{For Each File}
+    F --> G{Hash Changed?}
+    G -->|Yes| D
+    G -->|No| H{Theme Changed?}
+    H -->|Yes| D
+    H -->|No| I{Outputs Missing?}
+    I -->|Yes| D
+    I -->|No| J[Skip - Up to Date]
+    D --> K[Render SVG]
+    K --> L{Raster Formats?}
+    L -->|Yes| M[Convert via sharp]
+    L -->|No| N[Write Outputs]
+    M --> N
+    N --> O[Update Manifest<br/>hash + formats + outputs]
+    O --> P[Clean Orphans]
+    J --> P

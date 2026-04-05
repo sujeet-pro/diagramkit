@@ -1,11 +1,19 @@
 {
   displayName: 'Reference',
-  description: 'API, CLI, configuration, and type reference',
+  description: 'CLI, configuration, API, and type reference',
   orderBy: 'manual',
-  items: [
-    'cli',
-    'api',
-    'config',
-    'types',
+  // CLI + config before API: run the tool, then tune it, then integrate in code.
+  items: ['cli', 'config', 'api', 'types'],
+  series: [
+    {
+      slug: 'cli-config',
+      displayName: 'CLI & configuration',
+      articles: ['cli', 'config'],
+    },
+    {
+      slug: 'api-types',
+      displayName: 'API & types',
+      articles: ['api', 'types'],
+    },
   ],
 }

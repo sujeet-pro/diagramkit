@@ -142,6 +142,18 @@ describe('output helpers', () => {
     expect(() => atomicWrite(badPath, Buffer.from('data'))).toThrow()
   })
 
+  it('throws when output filename escapes outDir', () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'diagramkit-output-escape-'))
+    tempDirs.push(outDir)
+
+    expect(() =>
+      writeRenderResult('../outside', outDir, {
+        format: 'svg',
+        light: Buffer.from('<svg/>'),
+      }),
+    ).toThrow('Output path escapes output directory')
+  })
+
   it('strips all supported diagram extensions', () => {
     expect(stripDiagramExtension('board.excalidraw')).toBe('board')
     expect(stripDiagramExtension('diagram.dio')).toBe('diagram')

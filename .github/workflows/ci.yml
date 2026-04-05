@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate
+
       - name: Check formatting and linting
         run: npm run check
 
@@ -71,11 +74,14 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Build docs
-        run: npm run build:docs
-
       - name: Verify dist output exists
-        run: test -d dist
+        run: |
+          test -d dist
+          test -f dist/index.mjs
+          test -f dist/index.d.mts
+          test -f dist/utils.mjs
+          test -f dist/utils.d.mts
+          test -f dist/cli/bin.mjs
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -106,7 +112,7 @@ jobs:
   test-e2e:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4

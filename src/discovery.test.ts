@@ -95,6 +95,21 @@ describe('discovery', () => {
     expect(files[0]?.name).toBe('visible')
   })
 
+  it('skips only the configured nested output subtree', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-nested-output-'))
+    tempDirs.push(root)
+
+    mkdirSync(join(root, 'build', 'diagrams'), { recursive: true })
+    mkdirSync(join(root, 'build', 'sources'), { recursive: true })
+    writeFileSync(join(root, 'build', 'diagrams', 'generated.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'build', 'sources', 'keep.mermaid'), 'flowchart TD\nC-->D')
+
+    const files = findDiagramFiles(root, { outputDir: 'build/diagrams' })
+
+    expect(files).toHaveLength(1)
+    expect(files[0]?.name).toBe('keep')
+  })
+
   it('finds diagrams in nested subdirectories', () => {
     const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-nested-'))
     tempDirs.push(root)
@@ -156,6 +171,39 @@ describe('discovery', () => {
 
     expect(graphvizFiles).toHaveLength(2)
     expect(graphvizFiles.map((f) => f.name).sort()).toEqual(['dependency', 'topology'])
+  })
+
+  it('restricts scanning to inputDirs when configured', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-inputdirs-'))
+    tempDirs.push(root)
+
+    mkdirSync(join(root, 'docs'))
+    mkdirSync(join(root, 'src'))
+    writeFileSync(join(root, 'docs', 'flow.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'src', 'arch.dot'), 'digraph { A -> B }')
+    writeFileSync(join(root, 'top-level.mermaid'), 'flowchart TD\nX-->Y')
+
+    const files = findDiagramFiles(root, { inputDirs: ['docs'] })
+
+    expect(files).toHaveLength(1)
+    expect(files[0].name).toBe('flow')
+  })
+
+  it('scans multiple inputDirs', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-discovery-multi-inputdirs-'))
+    tempDirs.push(root)
+
+    mkdirSync(join(root, 'docs'))
+    mkdirSync(join(root, 'diagrams'))
+    mkdirSync(join(root, 'other'))
+    writeFileSync(join(root, 'docs', 'flow.mermaid'), 'flowchart TD\nA-->B')
+    writeFileSync(join(root, 'diagrams', 'arch.dot'), 'digraph { A -> B }')
+    writeFileSync(join(root, 'other', 'extra.mermaid'), 'flowchart TD\nX-->Y')
+
+    const files = findDiagramFiles(root, { inputDirs: ['docs', 'diagrams'] })
+
+    expect(files).toHaveLength(2)
+    expect(files.map((f) => f.name).sort()).toEqual(['arch', 'flow'])
   })
 
   it('returns empty array for non-existent directory', () => {

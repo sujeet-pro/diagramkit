@@ -13,6 +13,7 @@ export {
   getDiagramsDir,
   ensureDiagramsDir,
   filterStaleFiles,
+  planStaleFiles,
   isStale,
   readManifest,
   writeManifest,
@@ -20,7 +21,16 @@ export {
   hashFile,
   cleanOrphans,
 } from './manifest'
-export type { Manifest, ManifestEntry, ManifestOutput, StaleFile, OutputMetadata } from './manifest'
+export type {
+  Manifest,
+  ManifestEntry,
+  ManifestOutput,
+  StaleFile,
+  StalePlanEntry,
+  StaleReason,
+  StaleReasonCode,
+} from './manifest'
+export type { OutputMetadata } from './types'
 
 /* ── Extensions ── */
 
@@ -43,7 +53,11 @@ export {
   getOutputVariants,
   writeRenderResult,
 } from './output'
-export type { OutputNamingOptions } from './output'
+export type { OutputNamingOptions } from './types'
+
+/* ── Graphviz ── */
+
+export { renderGraphviz } from './graphviz'
 
 /* ── Color ── */
 

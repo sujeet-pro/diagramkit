@@ -220,6 +220,18 @@ describe('API rendering e2e', () => {
     expect(buf.toString('ascii', 8, 12)).toBe('WEBP')
   }, 120_000)
 
+  it('renders AVIF output format with ftypavif header', async () => {
+    const workspace = createWorkspace('e2e-api-avif')
+
+    await renderAll({ dir: workspace, format: 'avif', theme: 'light' })
+
+    const outDir = join(workspace, '.diagramkit')
+    expectRasterFile(join(outDir, 'architecture-light.avif'), 'avif')
+    expectRasterFile(join(outDir, 'dependency-light.avif'), 'avif')
+    expectRasterFile(join(outDir, 'whiteboard-light.avif'), 'avif')
+    expectRasterFile(join(outDir, 'system-light.avif'), 'avif')
+  }, 120_000)
+
   it('render() string API returns light and dark SVG buffers', async () => {
     const result = await render('graph LR; A-->B', 'mermaid', { theme: 'both', format: 'svg' })
 

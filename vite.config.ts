@@ -28,7 +28,7 @@ export default defineConfig({
       'no-debugger': 'error',
       eqeqeq: ['error', 'smart'],
     },
-    ignorePatterns: ['node_modules/', 'dist/', '.diagrams/', 'docs/'],
+    ignorePatterns: ['node_modules/', 'dist/', '.diagramkit/', 'docs/'],
     options: {
       typeAware: true,
       typeCheck: true,
@@ -39,7 +39,7 @@ export default defineConfig({
     singleQuote: true,
     trailingComma: 'all',
     printWidth: 100,
-    ignorePatterns: ['node_modules/', 'dist/', '.diagrams/', 'docs/'],
+    ignorePatterns: ['node_modules/', 'dist/', '.diagramkit/', 'docs/'],
   },
   staged: {
     '*': 'vp check --fix',

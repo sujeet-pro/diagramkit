@@ -10,7 +10,7 @@ description: Full configuration schema, file locations, environment variables, a
 | Source | Path | Priority |
 |:-------|:-----|:---------|
 | Defaults | Built-in | Lowest |
-| Global | `~/.config/diagramkit/config.json5` | Low |
+| Global | `~/.config/diagramkit/config.json5` (or `config.json`) | Low |
 | Environment | `DIAGRAMKIT_*` env vars | Medium |
 | Local | `diagramkit.config.json5` or `.ts` (walks up) | High |
 | Explicit | `--config <path>` | High (replaces local) |
@@ -125,6 +125,23 @@ Array of output formats. Supports multiple formats in a single render pass.
 | **Default** | `''` |
 
 Prefix and suffix for output filenames. Pattern: `{prefix}{name}{suffix}-{theme}.{format}`
+
+---
+
+### `inputDirs`
+
+| | |
+|:--|:--|
+| **Type** | `string[]` |
+| **Default** | `undefined` (scan entire tree) |
+
+Restrict file discovery to these directories (relative to the project root). When set, only diagrams inside the listed directories are scanned.
+
+```json5
+{
+  inputDirs: ['docs/diagrams', 'src/architecture'],
+}
+```
 
 ---
 

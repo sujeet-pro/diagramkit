@@ -1,0 +1,74 @@
+# diagramkit quick guide for agents
+
+Install:
+- npm add diagramkit
+- npx diagramkit warmup
+- Optional for raster outputs: npm add sharp
+
+Core commands:
+- diagramkit render <file-or-dir>
+- diagramkit <file-or-dir>   # alias for render
+- diagramkit warmup          # install Chromium for browser-based engines
+- diagramkit doctor          # diagnose environment issues
+- diagramkit init            # create config file
+- diagramkit --agent-help    # full reference for LLM agents
+
+Defaults:
+- output format: svg
+- theme: both (light + dark)
+- output location: .diagramkit/ next to source files
+- incremental: enabled via manifest.json
+
+Common commands:
+- diagramkit render . --format svg,png
+- diagramkit render . --theme dark
+- diagramkit render . --watch
+- diagramkit render . --type mermaid
+- diagramkit render . --force
+- diagramkit render . --dry-run
+- diagramkit render . --plan --json
+- diagramkit render . --json
+- diagramkit render . --quiet --json    # clean JSON on stdout
+
+Config:
+- local: diagramkit.config.ts or diagramkit.config.json5
+- legacy local: .diagramkitrc.json
+- global: ~/.config/diagramkit/config.json5
+- env: DIAGRAMKIT_FORMAT, DIAGRAMKIT_THEME, DIAGRAMKIT_OUTPUT_DIR, DIAGRAMKIT_NO_MANIFEST
+- merge order: defaults -> global -> env -> local -> overrides
+
+Programmatic API:
+- render(source, type, options?)
+- renderFile(filePath, options?)
+- renderAll(options?)
+- watchDiagrams(options)
+- dispose() after script runs
+
+When to use what:
+- single in-memory output: render / renderFile
+- write files to disk in bulk: renderAll
+- live updates: watchDiagrams
+- graphviz-only workflows: no browser warmup required
+
+Troubleshooting:
+- "Chromium browser not found": run diagramkit warmup
+- "sharp is required": npm add sharp
+- unknown extension: add extensionMap in config
+- watch render failure: fix file and save again
+
+Exit codes: 0 = success, 1 = error
+
+Outputs:
+- filenames: {prefix}{name}{suffix}-{theme}.{format}
+- themes always include -light or -dark
+- raster formats convert from SVG internally
+- JSON output includes failedDetails[] with file/code/message
+
+Safe automation notes:
+- do not edit files under .diagramkit manually
+- call dispose() in long-running scripts/tests when finished
+- prefer --dry-run before large first-time renders
+
+More detail:
+- short overview: llms.txt
+- full reference: llms-full.txt

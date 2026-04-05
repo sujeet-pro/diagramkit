@@ -11,6 +11,16 @@ description: Render Excalidraw hand-drawn style diagrams from JSON files with au
 
 `.excalidraw`
 
+## Capability Matrix
+
+| Capability | Excalidraw |
+| --- | --- |
+| Browser required | Yes |
+| Native dark mode support | Yes (per render call) |
+| WCAG post-process | No |
+| Supports `--no-contrast` | No |
+| Multi-format output | SVG/PNG/JPEG/WebP/AVIF |
+
 ## Quick Start
 
 Create a diagram in the [Excalidraw editor](https://excalidraw.com/) and save as `.excalidraw` (JSON). Then render:
@@ -22,7 +32,7 @@ diagramkit render system.excalidraw
 Output:
 
 ```
-.diagrams/
+.diagramkit/
   system-light.svg
   system-dark.svg
 ```
@@ -32,6 +42,16 @@ Or render only Excalidraw files in a directory:
 ```bash
 diagramkit render . --type excalidraw
 ```
+
+## Using with AI Agents
+
+Tell your AI coding agent:
+
+> Render all excalidraw diagrams in this repo to SVG
+
+Or for more control:
+
+> Render wireframes/dashboard.excalidraw to PNG with light mode only
 
 ## JSON Format
 
@@ -96,6 +116,13 @@ const result = await render(json, 'excalidraw', { format: 'svg', theme: 'both' }
 4. Each render passes JSON + dark mode flag and receives an SVG string
 
 The bundle is cached after the first build.
+
+## Gotchas
+
+- **File must be raw JSON** -- diagramkit needs the `.excalidraw` JSON with `elements`, `appState`, and `files` keys. Do not export as SVG or PNG from the editor; those cannot be re-rendered into both themes.
+- **Embedded images** -- if the `files` key contains embedded images, they are included in the SVG output. Large embedded images increase file size.
+- **`--no-contrast` has no effect** -- Excalidraw handles dark mode natively through its `exportToSvg` API. The WCAG contrast post-processor is not applied.
+- **React dependency** -- the Excalidraw renderer bundles `react` and `react-dom` into an IIFE at build time. The bundle is cached after the first render.
 
 ## Tips
 

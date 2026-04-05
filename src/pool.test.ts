@@ -145,14 +145,102 @@ describe('BrowserPool', () => {
     await pool.dispose(true)
   })
 
+  it('concurrent getExcalidrawPage calls coalesce page creation', async () => {
+    const { chromium } = await import('playwright')
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const launchMock = vi.mocked(chromium.launch)
+    const pool = new BrowserPool()
+
+    await pool.acquire()
+    const browser = await launchMock.mock.results[0]!.value
+    const context = await browser.newContext.mock.results[0]!.value
+    const newPageMock = context.newPage as ReturnType<typeof vi.fn>
+
+    await Promise.all([pool.getExcalidrawPage(), pool.getExcalidrawPage()])
+    expect(newPageMock).toHaveBeenCalledTimes(1)
+
+    pool.release()
+    await pool.dispose(true)
+  })
+
+  it('concurrent getDrawioPage calls coalesce page creation', async () => {
+    const { chromium } = await import('playwright')
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const launchMock = vi.mocked(chromium.launch)
+    const pool = new BrowserPool()
+
+    await pool.acquire()
+    const browser = await launchMock.mock.results[0]!.value
+    const context = await browser.newContext.mock.results[0]!.value
+    const newPageMock = context.newPage as ReturnType<typeof vi.fn>
+
+    await Promise.all([pool.getDrawioPage(), pool.getDrawioPage()])
+    expect(newPageMock).toHaveBeenCalledTimes(1)
+
+    pool.release()
+    await pool.dispose(true)
+  })
+
   it('release at zero does not go negative', async () => {
     const pool = new BrowserPool()
-    // Release without acquiring should not crash or go negative
     pool.release()
     pool.release()
-    // Should still be able to acquire normally
     await pool.acquire()
     pool.release()
     await pool.dispose(true)
+  })
+
+  it('mermaid dark page recreates when theme variables change', async () => {
+    const pool = new BrowserPool()
+    await pool.acquire()
+
+    const page1 = await pool.getMermaidDarkPage({ bg: '#111' })
+    const page2 = await pool.getMermaidDarkPage({ bg: '#222' })
+    expect(page1).not.toBe(page2)
+
+    pool.release()
+    await pool.dispose(true)
+  })
+
+  it('mermaid dark page reuses when theme variables are identical', async () => {
+    const pool = new BrowserPool()
+    await pool.acquire()
+
+    const vars = { bg: '#111', text: '#eee' }
+    const page1 = await pool.getMermaidDarkPage(vars)
+    const page2 = await pool.getMermaidDarkPage(vars)
+    expect(page1).toBe(page2)
+
+    pool.release()
+    await pool.dispose(true)
+  })
+
+  it('throws descriptive error when acquire called after context is null', async () => {
+    const pool = new BrowserPool()
+    await expect(pool.getMermaidLightPage()).rejects.toThrow(/not acquired/)
+  })
+
+  it('dispose clears all page references', async () => {
+    const pool = new BrowserPool()
+    await pool.acquire()
+    await pool.getMermaidLightPage()
+    await pool.getMermaidDarkPage({ bg: '#000' })
+    await pool.getExcalidrawPage()
+    await pool.getDrawioPage()
+
+    await pool.dispose(true)
+
+    await expect(pool.getMermaidLightPage()).rejects.toThrow(/not acquired/)
+  })
+
+  it('idle timer fires and disposes after release', async () => {
+    const pool = new BrowserPool()
+    await pool.acquire()
+    pool.release()
+
+    vi.advanceTimersByTime(6000)
+    await vi.runAllTimersAsync()
+
+    await expect(pool.getMermaidLightPage()).rejects.toThrow(/not acquired/)
   })
 })

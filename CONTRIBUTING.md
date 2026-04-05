@@ -65,7 +65,13 @@ Before submitting a PR, run the full validation:
 npm run validate
 ```
 
-This runs lint, typecheck, build, docs build, unit tests, and e2e in sequence.
+This runs lint/format checks, typecheck, library build, unit tests, and e2e in sequence.
+
+If you need to validate documentation build too, run:
+
+```bash
+npm run docs:build
+```
 
 ## Code style
 

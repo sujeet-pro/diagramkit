@@ -11,6 +11,16 @@ description: Render Draw.io XML diagrams with automatic light/dark theme color a
 
 `.drawio`, `.drawio.xml`, `.dio` -- all treated identically.
 
+## Capability Matrix
+
+| Capability | Draw.io |
+| --- | --- |
+| Browser required | Yes |
+| Native dark mode support | Yes (renderer-side transforms) |
+| WCAG post-process | No |
+| Supports `--no-contrast` | No |
+| Multi-format output | SVG/PNG/JPEG/WebP/AVIF |
+
 ## Quick Start
 
 Create a diagram with the [Draw.io editor](https://www.drawio.com/) (web, desktop, or VS Code extension), then render:
@@ -22,10 +32,20 @@ diagramkit render flow.drawio
 Output:
 
 ```
-.diagrams/
+.diagramkit/
   flow-light.svg
   flow-dark.svg
 ```
+
+## Using with AI Agents
+
+Tell your AI coding agent:
+
+> Render all drawio files in this project to SVG
+
+Or for more control:
+
+> Render docs/flow.drawio to PNG and WebP with dark mode only
 
 ## XML Format
 
@@ -116,6 +136,13 @@ This does not use the mxGraph engine. It covers common shapes and produces clean
 
 > [!NOTE]
 > The renderer targets readable output of common diagram patterns. Complex shapes or custom Draw.io plugins may not render with full fidelity.
+
+## Gotchas
+
+- **Not a full mxGraph renderer** -- diagramkit's Draw.io renderer covers common shapes (rectangles, ellipses, rhombuses, cylinders) and edges. Complex shapes, custom plugins, swimlanes, and advanced mxGraph features may not render with full fidelity.
+- **Edge routing is simplified** -- orthogonal and curved edge styles are simplified to straight lines between source and target midpoints.
+- **`--no-contrast` has no effect** -- Draw.io handles dark mode color adjustments in its own browser-side renderer, not through the Node-side post-processor.
+- **Multi-page diagrams** -- only the first page of multi-page `.drawio` files is rendered.
 
 ## Tips
 

@@ -2,13 +2,60 @@
   displayName: 'Guide',
   description: 'Learn how to use diagramkit',
   orderBy: 'manual',
+  // Slugs are the last path segment of each page (Pagesmith manual order).
   items: [
     'getting-started',
+    'design-principles',
+    'ai-agents',
+    'mermaid',
+    'excalidraw',
+    'drawio',
+    'graphviz',
     'cli',
     'configuration',
     'image-formats',
     'watch-mode',
     'js-api',
-    'diagrams',
+    'api-patterns',
+    'ci-cd',
+    'architecture',
+    'troubleshooting',
+  ],
+  series: [
+    {
+      slug: 'start-here',
+      displayName: 'Start here',
+      articles: ['getting-started', 'design-principles'],
+    },
+    {
+      slug: 'ai-assistants',
+      displayName: 'AI assistants',
+      articles: ['ai-agents'],
+    },
+    {
+      slug: 'diagram-sources',
+      displayName: 'Diagram sources',
+      articles: ['mermaid', 'excalidraw', 'drawio', 'graphviz'],
+    },
+    {
+      slug: 'cli-workflow',
+      displayName: 'CLI & workflow',
+      articles: ['cli', 'configuration', 'image-formats', 'watch-mode'],
+    },
+    {
+      slug: 'javascript-automation',
+      displayName: 'JavaScript & automation',
+      articles: ['js-api', 'api-patterns', 'ci-cd'],
+    },
+    {
+      slug: 'internals',
+      displayName: 'How it works',
+      articles: ['architecture'],
+    },
+    {
+      slug: 'help',
+      displayName: 'Help',
+      articles: ['troubleshooting'],
+    },
   ],
 }

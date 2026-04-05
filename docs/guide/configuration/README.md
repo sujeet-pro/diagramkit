@@ -7,13 +7,19 @@ description: Layered configuration system -- config files, environment variables
 
 diagramkit works with zero configuration. All settings have sensible defaults. When you need to customize, settings merge in this order (later sources override earlier):
 
+<picture>
+  <source srcset=".diagramkit/config-layers-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/config-layers-light.svg" alt="Configuration merge order diagram">
+</picture>
+
 1. **Defaults** -- built-in values
-2. **Global config** -- `~/.config/diagramkit/config.json5`
+2. **Global config** -- `~/.config/diagramkit/config.json5` (also supports `config.json`)
 3. **Environment variables** -- `DIAGRAMKIT_*`
 4. **Local config** -- `diagramkit.config.json5` or `.ts` (walks up from cwd)
 5. **CLI flags / API overrides** -- highest priority
 
 Use `--config <path>` to point at a specific config file instead of auto-discovery.
+For a quick chooser, see [Config Decision Matrix](/guide/configuration/config-decision-matrix).
 
 ## Config Files
 
@@ -35,6 +41,8 @@ Create one with:
 ```bash
 diagramkit init
 ```
+
+Legacy `.diagramkitrc.json` files are still supported but deprecated. Migrate to `diagramkit.config.json5` for comment support and richer options.
 
 ### Local (TypeScript)
 
@@ -59,7 +67,7 @@ TypeScript configs are loaded via `jiti` at runtime -- no build step needed.
 
 ### Global
 
-Machine-wide defaults at `~/.config/diagramkit/config.json5` (or `$XDG_CONFIG_HOME/diagramkit/config.json5`):
+Machine-wide defaults at `~/.config/diagramkit/config.json5` (or `$XDG_CONFIG_HOME/diagramkit/config.json5`). `config.json` is also accepted in the same location:
 
 ```json5
 {
@@ -132,6 +140,20 @@ ${outputPrefix}${name}${outputSuffix}-${theme}.${format}
 | defaults | `flow.mermaid` | `flow-light.svg` |
 | `outputPrefix: "dk-"` | `flow.mermaid` | `dk-flow-light.svg` |
 | `outputSuffix: "-v2"` | `flow.mermaid` | `flow-v2-light.svg` |
+
+### `inputDirs`
+
+- **Type:** `string[]` -- **Default:** `undefined` (scan entire tree)
+
+Restrict diagram file scanning to specific directories (relative to the project root). When set, only these directories are scanned instead of the full tree:
+
+```json5
+{
+  inputDirs: ['docs/diagrams', 'src/architecture'],
+}
+```
+
+Useful in monorepos or projects where diagrams are concentrated in specific folders.
 
 ### `extensionMap`
 

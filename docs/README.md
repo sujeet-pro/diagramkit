@@ -2,7 +2,7 @@
 layout: DocHome
 title: diagramkit
 tagline: Diagram files to images, with dark mode
-description: Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv files to SVG/PNG/JPEG/WebP with automatic light and dark theme variants.
+description: Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv files to SVG/PNG/JPEG/WebP/AVIF with automatic light and dark theme variants.
 install: 'npm add diagramkit'
 actions:
   - text: Get Started
@@ -14,12 +14,15 @@ actions:
   - text: API Reference
     link: /reference/api
     theme: alt
+  - text: For AI Agents
+    link: /guide/ai-agents
+    theme: alt
 features:
   - title: Four Diagram Engines
     details: Mermaid, Excalidraw, Draw.io, and Graphviz out of the box. Extension aliases like .mmd, .mmdc, .dio, .drawio.xml, .gv, and .graphviz are recognized automatically.
   - title: Light & Dark Mode
     details: Renders both theme variants in a single pass. Dark SVGs are post-processed with WCAG-based contrast optimization to ensure readability.
-  - title: SVG, PNG, JPEG, WebP
+  - title: SVG, PNG, JPEG, WebP, AVIF
     details: SVG by default. Raster formats support configurable scale and quality settings via the optional sharp peer dependency.
   - title: Incremental Builds
     details: SHA-256 content hashing tracks what changed. Only stale diagrams re-render, with automatic orphan cleanup.
@@ -29,7 +32,17 @@ features:
     details: Use the diagramkit CLI for quick rendering, or import the JavaScript API for programmatic control in build scripts.
 ---
 
-## Quick Start
+## Quick Start with an AI Agent
+
+The fastest way to get started is to tell your AI coding agent:
+
+> Render all diagram files in this repo to SVG using diagramkit
+
+The agent will install diagramkit, set up the browser, and render everything. If you are using Claude Code, [Cursor](https://cursor.com), or a similar tool, diagramkit ships `llms-quick.txt`, `llms.txt`, and `llms-full.txt` so the agent already knows the full API.
+
+Need a setup playbook? See [AI Agents](/guide/ai-agents).
+
+## Quick Start (Manual)
 
 ```bash
 # Install

@@ -23,7 +23,9 @@ npm add sharp
 
 ```
 diagramkit render <file-or-dir> [options]    Render diagram file(s) to images
+diagramkit <file-or-dir> [options]           Alias for "diagramkit render"
 diagramkit warmup                            Pre-install Playwright chromium browser
+diagramkit doctor                            Validate runtime dependencies and environment
 diagramkit init [--ts]                       Create config file (JSON5 or TypeScript)
 diagramkit --version                         Show version
 diagramkit --help                            Show help
@@ -48,10 +50,20 @@ diagramkit --agent-help                      Output full reference for LLM agent
 --manifest-file <name>   Manifest filename (default: manifest.json)
 --no-manifest            Disable manifest tracking
 --same-folder            Output in same folder as source files
+--output-prefix <string> Prefix for output filenames (default: '')
+--output-suffix <string> Suffix for output filenames (default: '')
 --dry-run                Show what would be rendered without rendering
+--plan                   Show stale plan with reasons (directory mode)
+--strict-config          Fail on config warnings/invalid values
+--max-type-lanes <1-4>   Max concurrent engine lanes in batch render
+--log-level <level>      Logging verbosity: silent/error/warn/info/verbose (default: info)
 --quiet                  Suppress informational output, only show errors
 --json                   Output results as JSON (for CI/scripting)
 ```
+
+Exit codes: `0` = success, `1` = error (render failure, unknown command, etc.)
+
+JSON schema shipped at `schemas/diagramkit-cli-render.v1.json` in the npm package.
 
 ### Examples
 
@@ -68,7 +80,26 @@ diagramkit render . --type drawio                    # Only draw.io files
 diagramkit render . --theme dark --no-contrast       # Raw dark output
 diagramkit render . --config ./custom.config.json5   # Explicit config file
 diagramkit render . --output ./build/images          # Custom output directory
+diagramkit render . --plan --json                    # Stale plan with reasons
+diagramkit doctor --json                             # Environment diagnostics
 ```
+
+### JSON Envelope Contract (v1)
+
+`--json` output is versioned:
+
+```json
+{
+  "schemaVersion": 1,
+  "command": "render",
+  "target": { "kind": "file|directory", "path": "/abs/path" },
+  "phase": "dry-run|execute",
+  "options": {},
+  "result": {}
+}
+```
+
+Legacy root-level JSON objects are deprecated in this pre-release line.
 
 ### Format Guidance
 
@@ -89,6 +120,34 @@ Configurable via config.outputDir, config.sameFolder, config.outputPrefix, confi
 
 ## JavaScript API
 
+### Workflow Patterns (Agent-Oriented)
+
+1) **Batch render for docs repos**
+- Use `renderAll({ dir: '.', formats: ['svg'] })`
+- Call `dispose()` at the end of scripts/CI jobs
+
+2) **Multi-format publishing pipeline**
+- Render once with `renderAll({ formats: ['svg', 'png', 'webp'] })`
+- SVG is rendered first, rasters are converted from SVG
+
+3) **Watch mode during authoring**
+- Use `watchDiagrams({ dir: '.', renderOptions: { formats: ['svg'] } })`
+- Keep process running; fix file and save to retry on failures
+
+4) **Custom build-tool integration**
+- Use `findDiagramFiles()` + `filterStaleFiles()` + `renderDiagramFileToDisk()`
+- Update tracking with `updateManifest()` and cleanup with `cleanOrphans()`
+
+### API Selection Guide
+
+| Use case | API |
+| --- | --- |
+| Render from string in memory | `render()` |
+| Render one file in memory | `renderFile()` |
+| Render one discovered file to disk | `renderDiagramFileToDisk()` |
+| Render a directory tree to disk | `renderAll()` |
+| Live re-render on save | `watchDiagrams()` |
+
 ### Core Functions
 
 ```ts
@@ -103,13 +162,16 @@ import { render, renderFile, renderAll, renderDiagramFileToDisk, watchDiagrams }
 
   renderAll(options?: BatchOptions): Promise<RenderAllResult>
     Batch render all diagrams in a directory tree. Outputs go to .diagramkit/ folders.
-    Returns { rendered: string[], skipped: string[], failed: string[] }.
+    Returns { rendered: string[], skipped: string[], failed: string[], failedDetails: RenderFailureDetail[] }.
 
   renderDiagramFileToDisk(file: DiagramFile, options?): Promise<string[]>
     Render a single file to disk with all format variants. Returns written filenames.
 
   watchDiagrams(options: WatchOptions): () => Promise<void>
     Watch for diagram file changes and re-render. Returns cleanup function.
+
+  createRendererRuntime(): RendererRuntime
+    Create an isolated runtime with its own BrowserPool (non-singleton lifecycle).
 
 ### Conversion
 
@@ -127,7 +189,7 @@ import { convertSvg } from 'diagramkit'         // also from 'diagramkit/convert
 import { defineConfig, loadConfig, getDefaultConfig, getFileOverrides } from 'diagramkit'
 ```
 
-  loadConfig(overrides?, dir?, configFile?): DiagramkitConfig
+  loadConfig(overrides?, dir?, configFile?, options?): DiagramkitConfig
     Load merged config: defaults → global (~/.config/diagramkit/config.json5)
     → env vars (DIAGRAMKIT_*) → local (diagramkit.config.json5 or .ts, walks up) → overrides.
     Pass configFile to load a specific file instead of auto-discovery.
@@ -237,6 +299,7 @@ interface RenderOptions {
   contrastOptimize?: boolean      // Dark SVG contrast fix. Default: true
   mermaidDarkTheme?: Record<string, string>  // Custom dark theme variables
   config?: Partial<DiagramkitConfig>
+  pool?: BrowserPool          // Optional isolated pool instance
 }
 ```
 
@@ -259,6 +322,18 @@ interface RenderAllResult {
   rendered: string[]   // Files that were rendered
   skipped: string[]    // Files skipped (unchanged, manifest cache hit)
   failed: string[]     // Files that failed to render
+  failedDetails: RenderFailureDetail[] // Structured file/code/message diagnostics
+  metrics?: {
+    durationMs: number
+    lanesUsed: number
+    countsByType: Partial<Record<DiagramType, { rendered: number; failed: number }>>
+  }
+}
+
+interface RenderFailureDetail {
+  file: string
+  message: string
+  code: 'UNKNOWN_TYPE' | 'RENDER_FAILED' | 'MISSING_DEPENDENCY' | 'CONFIG_INVALID' | 'BROWSER_LAUNCH_FAILED' | 'BUNDLE_FAILED'
 }
 ```
 
@@ -270,7 +345,11 @@ interface BatchOptions extends RenderOptions {
   force?: boolean        // Force re-render, ignoring manifest. Default: false
   type?: DiagramType     // Filter to specific diagram type
   formats?: OutputFormat[] // Multiple output formats. Overrides format.
-  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
+  logger?: Logger
+  logLevel?: LogLevel    // Logging verbosity. Default: 'info'.
+  progress?: boolean     // Show per-file progress logs during batch rendering
+  maxConcurrentLanes?: number // 1-4, default 4
+  includeMetrics?: boolean
 }
 ```
 
@@ -282,7 +361,28 @@ interface WatchOptions {
   onChange?: (file: string) => void         // Callback after render
   renderOptions?: RenderOptions & { formats?: OutputFormat[] }
   config?: Partial<DiagramkitConfig>
-  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
+  configFile?: string                       // Explicit config file path
+  strictConfig?: boolean
+  pool?: BrowserPool
+  debounceMs?: number                      // Debounce time for file events. Default: 200ms
+  usePolling?: boolean                     // Chokidar polling mode (useful for network volumes/containers)
+  pollingInterval?: number                 // Polling interval in ms when usePolling=true
+  logger?: Logger
+  logLevel?: LogLevel                      // Logging verbosity. Default: 'info'.
+}
+
+type LogLevel = 'silent' | 'error' | 'errors' | 'warn' | 'warning' | 'warnings' | 'info' | 'log' | 'verbose'
+
+interface Logger {
+  log: (message: string, ...args: unknown[]) => void
+  warn: (message: string, ...args: unknown[]) => void
+  error: (message: string, ...args: unknown[]) => void
+}
+
+type DiagramkitErrorCode = 'UNKNOWN_TYPE' | 'RENDER_FAILED' | 'MISSING_DEPENDENCY' | 'CONFIG_INVALID' | 'BROWSER_LAUNCH_FAILED' | 'BUNDLE_FAILED'
+
+class DiagramkitError extends Error {
+  code: DiagramkitErrorCode
 }
 ```
 
@@ -291,7 +391,7 @@ interface WatchOptions {
 ```ts
 interface ConvertOptions {
   format: 'png' | 'jpeg' | 'webp' | 'avif'
-  density?: number       // Scale multiplier for SVG rasterization. Default: 2
+  scale?: number         // Scale multiplier for SVG rasterization. Default: 2
   quality?: number       // JPEG/WebP/AVIF quality 1-100. Default: 90
 }
 ```
@@ -321,7 +421,7 @@ interface DiagramkitConfig {
   outputPrefix: string           // Filename prefix. Default: ''
   outputSuffix: string           // Filename suffix. Default: ''
   extensionMap?: Record<string, DiagramType>  // Custom extension overrides
-  inputDirs?: string[]           // Restrict scanning to these directories
+  inputDirs?: string[]           // Directories to scan (relative to project root). Default: scan entire tree
   overrides?: Record<string, FileOverride>    // Per-file render overrides
 }
 ```
@@ -403,9 +503,12 @@ Custom overrides via config.extensionMap (merged with built-in map).
 Single Chromium instance managed by BrowserPool:
 - Lazy initialization on first render
 - Reference counting with 5s idle timeout
+- Launch coalescing for concurrent acquire() calls
 - 4 dedicated pages: mermaid-light, mermaid-dark, excalidraw, drawio
+- Page init coalescing for concurrent getExcalidrawPage()/getDrawioPage() calls
 - Mermaid needs separate light/dark pages (mermaid.initialize() is global)
 - Excalidraw and drawio handle dark mode per-render call
+- Singleflight IIFE bundle cache builds prevent duplicate rolldown work
 - Graphviz uses Viz.js/WASM directly (no browser needed)
 - Process cleanup on SIGINT/SIGTERM
 
@@ -441,3 +544,316 @@ npm run test:e2e   # E2E rendering tests (requires build)
 npm run typecheck  # Type checking
 npm run validate   # Full validation (lint + typecheck + build + tests)
 ```
+
+<!-- pagesmith-ai:shared-llms-full:start -->
+# Pagesmith — Full LLM Reference
+
+Pagesmith is a filesystem-first content toolkit with two main packages: `@pagesmith/core` (shared content/runtime layer) and `@pagesmith/docs` (convention-based documentation).
+
+Use Pagesmith when you need:
+- schema-validated content collections loaded from the filesystem
+- lazy markdown rendering with headings and read-time metadata
+- framework-agnostic content APIs for React, Solid, Svelte, vanilla JS, Node, Bun, or Deno
+
+Core APIs:
+- `defineCollection({...})` to define a typed collection
+- `defineConfig({...})` to group collections and markdown options
+- `createContentLayer(config)` to query content and run validation
+- `entry.render()` to convert markdown on demand
+
+Working rules:
+- prefer folder-based markdown entries when content references sibling assets
+- follow the markdown guidelines in `.pagesmith/markdown-guidelines.md` when authoring content
+- use fenced code blocks with a language identifier, one h1 per page, sequential heading depth
+
+---
+
+## @pagesmith/core
+
+### Content Layer API
+
+| Method | Description |
+|---|---|
+| `createContentLayer(config)` | Create a content layer |
+| `layer.getCollection(name)` | Load all entries (cached) |
+| `layer.getEntry(collection, slug)` | Get single entry by slug |
+| `layer.convert(markdown, options?)` | Convert raw markdown to HTML |
+| `layer.validate(collection?)` | Run all validators |
+| `layer.invalidate(collection, slug)` | Cache-bust a single entry |
+| `layer.invalidateAll()` | Cache-bust all collections |
+
+### Collection Options
+
+| Option | Type | Description |
+|---|---|---|
+| `loader` | `string \| Loader` | `'markdown'`, `'json'`, `'json5'`, `'jsonc'`, `'yaml'`, `'toml'`, or custom |
+| `directory` | `string` | Directory containing files |
+| `schema` | `z.ZodType` | Zod schema for validation |
+| `include` | `string[]` | Glob include patterns |
+| `exclude` | `string[]` | Glob exclude patterns |
+| `computed` | `Record<string, fn>` | Computed fields |
+| `validate` | `fn` | Custom validation |
+| `filter` | `fn` | Filter entries |
+| `slugify` | `fn` | Custom slug generation |
+| `transform` | `fn` | Pre-validation transform |
+| `validators` | `ContentValidator[]` | Custom content validators |
+| `disableBuiltinValidators` | `boolean` | Disable link/heading/code-block validators |
+
+### Vite Plugins
+
+```ts
+import { createContentLayer, defineCollection, defineConfig, z } from '@pagesmith/core'
+
+const posts = defineCollection({
+  loader: 'markdown',
+  directory: 'content/posts',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    date: z.coerce.date(),
+    tags: z.array(z.string()).default([]),
+  }),
+})
+
+const layer = createContentLayer(
+  defineConfig({
+    collections: { posts },
+  }),
+)
+
+const entries = await layer.getCollection('posts')
+const rendered = await entries[0]?.render()
+```
+
+```ts
+// Vite integration
+import { pagesmithContent, pagesmithSsg, sharedAssetsPlugin } from '@pagesmith/core/vite'
+import collections from './content.config'
+
+export default defineConfig({
+  plugins: [
+    sharedAssetsPlugin(),
+    pagesmithContent({ collections }),
+    ...pagesmithSsg({ entry: './src/entry-server.tsx', contentDirs: ['./content'] }),
+  ],
+})
+```
+
+### JSX Runtime
+
+Configure tsconfig: `{ "jsx": "react-jsx", "jsxImportSource": "@pagesmith/core" }`
+
+- `h(tag, props, ...children)` — create HTML elements, returns `HtmlString`
+- `Fragment` — render children or raw `innerHTML`
+- `HtmlString` — wrapper to prevent double-escaping
+
+### CSS Exports
+
+| Import | Contents |
+|---|---|
+| `@pagesmith/core/css/content` | Prose + inline code |
+| `@pagesmith/core/css/standalone` | Full layout + prose + TOC |
+| `@pagesmith/core/css/viewport` | Responsive viewport base |
+| `@pagesmith/core/css/fonts` | Bundled Open Sans + JetBrains Mono |
+
+### Frontmatter Schemas
+
+- `BaseFrontmatterSchema` — title, description, publishedDate, lastUpdatedOn, tags, draft
+- `BlogFrontmatterSchema` — extends base + category, featured, coverImage
+- `ProjectFrontmatterSchema` — extends base + gitRepo, links
+
+### Export Map
+
+| Import Path | Purpose |
+|---|---|
+| `@pagesmith/core` | Main API (defineCollection, createContentLayer, z, etc.) |
+| `@pagesmith/core/jsx-runtime` | h, Fragment, HtmlString |
+| `@pagesmith/core/markdown` | processMarkdown |
+| `@pagesmith/core/css` | buildCss (LightningCSS) |
+| `@pagesmith/core/schemas` | Zod schemas and types |
+| `@pagesmith/core/loaders` | Loader classes and registry |
+| `@pagesmith/core/runtime` | Pre-built CSS/JS accessors |
+| `@pagesmith/core/vite` | Vite plugins |
+| `@pagesmith/core/mcp` | MCP server for AI agents |
+
+---
+
+## @pagesmith/docs
+
+### Configuration (pagesmith.config.json5)
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `name` | `string` | — | Site name (header) |
+| `title` | `string` | — | Browser tab title |
+| `description` | `string` | — | Meta description |
+| `origin` | `string` | — | Production URL |
+| `language` | `string` | `en` | HTML lang |
+| `contentDir` | `string` | `content` | Content path |
+| `outDir` | `string` | `dist` | Output path |
+| `basePath` | `string` | `/` | URL base |
+| `footerLinks` | `array` | `[]` | Footer links |
+| `sidebar.collapsible` | `boolean` | `false` | Collapsible sidebar |
+| `search.enabled` | `boolean` | `true` | Pagefind search |
+| `theme.layouts` | `Record` | — | Layout overrides |
+| `markdown` | `MarkdownConfig` | — | Pipeline config |
+
+### Content Structure
+
+```json5
+// pagesmith.config.json5
+{
+  name: 'Acme Docs',
+  title: 'Acme Docs',
+  description: 'Multi-package documentation',
+  contentDir: './content',
+  outDir: './dist',
+  footerLinks: [
+    { label: 'Guide', path: '/guide' },
+    { label: 'Reference', path: '/reference' },
+  ],
+  search: { enabled: true },
+}
+```
+
+```text
+content/
+  README.md                 # Home page (DocHome layout)
+  guide/
+    meta.json5              # Section ordering
+    getting-started/
+      README.md             # A page
+  reference/
+    api/README.md
+```
+
+### Page Frontmatter
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | `string` | Page title |
+| `description` | `string` | Meta description |
+| `navLabel` | `string` | Override top nav label |
+| `sidebarLabel` | `string` | Override sidebar label |
+| `order` | `number` | Manual sort order |
+| `draft` | `boolean` | Exclude from build |
+
+### Home Page Frontmatter
+
+| Field | Type | Description |
+|---|---|---|
+| `layout` | `string` | Set to `DocHome` |
+| `tagline` | `string` | Short description |
+| `install` | `string` | Install command |
+| `actions` | `array` | CTA buttons (`{ text, link, theme: 'brand' \| 'alt' }`) |
+| `features` | `array` | Feature cards (`{ icon?, title, details }`) |
+| `packages` | `array` | Package cards (`{ name, description, href, tag }`) |
+| `codeExample` | `object` | Code example (`{ label, title, code }`) |
+
+### Section Meta (meta.json5)
+
+| Field | Type | Description |
+|---|---|---|
+| `displayName` | `string` | Section label in sidebar |
+| `items` | `string[]` | Manual page order (slugs) |
+| `series` | `array` | Group pages into series |
+| `collapsed` | `boolean` | Start sidebar collapsed |
+| `orderBy` | `string` | `manual` or `publishedDate` |
+
+### Layout Overrides
+
+```json5
+{ theme: { layouts: { home: "./layouts/Home.tsx", page: "./layouts/Page.tsx" } } }
+```
+
+All layouts receive: `content`, `frontmatter`, `headings`, `slug`, `site`.
+Page layout adds: `sidebarSections`, `prev`, `next`.
+
+### CLI
+
+```bash
+pagesmith init [--ai] [--config path]   # Initialize project
+pagesmith dev [--port N] [--open]        # Dev server
+pagesmith build [--out-dir path]         # Production build
+pagesmith preview [--port N]             # Preview built site
+```
+
+---
+
+## Markdown Pipeline
+
+# Pagesmith Markdown Guidelines
+
+Markdown feature support for content authored with `@pagesmith/core` and `@pagesmith/docs`.
+
+## Pipeline Order
+
+```
+remark-parse → remark-gfm → remark-math → remark-frontmatter
+  → remark-github-alerts → remark-smartypants → [user remark plugins]
+  → remark-rehype
+  → rehype-mathjax
+  → rehype-expressive-code (dual themes, line numbers, titles, copy, collapse, mark/ins/del)
+  → rehype-slug → rehype-autolink-headings
+  → rehype-external-links → rehype-accessible-emojis
+  → heading extraction → [user rehype plugins] → rehype-stringify
+```
+
+## Key Rules
+
+- Use fenced code blocks with a language identifier (validator warns otherwise)
+- One `# h1` per page (validator enforces)
+- Sequential heading depth (no skipping from h2 to h4)
+- Prefer relative links for internal content
+- Do NOT add manual copy-button JS — Expressive Code handles it
+- Do NOT import separate code block CSS — Expressive Code injects inline styles
+
+## Supported Features
+
+| Feature | Syntax | Notes |
+|---|---|---|
+| GFM tables | `\| col \| col \|` | Alignment via `:---`, `:---:`, `---:` |
+| Strikethrough | `~~text~~` | |
+| Task lists | `- [x] done` / `- [ ] todo` | |
+| Footnotes | `[^id]` + `[^id]: text` | |
+| Alerts | `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` | GitHub-compatible |
+| Inline math | `$E = mc^2$` | No spaces inside delimiters |
+| Block math | `$$...$$` | Rendered via MathJax |
+| Smart quotes | `"text"` → curly quotes | Automatic |
+| Em/en dash | `---` / `--` | Automatic |
+| External links | `[text](https://...)` | Auto `target="_blank"` |
+| Heading anchors | Auto `id` + wrapped anchor | All headings |
+| Accessible emoji | Unicode emoji | Auto `role="img"` + `aria-label` |
+
+## Code Block Features (Expressive Code)
+
+| Meta | Example | Description |
+|---|---|---|
+| `title="..."` | `` ```js title="app.js" `` | File title |
+| `showLineNumbers` | `` ```js showLineNumbers `` | Line numbers |
+| `mark={lines}` | `` ```js mark={3,5-7} `` | Highlight lines |
+| `ins={lines}` | `` ```js ins={4} `` | Inserted lines (green) |
+| `del={lines}` | `` ```js del={5} `` | Deleted lines (red) |
+| `collapse={lines}` | `` ```js collapse={1-5} `` | Collapsible section |
+| `wrap` | `` ```js wrap `` | Text wrapping |
+| `frame="..."` | `` ```js frame="terminal" `` | Frame style |
+
+## Built-in Content Validators
+
+- **linkValidator** — warns on bare URLs, empty link text, suspicious protocols
+- **headingValidator** — enforces single h1, sequential depth, non-empty text
+- **codeBlockValidator** — warns on missing language, unknown meta properties
+
+Known valid meta properties: `title`, `showLineNumbers`, `startLineNumber`, `wrap`, `frame`, `collapse`, `mark`, `ins`, `del`.
+
+---
+
+## AI Setup
+
+```bash
+npx pagesmith init --ai
+```
+
+Generates CLAUDE.md, AGENTS.md, GEMINI.md, skills, markdown guidelines, llms.txt, and llms-full.txt.
+<!-- pagesmith-ai:shared-llms-full:end -->
+

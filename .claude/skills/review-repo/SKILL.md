@@ -32,7 +32,6 @@ Before launching the review team, the orchestrator gathers the current project s
 npm run check
 npm run typecheck
 npm run build
-npm run build:docs
 npm run test:unit
 npm run test:e2e
 ```
@@ -52,7 +51,7 @@ Capture this output as shared context for the agent team.
 
 Launch **5 specialized review agents in parallel** using the Agent tool. Each agent receives the shared context from Step 1 and focuses on its assigned review sections. All agents run concurrently for maximum speed.
 
-**IMPORTANT**: Use a single message with multiple Agent tool calls to launch all 5 agents simultaneously. Each agent should use `subagent_type: "code-reviewer"` for code-focused reviews or `subagent_type: "general-purpose"` for broader reviews. Name each agent for addressability.
+**IMPORTANT**: Use a single message with multiple Agent tool calls to launch all 5 agents simultaneously. Use supported Cursor subagent types (`generalPurpose` or `explore`) and name each agent for addressability.
 
 #### Agent 1: `code-quality-agent` (Sections 1 + 3 + 4)
 
@@ -129,13 +128,13 @@ SECTION 6 — CLAUDE.md ALIGNMENT: Read CLAUDE.md and verify EVERY claim against
 - Coding conventions — spot-check source files
 - Testing strategy — verify test file locations and patterns
 
-SECTION 7 — SKILLS REVIEW: Read every skill in agent_skills/. For each:
+SECTION 7 — SKILLS REVIEW: Read every skill in .claude/skills/. For each:
 - Verify CLI commands shown actually work
 - Verify API examples use correct function signatures
 - Verify config examples match current schema
 - Check consistency across skills (terminology, output dir naming, code style)
-- Verify skill cross-references (/diagrams -> /diagram-mermaid, etc.)
-- Review reference files in agent_skills/refs/ for accuracy
+- Verify skill cross-references (e.g., /review-repo, /update-docs)
+- Verify skills are accurate and consistent with the codebase
 
 For EVERY issue found, output in this exact format:
 - **[SEVERITY]** (critical/major/minor/info) **[CATEGORY]** (CLAUDE.md/Skills)
@@ -168,7 +167,7 @@ Guide pages (docs/guide/):
 - watch-mode.md — CLI and API usage, watched patterns, ignored dirs, dev server integration
 - image-formats.md — all four formats, scale/quality options, conversion pipeline, format selection guide
 
-Diagram pages (docs/diagrams/):
+Diagram pages (docs/guide/diagrams/):
 - mermaid.md, excalidraw.md, drawio.md — extensions, examples, dark mode, architecture, tips
 
 Reference pages (docs/reference/):
@@ -177,10 +176,9 @@ Reference pages (docs/reference/):
 - config.md — schema matching DiagramkitConfig, manifest format
 - cli.md — command table, all render options, output naming, discovery rules
 
-VitePress config (docs/.vitepress/config.ts) — nav links, sidebar, no broken links
+Pagesmith config (pagesmith.config.json5) — nav links, sidebar, no broken links
 
 MISSING DOCUMENTATION — flag if any of these are missing or incomplete:
-- INSTALL_SKILLS.md — skills installation guide (CLAUDE.md method, CLI method, available skills, verification)
 - Optional deps installation guidance (sharp)
 - Warmup script guidance (CI, Docker, dev environments)
 - Common use case guides (docs sites, GitHub README dark mode, CI/CD, build scripts, watch+dev server, monorepos, email/Confluence)
@@ -215,7 +213,7 @@ Package.json completeness — check for: name, version, description, keywords, r
 
 GitHub templates — check .github/ for: issue templates (bug, feature), PR template, CI workflows (lint, test, build, e2e), Dependabot/Renovate config
 
-npm publishing — from npm pack --dry-run output: verify only intended files are published, no test files/fixtures/configs, types included (*.d.mts), skills directory included
+npm publishing — from npm pack --dry-run output: verify only intended files are published, no test files/fixtures/configs, types included (*.d.mts), skills directory NOT included (project-level, not shipped)
 
 README quality — clear introduction, badges, feature list, install instructions, quick start, API overview, dark mode embedding, configuration overview, supported extensions, docs link, requirements, development setup, license
 
@@ -332,7 +330,7 @@ Verify `e2e/` tests cover:
 | Incremental builds   | First render, no-change skip, content change re-render, manifest correctness                                           |
 | Force re-render      | `--force` flag bypasses manifest                                                                                       |
 | CLI flags            | `--format`, `--theme`, `--type`, `--output`, `--dry-run`, `--quiet`, `--json`, `--no-contrast`, `--scale`, `--quality` |
-| Output directory     | Default `.diagrams/`, custom `--output`, `--same-folder`, `--output-dir`                                               |
+| Output directory     | Default `.diagramkit/`, custom `--output`, `--same-folder`, `--output-dir`                                             |
 | Type filtering       | `--type mermaid`, `--type excalidraw`, `--type drawio`                                                                 |
 | Error handling       | Invalid file, missing Playwright, corrupt source, permission errors                                                    |
 | Watch mode           | File change triggers re-render, new file detection                                                                     |
@@ -359,7 +357,7 @@ Verify `e2e/` tests cover:
 - Each module has a single responsibility
 - No circular dependencies
 - Types defined in `types.ts`, not scattered across modules
-- Renderer implementations follow `DiagramRenderer` interface
+- Renderer branching covers all DiagramType variants (exhaustive `never` check)
 
 ### 3.2 Browser Pool Design
 
@@ -395,7 +393,7 @@ Check that each step handles errors correctly and the flow is consistent across 
 Verify layered config:
 
 ```
-getDefaultConfig() → loadGlobalConfig() → loadLocalConfig() → overrides
+getDefaultConfig() → loadGlobalConfig() → loadEnvConfig() → loadLocalConfig() → overrides
 ```
 
 - Each layer is a partial spread
@@ -503,7 +501,7 @@ For each architectural statement in CLAUDE.md, verify it matches current code:
 - "Browser pool — lazy init, reference counting, idle timeout (5s), auto-cleanup" → verify all four properties
 - "4 pages — mermaid light, mermaid dark, excalidraw, drawio" → verify page creation
 - "Manifest system — SHA-256 content hashing" → verify hash algorithm
-- "Output convention — `.diagrams/` hidden folder" → verify default config
+- "Output convention — `.diagramkit/` hidden folder" → verify default config
 - "Extension aliases" → verify all listed aliases exist in `extensions.ts`
 
 ### 6.2 Design Philosophy
@@ -568,7 +566,7 @@ Flag entries in CLAUDE.md that reference:
 
 ## Section 7: Skills Review
 
-Review all skills in `agent_skills/` for:
+Review all skills in `.claude/skills/` for:
 
 ### 7.1 Accuracy
 
@@ -593,23 +591,14 @@ For each skill file:
 
 - Terminology is consistent across skills (e.g., "theme" vs "mode")
 - Code examples use consistent style
-- Output directory naming is consistent (`.diagrams/`)
+- Output directory naming is consistent (`.diagramkit/`)
 - Skill frontmatter follows the standard format
 
 ### 7.4 Skill Dependencies
 
-- Skills reference other skills correctly (e.g., `/diagrams` → `/diagram-mermaid`)
+- Skills reference other skills correctly (e.g., `/review-repo`, `/update-docs`)
 - Composability section is accurate
 - Prerequisites listed are correct
-
-### 7.5 Reference Files
-
-Review `agent_skills/refs/`:
-
-- Mermaid diagram type references cover all supported types
-- Excalidraw JSON format reference matches current library version
-- Draw.io shape/style references are accurate
-- No outdated syntax examples
 
 ---
 
@@ -617,7 +606,7 @@ Review `agent_skills/refs/`:
 
 Review all docs in `docs/` for:
 
-### 8.1 Getting Started Guide (`docs/guide/getting-started.md`)
+### 8.1 Getting Started Guide (`docs/guide/getting-started/README.md`)
 
 - Installation steps are complete and correct
 - Prerequisites (Node 24, Playwright) are clearly stated
@@ -626,7 +615,7 @@ Review all docs in `docs/` for:
 - Dark mode embedding example is correct HTML
 - Links to next steps work
 
-### 8.2 CLI Guide (`docs/guide/cli.md`)
+### 8.2 CLI Guide (`docs/guide/cli/README.md`)
 
 - All commands listed and documented
 - All flags/options documented with defaults
@@ -634,7 +623,7 @@ Review all docs in `docs/` for:
 - Exit codes documented
 - Discovery rules explained
 
-### 8.3 JavaScript API Guide (`docs/guide/js-api.md`)
+### 8.3 JavaScript API Guide (`docs/guide/js-api/README.md`)
 
 - All public functions documented with examples
 - Parameters and return types match actual code
@@ -642,7 +631,7 @@ Review all docs in `docs/` for:
 - Common patterns shown (render → dispose, batch render, watch mode)
 - `convertSvg` import path (`diagramkit/convert`) is correct
 
-### 8.4 Configuration Guide (`docs/guide/configuration.md`)
+### 8.4 Configuration Guide (`docs/guide/configuration/README.md`)
 
 - All config options documented
 - Merge order explained with example
@@ -650,7 +639,7 @@ Review all docs in `docs/` for:
 - Examples for common setups
 - `extensionMap` usage explained
 
-### 8.5 Watch Mode Guide (`docs/guide/watch-mode.md`)
+### 8.5 Watch Mode Guide (`docs/guide/watch-mode/README.md`)
 
 - CLI and API usage shown
 - Watched patterns listed
@@ -658,7 +647,7 @@ Review all docs in `docs/` for:
 - Dev server integration explained
 - Behavior details (safe rendering, manifest updates, browser lifecycle)
 
-### 8.6 Image Formats Guide (`docs/guide/image-formats.md`)
+### 8.6 Image Formats Guide (`docs/guide/image-formats/README.md`)
 
 - All four formats compared
 - Scale and quality options explained
@@ -666,7 +655,7 @@ Review all docs in `docs/` for:
 - Format selection guide for different use cases
 - Sharp dependency requirement noted
 
-### 8.7 Diagram Type Guides (`docs/diagrams/`)
+### 8.7 Diagram Type Guides (`docs/guide/diagrams/`)
 
 - Each diagram type (mermaid, excalidraw, drawio) has its own page
 - File extensions listed
@@ -676,7 +665,7 @@ Review all docs in `docs/` for:
 - Architecture notes (how rendering works internally)
 - Tips for good diagrams
 
-### 8.8 API Reference (`docs/reference/api.md`)
+### 8.8 API Reference (`docs/reference/api/README.md`)
 
 - Every exported function has a signature and description
 - Parameters documented with types, required/optional, defaults
@@ -684,14 +673,14 @@ Review all docs in `docs/` for:
 - Behavior notes for complex functions
 - Subpath exports documented (`diagramkit/color`, `diagramkit/convert`)
 
-### 8.9 Types Reference (`docs/reference/types.md`)
+### 8.9 Types Reference (`docs/reference/types/README.md`)
 
 - All public types documented
 - Interface fields match actual TypeScript definitions
 - Examples show realistic values
 - Cross-links between related types
 
-### 8.10 Config Reference (`docs/reference/config.md`)
+### 8.10 Config Reference (`docs/reference/config/README.md`)
 
 - Schema matches actual `DiagramkitConfig` interface
 - All options have type, default, description
@@ -699,7 +688,7 @@ Review all docs in `docs/` for:
 - Manifest format documented
 - Example configurations for common scenarios
 
-### 8.11 CLI Reference (`docs/reference/cli.md`)
+### 8.11 CLI Reference (`docs/reference/cli/README.md`)
 
 - Command table complete
 - All render options in table format
@@ -707,7 +696,7 @@ Review all docs in `docs/` for:
 - Discovery rules documented
 - Exit behavior documented
 
-### 8.12 VitePress Config (`docs/.vitepress/config.ts`)
+### 8.12 Pagesmith Config (`pagesmith.config.json5`)
 
 - Navigation links work
 - Sidebar structure matches actual pages
@@ -718,15 +707,10 @@ Review all docs in `docs/` for:
 
 Flag if any of these are missing:
 
-- **INSTALL_SKILLS.md** — Guide for installing Claude Code skills:
-  - Using CLAUDE.md file method
-  - Using `diagramkit install-skills` CLI (local and global)
-  - What skills are available and what each does
-  - Verifying installation
 - **Installation of optional dependencies** — Clear guidance on when and how to install `sharp`
 - **Warmup script installation** — Guidance on setting up `diagramkit warmup` in CI, Docker, and development environments
 - **Common use case guides** — Detailed examples for:
-  - Rendering diagrams in a documentation site (VitePress, Docusaurus, etc.)
+  - Rendering diagrams in a documentation site (Pagesmith, Docusaurus, etc.)
   - Rendering diagrams for GitHub README with dark mode
   - Batch rendering in CI/CD pipelines
   - Programmatic rendering in build scripts
@@ -755,7 +739,7 @@ Verify existence and quality of:
 | `CLAUDE.md`       | Project     | Architecture guide for LLM assistants                                                |
 | `GUIDELINES.md`   | Project     | Coding conventions                                                                   |
 | `.github/`        | Required    | Issue templates, PR templates, CI workflows                                          |
-| `.gitignore`      | Required    | Covers node_modules, dist, .diagrams, etc.                                           |
+| `.gitignore`      | Required    | Covers node_modules, dist, .diagramkit, etc.                                         |
 | `.editorconfig`   | Recommended | Consistent formatting across editors                                                 |
 | `.node-version`   | Required    | Specifies Node 24                                                                    |
 | `package.json`    | Required    | Complete metadata (name, version, description, keywords, repository, bugs, homepage) |
@@ -790,7 +774,7 @@ Check `.github/` for:
 - `npm pack --dry-run` shows only intended files
 - No test files, fixtures, or config files in the package
 - Types are included (`*.d.mts`)
-- Skills directory is included
+- Skills directory is NOT included (by design — skills are project-level, not shipped)
 
 ---
 
@@ -1015,6 +999,6 @@ The review is non-destructive by default — it only reads code and writes to `.
 
 ### Integration with Other Skills
 
-- After fixes are applied, consider running `/self-review` for an additional lint/test/build pass
-- Documentation fixes can be validated with `/doc-review`
-- PR creation after fixes can use `/pr-describe` for a summary
+- After fixes are applied, consider running `/review-repo scope=code` for a targeted re-check
+- Documentation fixes can be validated with `/review-repo scope=docs`
+- Documentation updates can be applied with `/update-docs`

@@ -10,8 +10,31 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { getExpectedOutputNamesMulti, type OutputNamingOptions } from './output'
-import type { DiagramFile, DiagramkitConfig, OutputFormat, Theme } from './types'
+import { getExpectedOutputNamesMulti } from './output'
+import type {
+  DiagramFile,
+  DiagramkitConfig,
+  OutputFormat,
+  OutputMetadata,
+  OutputNamingOptions,
+  RenderableFile,
+  Theme,
+} from './types'
+
+const DEBUG_LOG_ENABLED = process.env.DIAGRAMKIT_DEBUG === '1'
+
+function debugLog(message: string, err?: unknown): void {
+  if (!DEBUG_LOG_ENABLED) return
+  const details =
+    err instanceof Error
+      ? err.message
+      : err === undefined
+        ? ''
+        : typeof err === 'string'
+          ? err
+          : JSON.stringify(err)
+  process.stderr.write(`[diagramkit:manifest] ${message}${details ? `: ${details}` : ''}\n`)
+}
 
 /* ── Types ── */
 
@@ -70,8 +93,10 @@ function getNamingOptions(config?: Partial<DiagramkitConfig>): OutputNamingOptio
 /* ── Manifest I/O ── */
 
 /** Migrate a v1 manifest entry (outputs as string[]) to v2 (outputs as ManifestOutput[]). */
-function migrateEntry(raw: any): ManifestEntry {
-  const entry = { ...raw }
+function migrateEntry(raw: unknown): ManifestEntry {
+  if (!raw || typeof raw !== 'object')
+    return { hash: '', generatedAt: '', outputs: [], formats: ['svg'] }
+  const entry = { ...(raw as Record<string, unknown>) } as Record<string, any>
 
   // Migrate old `format` field (single string) → `formats` (array)
   if (!entry.formats && entry.format) {
@@ -92,7 +117,7 @@ function migrateEntry(raw: any): ManifestEntry {
     })
   }
 
-  return entry
+  return entry as ManifestEntry
 }
 
 /** Parse an output filename like "arch-light.svg" into { format, theme }. */
@@ -141,8 +166,12 @@ export function readManifest(sourceDir: string, config?: Partial<DiagramkitConfi
         diagrams[key] = migrateEntry(value)
       }
       return { version: 2, diagrams }
-    } catch {
-      continue
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      process.stderr.write(
+        `Warning: failed to parse manifest ${candidate}: ${message}. Resetting manifest.\n`,
+      )
+      return { version: 2, diagrams: {} }
     }
   }
 
@@ -181,7 +210,28 @@ export function hashFile(filePath: string): string {
 
 /* ── Staleness checking ── */
 
-export type StaleFile = DiagramFile & { _hash?: string; _effectiveFormats?: OutputFormat[] }
+export type StaleFile = RenderableFile
+export type StaleReasonCode =
+  | 'forced'
+  | 'manifest_disabled'
+  | 'no_manifest_entry'
+  | 'theme_changed'
+  | 'missing_outputs'
+  | 'content_changed'
+
+export type StaleReason =
+  | { code: 'forced' }
+  | { code: 'manifest_disabled' }
+  | { code: 'no_manifest_entry' }
+  | { code: 'theme_changed'; requestedTheme: Theme; manifestTheme?: Theme }
+  | { code: 'missing_outputs'; files: string[] }
+  | { code: 'content_changed'; previousHash: string; currentHash: string }
+
+export interface StalePlanEntry {
+  path: string
+  effectiveFormats: OutputFormat[]
+  reasons: StaleReason[]
+}
 
 /** Check if a single diagram file is stale (changed since last render). Uses a pre-read manifest. */
 export function isStale(
@@ -293,25 +343,91 @@ export function filterStaleFiles(
   }, [])
 }
 
+/**
+ * Plan staleness with machine-readable reasons.
+ * Used by CLI `render --plan --json` for agent/CI workflows.
+ */
+export function planStaleFiles(
+  files: DiagramFile[],
+  force: boolean,
+  formats?: OutputFormat[],
+  config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
+): StalePlanEntry[] {
+  const requestedFormats = formats ?? ['svg']
+
+  if (force) {
+    return files.map((f) => ({
+      path: f.path,
+      effectiveFormats: requestedFormats,
+      reasons: [{ code: 'forced' }],
+    }))
+  }
+
+  const manifestCache = new Map<string, Manifest>()
+  const naming = getNamingOptions(config)
+  const plans: StalePlanEntry[] = []
+
+  for (const f of files) {
+    if (!manifestCache.has(f.dir)) {
+      manifestCache.set(f.dir, readManifest(f.dir, config))
+    }
+    const manifest = manifestCache.get(f.dir)!
+    const name = basename(f.path)
+    const entry = manifest.diagrams[name]
+    const manifestFormats = entry?.formats ?? []
+    const effectiveFormats = [...new Set([...requestedFormats, ...manifestFormats])]
+    const reasons: StaleReason[] = []
+
+    if (config?.useManifest === false) {
+      reasons.push({ code: 'manifest_disabled' })
+      plans.push({ path: f.path, effectiveFormats, reasons })
+      continue
+    }
+
+    if (!entry) {
+      reasons.push({ code: 'no_manifest_entry' })
+      plans.push({ path: f.path, effectiveFormats, reasons })
+      continue
+    }
+
+    if (theme && entry.theme !== theme) {
+      reasons.push({ code: 'theme_changed', requestedTheme: theme, manifestTheme: entry.theme })
+      plans.push({ path: f.path, effectiveFormats, reasons })
+      continue
+    }
+
+    const outDir = getDiagramsDir(f.dir, config)
+    const expectedOutputs = getExpectedOutputNamesMulti(
+      f.name,
+      effectiveFormats,
+      theme ?? entry.theme ?? 'both',
+      naming,
+    )
+    const missing = expectedOutputs.filter((output) => !existsSync(join(outDir, output)))
+    if (missing.length > 0) {
+      reasons.push({ code: 'missing_outputs', files: missing })
+      plans.push({ path: f.path, effectiveFormats, reasons })
+      continue
+    }
+
+    const hash = hashFile(f.path)
+    if (entry.hash !== hash) {
+      reasons.push({ code: 'content_changed', previousHash: entry.hash, currentHash: hash })
+      plans.push({ path: f.path, effectiveFormats, reasons })
+    }
+  }
+
+  return plans
+}
+
 /* ── Manifest update ── */
 
-export type OutputMetadata = {
-  file: string
-  format: OutputFormat
-  theme: 'light' | 'dark'
-  width?: number
-  height?: number
-  quality?: number
-  scale?: number
-}
+export type { OutputMetadata }
 
 /** Update manifests after successful renders. Groups files by directory. Merges formats with existing entries. */
 export function updateManifest(
-  files: (DiagramFile & {
-    _hash?: string
-    _effectiveFormats?: OutputFormat[]
-    _outputMeta?: OutputMetadata[]
-  })[],
+  files: RenderableFile[],
   formats: OutputFormat[] = ['svg'],
   config?: Partial<DiagramkitConfig>,
   theme: Theme = 'both',
@@ -319,12 +435,7 @@ export function updateManifest(
   // When manifest is disabled, skip writing entirely
   if (config?.useManifest === false) return
 
-  type FileWithMeta = DiagramFile & {
-    _hash?: string
-    _effectiveFormats?: OutputFormat[]
-    _outputMeta?: OutputMetadata[]
-  }
-  const byDir = new Map<string, FileWithMeta[]>()
+  const byDir = new Map<string, RenderableFile[]>()
   for (const f of files) {
     if (!byDir.has(f.dir)) byDir.set(f.dir, [])
     byDir.get(f.dir)!.push(f)
@@ -394,7 +505,7 @@ export function cleanOrphans(
         const entry = manifest.diagrams[name]!
         const outDir = getDiagramsDir(dir, config)
         for (const output of entry.outputs) {
-          const outFile = typeof output === 'string' ? output : output.file
+          const outFile = output.file
           const outPath = join(outDir, outFile)
           if (existsSync(outPath)) unlinkSync(outPath)
         }
@@ -415,7 +526,9 @@ export function cleanOrphans(
         }
         try {
           rmSync(outDir, { recursive: true })
-        } catch {}
+        } catch (err) {
+          debugLog('failed to remove empty output directory', err)
+        }
         continue
       }
 
@@ -434,9 +547,7 @@ export function cleanOrphans(
     if (!existsSync(outDir)) continue
 
     const knownOutputs = new Set(
-      Object.values(manifest.diagrams).flatMap((e) =>
-        e.outputs.map((o) => (typeof o === 'string' ? o : o.file)),
-      ),
+      Object.values(manifest.diagrams).flatMap((e) => e.outputs.map((o) => o.file)),
     )
     for (const entry of readdirSync(outDir)) {
       if (entry === manifestFile || entry === 'diagrams.manifest.json' || entry === 'manifest.json')

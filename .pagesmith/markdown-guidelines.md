@@ -8,8 +8,9 @@ Markdown feature support for content authored with `@pagesmith/core` and `@pages
 remark-parse → remark-gfm → remark-math → remark-frontmatter
   → remark-github-alerts → remark-smartypants → [user remark plugins]
   → remark-rehype
+  → rehype-mathjax
   → rehype-expressive-code (dual themes, line numbers, titles, copy, collapse, mark/ins/del)
-  → rehype-mathjax → rehype-slug → rehype-autolink-headings
+  → rehype-slug → rehype-autolink-headings
   → rehype-external-links → rehype-accessible-emojis
   → heading extraction → [user rehype plugins] → rehype-stringify
 ```

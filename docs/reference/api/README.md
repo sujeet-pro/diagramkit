@@ -7,6 +7,35 @@ description: Complete function reference for all public exports from diagramkit.
 
 ## Core Rendering
 
+### `ENGINE_PROFILES`
+
+```ts
+interface DiagramEngineProfile {
+  /** Runtime type: 'chromium' for browser-backed engines, 'wasm' for in-process */
+  runtime: 'chromium' | 'wasm'
+  /** Whether this engine needs a BrowserPool instance */
+  requiresBrowserPool: boolean
+  /** Whether renders must be serialized within a type lane */
+  serializedWithinLane: boolean
+  /** Ordering priority for lane scheduling (lower runs first) */
+  laneOrder: number
+}
+
+const ENGINE_PROFILES: Record<DiagramType, DiagramEngineProfile>
+```
+
+Static engine metadata used by the render pipeline and CLI planning.
+
+### `getEngineProfile(type)`
+
+```ts
+function getEngineProfile(type: DiagramType): DiagramEngineProfile
+```
+
+Returns engine metadata for a specific diagram type.
+
+---
+
 ### `render(source, type, options?)`
 
 Render a diagram from a source string.
@@ -50,7 +79,7 @@ Batch render all diagrams in a directory tree. Writes to `.diagramkit/` folders.
 function renderAll(options?: BatchOptions): Promise<RenderAllResult>
 ```
 
-Returns `{ rendered, skipped, failed }` arrays of file paths.
+Returns `RenderAllResult` with `rendered`, `skipped`, `failed`, `failedDetails`, and optional `metrics`.
 
 **Steps:** discover files, filter by type, check manifest, render stale files, update manifest, clean orphans.
 
@@ -63,7 +92,7 @@ Render a single file and write output to disk. Returns written filenames.
 ```ts
 function renderDiagramFileToDisk(
   file: DiagramFile,
-  options?: RenderOptions & { config?: DiagramkitConfig; outDir?: string },
+  options?: RenderOptions & { config?: DiagramkitConfig; outDir?: string; formats?: OutputFormat[] },
 ): Promise<string[]>
 ```
 
@@ -101,7 +130,33 @@ Close browser pool and release resources. Safe to call multiple times.
 
 ---
 
+### `createRendererRuntime()`
+
+```ts
+function createRendererRuntime(): RendererRuntime
+```
+
+Creates an isolated runtime with its own `BrowserPool`. Use this when you need lifecycle isolation from the default singleton runtime.
+
+### `DiagramkitError`
+
+```ts
+class DiagramkitError extends Error {
+  code: DiagramkitErrorCode
+}
+```
+
+Typed error class used for user-facing and programmatic failures.
+
+---
+
 ## File Discovery
+
+> Import these utilities from `diagramkit/utils`, not from the main `diagramkit` entry.
+
+```ts
+import { findDiagramFiles, filterByType } from 'diagramkit/utils'
+```
 
 ### `findDiagramFiles(dir, config?)`
 
@@ -128,13 +183,13 @@ function filterByType(
 
 ## Manifest
 
-### `filterStaleFiles(files, force, format?, config?, theme?)`
+### `filterStaleFiles(files, force, formats?, config?, theme?)`
 
 ```ts
 function filterStaleFiles(
   files: DiagramFile[],
   force: boolean,
-  format?: OutputFormat,
+  formats?: OutputFormat[],
   config?: Partial<DiagramkitConfig>,
   theme?: Theme,
 ): StaleFile[]
@@ -142,12 +197,26 @@ function filterStaleFiles(
 
 Filter to files needing re-render. Caches manifests per directory.
 
-### `isStale(file, format?, config?, theme?, manifest?)`
+### `planStaleFiles(files, force, formats?, config?, theme?)`
+
+```ts
+function planStaleFiles(
+  files: DiagramFile[],
+  force: boolean,
+  formats?: OutputFormat[],
+  config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
+): StalePlanEntry[]
+```
+
+Returns detailed staleness reasons per file without rendering.
+
+### `isStale(file, formats?, config?, theme?, manifest?)`
 
 ```ts
 function isStale(
   file: DiagramFile,
-  format?: OutputFormat,
+  formats?: OutputFormat[],
   config?: Partial<DiagramkitConfig>,
   theme?: Theme,
   manifest?: Manifest,
@@ -215,12 +284,6 @@ function getAllExtensions(map?: Record<string, DiagramType>): string[]
 function getExtensionsForType(type: DiagramType, map?: Record<string, DiagramType>): string[]
 ```
 
-### `stripDiagramExtension(filename, map?)`
-
-```ts
-function stripDiagramExtension(filename: string, map?: Record<string, DiagramType>): string
-```
-
 ---
 
 ## Configuration
@@ -231,13 +294,14 @@ function stripDiagramExtension(filename: string, map?: Record<string, DiagramTyp
 function getDefaultConfig(): DiagramkitConfig
 ```
 
-### `loadConfig(overrides?, dir?, configFile?)`
+### `loadConfig(overrides?, dir?, configFile?, options?)`
 
 ```ts
 function loadConfig(
   overrides?: Partial<DiagramkitConfig>,
   dir?: string,
   configFile?: string,
+  options?: { strict?: boolean; warn?: (message: string) => void },
 ): DiagramkitConfig
 ```
 
@@ -254,6 +318,14 @@ function getFileOverrides(
 ```
 
 Resolve per-file overrides from the `overrides` config. Matches against exact filenames, relative paths, and glob patterns. Returns the merged override for the file, or `undefined` if no overrides match.
+
+### `defineConfig(config)`
+
+```ts
+function defineConfig(config: Partial<DiagramkitConfig>): Partial<DiagramkitConfig>
+```
+
+Identity helper for TypeScript config file autocomplete. Returns the input unchanged but provides type checking in `diagramkit.config.ts` files.
 
 ### `defaultMermaidDarkTheme`
 
@@ -286,7 +358,7 @@ Also available from `diagramkit/convert`.
 function postProcessDarkSvg(svg: string): string
 ```
 
-WCAG contrast optimization for dark SVGs. Exported from both `diagramkit` and `diagramkit/color`.
+WCAG contrast optimization for dark SVGs. Exported from `diagramkit/utils` and `diagramkit/color`.
 
 ---
 
@@ -299,6 +371,136 @@ function atomicWrite(path: string, content: Buffer): void
 ```
 
 Write via `.tmp` + rename to prevent partial files.
+
+### `stripDiagramExtension(filename, map?)`
+
+```ts
+function stripDiagramExtension(filename: string, map?: Record<string, DiagramType>): string
+```
+
+Removes the detected diagram extension from the filename.
+
+---
+
+## Utilities (Advanced)
+
+These functions are available from `diagramkit/utils` for advanced use cases such as custom build pipelines.
+
+### `writeManifest(sourceDir, manifest, config?)`
+
+```ts
+function writeManifest(
+  sourceDir: string,
+  manifest: Manifest,
+  config?: Partial<DiagramkitConfig>,
+): void
+```
+
+Write manifest atomically (`.tmp` + rename) to prevent corruption on crash.
+
+### `hashFile(filePath)`
+
+```ts
+function hashFile(filePath: string): string
+```
+
+Compute SHA-256 content hash of a file. Returns a `sha256:` prefixed hex string (first 16 chars).
+
+### `renderGraphviz(source, options?)`
+
+```ts
+function renderGraphviz(
+  source: string,
+  options?: { theme?: Theme; contrastOptimize?: boolean },
+): Promise<{ lightSvg?: string; darkSvg?: string }>
+```
+
+Low-level Graphviz renderer used by the unified engine pipeline.
+
+### `cleanOrphans(files, config?, roots?)`
+
+```ts
+function cleanOrphans(
+  files: DiagramFile[],
+  config?: Partial<DiagramkitConfig>,
+  roots?: string[],
+): void
+```
+
+Remove orphaned outputs and manifest entries for diagram sources that no longer exist.
+
+### `updateManifest(files, formats?, config?, theme?)`
+
+```ts
+function updateManifest(
+  files: RenderableFile[],
+  formats?: OutputFormat[],
+  config?: Partial<DiagramkitConfig>,
+  theme?: Theme,
+): void
+```
+
+Update manifests after successful renders. Groups files by directory and merges formats with existing entries.
+
+### `writeRenderResult(name, outDir, result, naming?)`
+
+```ts
+function writeRenderResult(
+  name: string,
+  outDir: string,
+  result: RenderResult,
+  naming?: OutputNamingOptions,
+): string[]
+```
+
+Write whichever variants were returned by the renderer. Returns an array of written filenames.
+
+### `getExpectedOutputNamesMulti(name, formats, theme?, naming?)`
+
+```ts
+function getExpectedOutputNamesMulti(
+  name: string,
+  formats: OutputFormat[],
+  theme?: Theme,
+  naming?: OutputNamingOptions,
+): string[]
+```
+
+Get expected output names across multiple formats and theme variants.
+
+### `getExpectedOutputNames(name, format?, theme?, naming?)`
+
+```ts
+function getExpectedOutputNames(
+  name: string,
+  format?: OutputFormat,
+  theme?: Theme,
+  naming?: OutputNamingOptions,
+): string[]
+```
+
+Get expected output names for a single format and theme.
+
+### `getOutputFileName(name, variant, format?, naming?)`
+
+```ts
+function getOutputFileName(
+  name: string,
+  variant: 'light' | 'dark',
+  format?: OutputFormat,
+  naming?: OutputNamingOptions,
+): string
+```
+
+Get the output filename for a specific variant and format. Pattern: `{prefix}{name}{suffix}-{variant}.{format}`.
+
+### `getOutputVariants(theme?)`
+
+```ts
+function getOutputVariants(theme?: Theme): ('light' | 'dark')[]
+```
+
+Get the output variants for a given theme. Returns `['light']`, `['dark']`, or `['light', 'dark']`.
 
 ---
 

@@ -14,8 +14,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vite-plus/test'
 import { defineConfig, getDefaultConfig, loadConfig } from './config'
+import { DiagramkitError } from './types'
 
 describe('config loading', () => {
   const originalEnv = {
@@ -229,6 +230,22 @@ describe('config loading', () => {
     expect(config.manifestFile).toBe('manifest.json')
   })
 
+  it('skips malformed nearest config and keeps searching parent directories', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-fallback-'))
+    const nested = join(root, 'a', 'b')
+    tempDirs.push(root)
+
+    mkdirSync(nested, { recursive: true })
+    writeFileSync(join(root, 'diagramkit.config.json5'), `{ outputDir: '_root' }`)
+    writeFileSync(join(nested, 'diagramkit.config.json5'), '{ broken json5 ')
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig(undefined, nested)
+
+    expect(config.outputDir).toBe('_root')
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping file'))
+  })
+
   it('deep-merges extensionMap so layers accumulate', () => {
     const home = mkdtempSync(join(tmpdir(), 'diagramkit-config-extmap-'))
     const repo = mkdtempSync(join(tmpdir(), 'diagramkit-config-extmap-repo-'))
@@ -263,5 +280,104 @@ describe('config loading', () => {
     const config = loadConfig({ outputPrefix: 'diagram-', outputSuffix: '-v2' })
     expect(config.outputPrefix).toBe('diagram-')
     expect(config.outputSuffix).toBe('-v2')
+  })
+
+  it('resets invalid option types to defaults and warns', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig({
+      outputDir: '../escape' as unknown as string,
+      manifestFile: 123 as unknown as string,
+      useManifest: 'yes' as unknown as boolean,
+      sameFolder: 'no' as unknown as boolean,
+      defaultFormats: [] as unknown as ['svg'],
+      defaultTheme: 42 as unknown as 'both',
+    })
+
+    expect(config.outputDir).toBe('.diagramkit')
+    expect(config.manifestFile).toBe('manifest.json')
+    expect(config.useManifest).toBe(true)
+    expect(config.sameFolder).toBe(false)
+    expect(config.defaultFormats).toEqual(['svg'])
+    expect(config.defaultTheme).toBe('both')
+    expect(warnSpy).toHaveBeenCalled()
+  })
+
+  it('resets invalid theme values to defaults', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig({
+      defaultTheme: 'neon' as unknown as 'both',
+    })
+
+    expect(config.defaultTheme).toBe('both')
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('invalid config value for defaultTheme'),
+    )
+  })
+
+  it('throws in strict mode for invalid override values', () => {
+    expect(() =>
+      loadConfig({ outputDir: '../escape' as unknown as string }, undefined, undefined, {
+        strict: true,
+      }),
+    ).toThrow(DiagramkitError)
+  })
+
+  it('throws in strict mode for malformed local config', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-strict-bad-'))
+    tempDirs.push(root)
+
+    writeFileSync(join(root, 'diagramkit.config.json5'), '{ broken json5 ')
+    expect(() => loadConfig(undefined, root, undefined, { strict: true })).toThrow(DiagramkitError)
+  })
+})
+
+describe('getFileOverrides', () => {
+  let getFileOverrides: typeof import('./config').getFileOverrides
+
+  beforeAll(async () => {
+    const mod = await import('./config')
+    getFileOverrides = mod.getFileOverrides
+  })
+
+  it('returns undefined when no overrides are configured', () => {
+    expect(getFileOverrides('/repo/docs/flow.mermaid', {})).toBeUndefined()
+  })
+
+  it('matches by exact filename', () => {
+    const override = { formats: ['png'] as import('./types').OutputFormat[] }
+    const result = getFileOverrides('/repo/docs/flow.mermaid', {
+      overrides: { 'flow.mermaid': override },
+    })
+    expect(result).toEqual(override)
+  })
+
+  it('matches by relative path when rootDir is provided', () => {
+    const override = { theme: 'dark' as const }
+    const result = getFileOverrides(
+      '/repo/docs/arch.mermaid',
+      { overrides: { 'docs/arch.mermaid': override } },
+      '/repo',
+    )
+    expect(result).toEqual(override)
+  })
+
+  it('matches simple glob patterns with wildcard', () => {
+    const override = { scale: 3 }
+    const result = getFileOverrides(
+      '/repo/docs/flow.mermaid',
+      { overrides: { '*.mermaid': override } },
+      '/repo',
+    )
+    expect(result).toEqual(override)
+  })
+
+  it('matches globstar patterns', () => {
+    const override = { quality: 80 }
+    const result = getFileOverrides(
+      '/repo/docs/sub/flow.excalidraw',
+      { overrides: { 'docs/**/*.excalidraw': override } },
+      '/repo',
+    )
+    expect(result).toEqual(override)
   })
 })

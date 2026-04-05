@@ -16,12 +16,22 @@ const DEFAULT_EXTENSION_MAP: Record<string, DiagramType> = {
 }
 
 const DEFAULT_SORTED_KEYS = Object.keys(DEFAULT_EXTENSION_MAP).sort((a, b) => b.length - a.length)
+const SORTED_KEYS_CACHE = new WeakMap<Record<string, DiagramType>, string[]>()
 
-/** Merge defaults with optional overrides. */
+function getSortedKeys(map: Record<string, DiagramType>): string[] {
+  if (map === DEFAULT_EXTENSION_MAP) return DEFAULT_SORTED_KEYS
+  const cached = SORTED_KEYS_CACHE.get(map)
+  if (cached) return cached
+  const sorted = Object.keys(map).sort((a, b) => b.length - a.length)
+  SORTED_KEYS_CACHE.set(map, sorted)
+  return sorted
+}
+
+/** Merge defaults with optional overrides. Returns the default map by reference when no overrides. */
 export function getExtensionMap(
   overrides?: Record<string, DiagramType>,
 ): Record<string, DiagramType> {
-  if (!overrides) return { ...DEFAULT_EXTENSION_MAP }
+  if (!overrides) return DEFAULT_EXTENSION_MAP
   return { ...DEFAULT_EXTENSION_MAP, ...overrides }
 }
 
@@ -33,11 +43,7 @@ export function getDiagramType(
   filename: string,
   map: Record<string, DiagramType> = DEFAULT_EXTENSION_MAP,
 ): DiagramType | null {
-  // Sort by descending length for correct longest-match behavior
-  const sorted =
-    map === DEFAULT_EXTENSION_MAP
-      ? DEFAULT_SORTED_KEYS
-      : Object.keys(map).sort((a, b) => b.length - a.length)
+  const sorted = getSortedKeys(map)
   for (const ext of sorted) {
     if (filename.endsWith(ext)) return map[ext]!
   }
@@ -52,10 +58,7 @@ export function getMatchedExtension(
   filename: string,
   map: Record<string, DiagramType> = DEFAULT_EXTENSION_MAP,
 ): string | null {
-  const sorted =
-    map === DEFAULT_EXTENSION_MAP
-      ? DEFAULT_SORTED_KEYS
-      : Object.keys(map).sort((a, b) => b.length - a.length)
+  const sorted = getSortedKeys(map)
   for (const ext of sorted) {
     if (filename.endsWith(ext)) return ext
   }

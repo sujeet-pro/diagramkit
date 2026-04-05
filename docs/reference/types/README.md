@@ -27,6 +27,53 @@ type Theme = 'light' | 'dark' | 'both'
 
 `'both'` produces two output files per diagram.
 
+### `LogLevel`
+
+```ts
+type LogLevel =
+  | 'silent'
+  | 'error'
+  | 'errors'
+  | 'warn'
+  | 'warning'
+  | 'warnings'
+  | 'info'
+  | 'log'
+  | 'verbose'
+```
+
+### `DiagramkitErrorCode`
+
+```ts
+type DiagramkitErrorCode =
+  | 'UNKNOWN_TYPE'
+  | 'RENDER_FAILED'
+  | 'MISSING_DEPENDENCY'
+  | 'CONFIG_INVALID'
+  | 'BROWSER_LAUNCH_FAILED'
+  | 'BUNDLE_FAILED'
+```
+
+### `Logger`
+
+```ts
+interface Logger {
+  log: (message: string, ...args: unknown[]) => void
+  warn: (message: string, ...args: unknown[]) => void
+  error: (message: string, ...args: unknown[]) => void
+}
+
+```
+
+### `OutputNamingOptions`
+
+```ts
+interface OutputNamingOptions {
+  prefix?: string
+  suffix?: string
+}
+```
+
 ---
 
 ## Configuration
@@ -89,15 +136,68 @@ interface DiagramFile {
 }
 ```
 
-### `StaleFile`
+### `RenderableFile`
 
 ```ts
-type StaleFile = DiagramFile & {
+interface RenderableFile extends DiagramFile {
   /** SHA-256 content hash (internal) */
   _hash?: string
   /** Effective formats after applying overrides (internal) */
   _effectiveFormats?: OutputFormat[]
+  /** Per-output metadata for manifest entries (internal) */
+  _outputMeta?: OutputMetadata[]
 }
+```
+
+### `OutputMetadata`
+
+```ts
+interface OutputMetadata {
+  /** Output filename */
+  file: string
+  /** Output format */
+  format: OutputFormat
+  /** Theme variant */
+  theme: 'light' | 'dark'
+  /** SVG width in pixels (SVG only) */
+  width?: number
+  /** SVG height in pixels (SVG only) */
+  height?: number
+  /** JPEG/WebP/AVIF quality used */
+  quality?: number
+  /** Raster scale factor used */
+  scale?: number
+}
+```
+
+### `StaleFile`
+
+```ts
+type StaleFile = RenderableFile
+```
+
+Alias for `RenderableFile`. Returned by `filterStaleFiles()`.
+
+### `StalePlanEntry`
+
+```ts
+interface StalePlanEntry {
+  path: string
+  effectiveFormats: OutputFormat[]
+  reasons: StaleReason[]
+}
+```
+
+### `StaleReasonCode`
+
+```ts
+type StaleReasonCode =
+  | 'forced'
+  | 'manifest_disabled'
+  | 'no_manifest_entry'
+  | 'theme_changed'
+  | 'missing_outputs'
+  | 'content_changed'
 ```
 
 ---
@@ -122,6 +222,8 @@ interface RenderOptions {
   mermaidDarkTheme?: Record<string, string>
   /** Config overrides */
   config?: Partial<DiagramkitConfig>
+  /** Browser pool instance for isolated runtimes (advanced) */
+  pool?: BrowserPool
 }
 ```
 
@@ -154,6 +256,24 @@ interface RenderAllResult {
   skipped: string[]
   /** Files that failed */
   failed: string[]
+  /** Structured failure details aligned with `failed` */
+  failedDetails: RenderFailureDetail[]
+  /** Optional batch timing and lane metrics (when includeMetrics is true) */
+  metrics?: {
+    durationMs: number
+    lanesUsed: number
+    countsByType: Partial<Record<DiagramType, { rendered: number; failed: number }>>
+  }
+}
+```
+
+### `RenderFailureDetail`
+
+```ts
+interface RenderFailureDetail {
+  file: string
+  message: string
+  code: DiagramkitErrorCode
 }
 ```
 
@@ -176,7 +296,15 @@ interface BatchOptions extends RenderOptions {
   /** Output formats (overrides config). */
   formats?: OutputFormat[]
   /** Custom logger */
-  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
+  logger?: Logger
+  /** Logging verbosity level */
+  logLevel?: LogLevel
+  /** Show per-file progress logs during batch rendering */
+  progress?: boolean
+  /** Max number of type lanes running concurrently (1-4). Default: 4. */
+  maxConcurrentLanes?: number
+  /** Include timing and lane metrics in result */
+  includeMetrics?: boolean
 }
 ```
 
@@ -193,11 +321,25 @@ interface WatchOptions {
   /** Callback after render */
   onChange?: (file: string) => void
   /** Render options */
-  renderOptions?: RenderOptions
+  renderOptions?: RenderOptions & { formats?: OutputFormat[] }
   /** Config overrides */
   config?: Partial<DiagramkitConfig>
+  /** Explicit config file path (skips local auto-discovery) */
+  configFile?: string
   /** Custom logger */
-  logger?: { log: (...args: any[]) => void; warn: (...args: any[]) => void }
+  logger?: Logger
+  /** Logging verbosity level */
+  logLevel?: LogLevel
+  /** Strict config validation mode for watch startup */
+  strictConfig?: boolean
+  /** Optional browser pool instance for isolated runtimes */
+  pool?: import('./pool').BrowserPool
+  /** Debounce time for file events. Default: 200ms */
+  debounceMs?: number
+  /** Chokidar polling mode (useful for network volumes/containers) */
+  usePolling?: boolean
+  /** Chokidar polling interval in ms when usePolling=true */
+  pollingInterval?: number
 }
 ```
 
@@ -211,8 +353,8 @@ interface WatchOptions {
 interface ConvertOptions {
   /** Target raster format */
   format: 'png' | 'jpeg' | 'webp' | 'avif'
-  /** Scale multiplier (x72 DPI). Default: 2 */
-  density?: number
+  /** Scale multiplier for SVG rasterization. Default: 2 */
+  scale?: number
   /** JPEG/WebP quality (1-100). Default: 90 */
   quality?: number
 }
@@ -249,9 +391,11 @@ type ManifestEntry = {
 type ManifestOutput = {
   file: string
   format: OutputFormat
-  theme: Theme
+  theme: 'light' | 'dark'
   width?: number
   height?: number
+  quality?: number
+  scale?: number
 }
 ```
 
@@ -271,3 +415,38 @@ type FileOverride = {
   contrastOptimize?: boolean
 }
 ```
+
+---
+
+## Runtime Types
+
+### `RendererRuntime`
+
+```ts
+interface RendererRuntime {
+  pool: BrowserPool
+  render: (source: string, type: DiagramType, options?: RenderOptions) => Promise<RenderResult>
+  renderFile: (filePath: string, options?: RenderOptions) => Promise<RenderResult>
+  renderDiagramFileToDisk: (file: DiagramFile, options?: RenderOptions & { config?: DiagramkitConfig; outDir?: string; formats?: OutputFormat[] }) => Promise<string[]>
+  renderAll: (options?: BatchOptions) => Promise<RenderAllResult>
+  watchDiagrams: (options: WatchOptions) => () => Promise<void>
+  warmup: () => Promise<void>
+  dispose: () => Promise<void>
+}
+```
+
+Returned by `createRendererRuntime()`. Provides an isolated runtime with its own `BrowserPool`, separate from the default singleton.
+
+### `StaleReason`
+
+```ts
+type StaleReason =
+  | { code: 'forced' }
+  | { code: 'manifest_disabled' }
+  | { code: 'no_manifest_entry' }
+  | { code: 'theme_changed'; requestedTheme: Theme; manifestTheme?: Theme }
+  | { code: 'missing_outputs'; files: string[] }
+  | { code: 'content_changed'; previousHash: string; currentHash: string }
+```
+
+Discriminated union returned by `planStaleFiles()`. Each variant includes the reason code and relevant data for diagnostics.

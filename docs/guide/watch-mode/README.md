@@ -62,7 +62,24 @@ All supported extensions are monitored:
 
 `**/*.mermaid`, `**/*.mmd`, `**/*.mmdc`, `**/*.excalidraw`, `**/*.drawio`, `**/*.drawio.xml`, `**/*.dio`, `**/*.dot`, `**/*.gv`, `**/*.graphviz`
 
-Ignored: `node_modules/`, output directory (e.g. `.diagramkit/`), `dist/`.
+Ignored: `node_modules/`, hidden directories (`.git/`, `.diagramkit/`, etc.), output directory.
+
+### Advanced Watch Options
+
+| Option | Type | Default | Description |
+|:---|:---|:---|:---|
+| `debounceMs` | `number` | `200` | Debounce time for file events (ms) |
+| `usePolling` | `boolean` | `false` | Use polling mode (recommended for Docker/network volumes) |
+| `pollingInterval` | `number` | — | Polling interval in ms when `usePolling` is `true` |
+
+```ts
+const stop = watchDiagrams({
+  dir: './content',
+  usePolling: true,
+  pollingInterval: 500,
+  debounceMs: 300,
+})
+```
 
 ## Behavior
 

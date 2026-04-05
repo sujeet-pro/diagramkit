@@ -44,10 +44,14 @@ export function expectSvgFile(path: string): string {
   expect(svg).toContain('<svg')
   expect(svg).toMatch(/width="[^"]+"/)
   expect(svg).toMatch(/height="[^"]+"/)
+  // Validate it's a complete SVG document (not truncated from a partial write)
+  expect(svg).toContain('</svg>')
+  // Should contain at least one visual element (not just an empty SVG shell)
+  expect(svg).toMatch(/<(rect|path|circle|ellipse|line|polygon|polyline|text|g|use|image)\b/)
   return svg
 }
 
-export function expectRasterFile(path: string, format: 'png' | 'jpeg' | 'webp'): void {
+export function expectRasterFile(path: string, format: 'png' | 'jpeg' | 'webp' | 'avif'): void {
   expect(existsSync(path)).toBe(true)
   const buf = readFileSync(path)
   expect(buf.length).toBeGreaterThan(0)
@@ -58,6 +62,9 @@ export function expectRasterFile(path: string, format: 'png' | 'jpeg' | 'webp'):
   } else if (format === 'jpeg') {
     expect(buf[0]).toBe(0xff)
     expect(buf[1]).toBe(0xd8)
+  } else if (format === 'avif') {
+    // AVIF files have 'ftyp' at bytes 4-7
+    expect(buf.toString('ascii', 4, 8)).toBe('ftyp')
   } else {
     expect(buf.toString('ascii', 0, 4)).toBe('RIFF')
   }

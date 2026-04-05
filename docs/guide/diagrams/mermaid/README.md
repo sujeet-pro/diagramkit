@@ -11,6 +11,16 @@ description: Render Mermaid text-based diagrams with automatic light/dark theme 
 
 `.mermaid`, `.mmd`, `.mmdc` -- all treated identically.
 
+## Capability Matrix
+
+| Capability | Mermaid |
+| --- | --- |
+| Browser required | Yes |
+| Native dark mode support | Yes (separate dark page) |
+| WCAG post-process | Yes |
+| Supports `--no-contrast` | Yes |
+| Multi-format output | SVG/PNG/JPEG/WebP/AVIF |
+
 ## Supported Diagram Types
 
 All mermaid diagram types are supported, including flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, gantt charts, pie charts, git graphs, mindmaps, and timelines.
@@ -42,10 +52,20 @@ diagramkit render architecture.mermaid
 Output:
 
 ```
-.diagrams/
+.diagramkit/
   architecture-light.svg
   architecture-dark.svg
 ```
+
+## Using with AI Agents
+
+Tell your AI coding agent:
+
+> Render all mermaid files in this project to SVG
+
+Or for more control:
+
+> Render docs/architecture.mermaid to PNG and SVG with dark mode only
 
 ## Dark Mode
 
@@ -111,6 +131,13 @@ Mermaid rendering uses two persistent browser pages in the pool:
 - **Dark page** -- `mermaid.initialize({ theme: 'base', themeVariables: {...} })`
 
 Two pages are needed because `mermaid.initialize()` is global and cannot be reconfigured per-call. Both pages are reused across renders.
+
+## Gotchas
+
+- **Large diagrams** -- Mermaid rendering happens in a headless browser page. Diagrams with hundreds of nodes may be slow or exceed Chromium's rendering budget. Split large diagrams into multiple files.
+- **Custom CSS in mermaid** -- diagramkit uses `securityLevel: 'strict'`, so custom CSS or JavaScript in mermaid directives is blocked.
+- **`mermaid.initialize()` is global** -- diagramkit uses separate browser pages for light and dark themes because the initialization is not per-call. Custom theme variables only apply to the dark page via the API's `mermaidDarkTheme` option.
+- **The contrast optimizer may shift colors** -- fills with high luminance (above 0.4 relative luminance) are darkened to lightness 0.25 while preserving hue. Bright yellows, cyans, and whites are most affected.
 
 ## Tips
 

@@ -7,6 +7,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { loadConfig } from './config'
+import { readManifest, updateManifest } from './manifest'
 
 // Capture watcher event handlers
 let watcherHandlers: Record<string, (path: string) => void> = {}
@@ -40,7 +42,7 @@ vi.mock('./renderer', () => ({
 vi.mock('./manifest', () => ({
   hashFile: vi.fn(() => 'sha256:mockhash1234'),
   updateManifest: vi.fn(),
-  readManifest: vi.fn(() => ({ version: 1, diagrams: {} })),
+  readManifest: vi.fn(() => ({ version: 2, diagrams: {} })),
 }))
 
 vi.mock('./config', () => ({
@@ -95,6 +97,13 @@ describe('watchDiagrams', () => {
   it('returns an async cleanup function', () => {
     const cleanup = watchDiagrams({ dir: '/test' })
     expect(typeof cleanup).toBe('function')
+  })
+
+  it('passes explicit configFile to loadConfig', () => {
+    watchDiagrams({ dir: '/test', configFile: '/tmp/custom.json5' })
+    expect(vi.mocked(loadConfig)).toHaveBeenCalledWith(undefined, '/test', '/tmp/custom.json5', {
+      strict: false,
+    })
   })
 
   it('cleanup closes watcher', async () => {
@@ -187,5 +196,36 @@ describe('watchDiagrams', () => {
     await vi.advanceTimersByTimeAsync(250)
 
     expect(renderCalls).toEqual(['/test/dependency.dot'])
+  })
+
+  it('updates manifest using effective formats from existing entry', async () => {
+    vi.mocked(readManifest).mockReturnValue({
+      version: 2,
+      diagrams: {
+        'diagram.mermaid': {
+          hash: 'sha256:old',
+          generatedAt: new Date().toISOString(),
+          outputs: [],
+          formats: ['png'],
+        },
+      },
+    })
+
+    watchDiagrams({
+      dir: '/test',
+      renderOptions: { formats: ['svg'], theme: 'both' },
+    })
+
+    const handler = watcherHandlers.change
+    if (!handler) throw new Error('change handler not registered')
+    handler('/test/diagram.mermaid')
+    await vi.advanceTimersByTimeAsync(250)
+
+    expect(vi.mocked(updateManifest)).toHaveBeenCalledWith(
+      expect.any(Array),
+      ['svg', 'png'],
+      expect.any(Object),
+      'both',
+    )
   })
 })

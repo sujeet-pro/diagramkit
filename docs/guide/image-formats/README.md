@@ -14,8 +14,8 @@ diagramkit supports five output formats. SVG is the default and recommended form
 | SVG | Vector | Yes | Smallest | Web, docs, version control |
 | PNG | Raster | Yes | Medium | Documentation, presentations, README |
 | JPEG | Raster | No | Small | Slides, email, social media |
-| WebP | Raster | Yes | Smallest raster | Modern web, performance-optimized sites |
-| AVIF | Raster | Yes | Smallest raster | Next-gen web, best compression |
+| WebP | Raster | Yes | Small raster | Modern web, performance-optimized sites |
+| AVIF | Raster | Yes | Often smallest raster | Next-gen web, best compression |
 
 ## SVG (Default and Recommended)
 
@@ -79,7 +79,7 @@ Controls pixel density for raster output. No effect on SVG.
 
 ### Quality (`--quality`)
 
-Lossy compression for JPEG and WebP. Ignored for SVG and PNG.
+Lossy compression for JPEG, WebP, and AVIF. Ignored for SVG and PNG.
 
 | Quality | Result |
 |:--------|:-------|
@@ -93,7 +93,7 @@ Lossy compression for JPEG and WebP. Ignored for SVG and PNG.
 For raster formats, diagramkit always renders to SVG first, then converts via [sharp](https://sharp.pixelplumbing.com/):
 
 1. Render diagram to SVG (headless Chromium or Viz.js)
-2. Pass SVG through sharp with requested density and quality
+2. Pass SVG through sharp with requested scale and quality
 3. Write raster output for each theme variant
 
 The same pipeline is available standalone via `convertSvg()`:
@@ -101,7 +101,7 @@ The same pipeline is available standalone via `convertSvg()`:
 ```ts
 import { convertSvg } from 'diagramkit/convert'
 
-const png = await convertSvg(svgBuffer, { format: 'png', density: 2 })
+const png = await convertSvg(svgBuffer, { format: 'png', scale: 2 })
 ```
 
 ## When to Use Each Format

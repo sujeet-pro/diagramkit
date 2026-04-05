@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { adaptGraphvizSvgForDarkMode, injectGraphvizDefaults } from './graphviz'
+import { adaptGraphvizSvgForDarkMode, injectGraphvizDefaults, renderGraphviz } from './graphviz'
 
 describe('injectGraphvizDefaults', () => {
   it('injects a transparent graph background after the opening brace', () => {
@@ -33,5 +33,57 @@ describe('adaptGraphvizSvgForDarkMode', () => {
     expect(result).toContain('fill="#94a3b8"')
     expect(result).toContain('fill="#e5e7eb">A</text>')
     expect(result).toContain('fill="#e5e7eb">B</text>')
+  })
+
+  it('preserves fill="none" without rewriting', () => {
+    const svg = '<svg><ellipse fill="none" stroke="black" /></svg>'
+    const result = adaptGraphvizSvgForDarkMode(svg)
+    expect(result).toContain('fill="none"')
+  })
+})
+
+describe('renderGraphviz', () => {
+  const validDot = 'digraph { A -> B }'
+
+  it('returns only lightSvg when theme is light', async () => {
+    const result = await renderGraphviz(validDot, { theme: 'light' })
+    expect(result.lightSvg).toBeDefined()
+    expect(result.lightSvg).toContain('<svg')
+    expect(result.darkSvg).toBeUndefined()
+  })
+
+  it('returns only darkSvg when theme is dark', async () => {
+    const result = await renderGraphviz(validDot, { theme: 'dark' })
+    expect(result.darkSvg).toBeDefined()
+    expect(result.darkSvg).toContain('<svg')
+    expect(result.lightSvg).toBeUndefined()
+  })
+
+  it('returns both variants when theme is both', async () => {
+    const result = await renderGraphviz(validDot, { theme: 'both' })
+    expect(result.lightSvg).toBeDefined()
+    expect(result.darkSvg).toBeDefined()
+  })
+
+  it('applies dark mode adaptation to darkSvg', async () => {
+    const result = await renderGraphviz(validDot, { theme: 'dark' })
+    expect(result.darkSvg).toContain('#e5e7eb')
+  })
+
+  it('skips contrast optimization when contrastOptimize is false', async () => {
+    const withContrast = await renderGraphviz(validDot, {
+      theme: 'dark',
+      contrastOptimize: true,
+    })
+    const without = await renderGraphviz(validDot, {
+      theme: 'dark',
+      contrastOptimize: false,
+    })
+    expect(withContrast.darkSvg).toContain('#e5e7eb')
+    expect(without.darkSvg).toContain('#e5e7eb')
+  })
+
+  it('throws a descriptive error for invalid DOT syntax', async () => {
+    await expect(renderGraphviz('not valid dot {')).rejects.toThrow()
   })
 })
