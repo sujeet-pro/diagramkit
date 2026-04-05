@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'pagesmith.config.json5'
+      - 'llms.txt'
+      - 'llms-full.txt'
+      - 'llms-quick.txt'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
@@ -39,13 +43,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install @pagesmith/docs
+        run: npm install --no-save @pagesmith/docs
+
       - name: Build docs
         run: npm run docs:build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: docs/.vitepress/dist
+          path: gh-pages
 
   deploy:
     needs: build

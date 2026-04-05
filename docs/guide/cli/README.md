@@ -38,6 +38,15 @@ Pre-install the Playwright Chromium browser binary. Run once per environment.
 diagramkit warmup
 ```
 
+### `doctor`
+
+Validate environment readiness (Node, Playwright, Chromium, sharp):
+
+```bash
+diagramkit doctor
+diagramkit doctor --json
+```
+
 ### `init`
 
 Create a config file in the current directory.
@@ -123,6 +132,10 @@ diagramkit render . --output-dir images
 
 # Place outputs next to source files (no subfolder)
 diagramkit render . --same-folder
+
+# Add prefix/suffix to output filenames
+diagramkit render . --output-prefix "dk-"
+diagramkit render . --output-suffix "-v2"
 ```
 
 ### Explicit Config File
@@ -144,8 +157,13 @@ diagramkit render . --manifest-file custom-manifest.json # custom manifest filen
 
 ```bash
 diagramkit render . --dry-run    # preview what would render, without rendering
+diagramkit render . --plan       # include stale reasons in plan output
 diagramkit render . --quiet      # suppress info output, errors only
+diagramkit render . --log-level warn
+diagramkit render . --log-level verbose
 diagramkit render . --json       # machine-readable JSON output
+diagramkit render . --strict-config
+diagramkit render . --max-type-lanes 2
 ```
 
 ## Global Flags
@@ -155,6 +173,7 @@ diagramkit --help       # show help
 diagramkit -h
 diagramkit --version    # show version
 diagramkit -v
+diagramkit --agent-help # output full reference for LLM agents
 ```
 
 ## Examples
@@ -162,6 +181,7 @@ diagramkit -v
 ```bash
 # Render everything with defaults
 diagramkit render .
+diagramkit .    # alias for "render ."
 
 # High-res PNGs for documentation
 diagramkit render ./docs --format png --scale 3
@@ -183,7 +203,17 @@ diagramkit render . --config ./ci.config.json5
 
 # CI: JSON output, no caching
 diagramkit render . --json --no-manifest
+
+# CI: explain stale reasons before rendering
+diagramkit render . --plan --json
 ```
+
+## JSON Contract Upgrade
+
+`--json` now emits a versioned envelope with `schemaVersion: 1` and nested `result`.  
+If you parsed legacy root-level JSON fields directly, migrate to `result.*`.
+
+JSON schema: `schemas/diagramkit-cli-render.v1.json` (shipped in npm package).
 
 ## Exit Codes
 

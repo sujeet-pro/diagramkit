@@ -26,11 +26,15 @@ Requires `npm run build` first — CLI tests run against the built `dist/cli/bin
 
 ### CLI Tests (cli-render.e2e.test.ts)
 
-| #   | Name                                               | What it verifies                              |
-| --- | -------------------------------------------------- | --------------------------------------------- |
-| 6   | Single file to custom output dir                   | `--output` flag, dark theme only              |
-| 7   | Directory with custom output-dir and manifest-file | `--output-dir` + `--manifest-file`, PNG light |
-| 8   | Same-folder + no-manifest + type filter            | `--same-folder --no-manifest --type mermaid`  |
+| #   | Name                                               | What it verifies                               |
+| --- | -------------------------------------------------- | ---------------------------------------------- |
+| 6   | Single file to custom output dir                   | `--output` flag, dark theme only               |
+| 7   | Directory with custom output-dir and manifest-file | `--output-dir` + `--manifest-file`, PNG light  |
+| 8   | Same-folder + no-manifest + type filter            | `--same-folder --no-manifest --type mermaid`   |
+| 9   | Watch mode re-renders on file change               | `--watch` picks up source edits and re-renders |
+| 10  | JSON envelope output                               | `--json` returns schemaVersioned envelope      |
+| 11  | Plan mode JSON with stale reasons                  | `--plan --json` includes stale reason metadata |
+| 12  | Doctor command JSON                                | `doctor --json` returns diagnostics            |
 
 ## Structure
 

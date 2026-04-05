@@ -1,0 +1,18 @@
+flowchart LR
+    A[Source File] --> B{Detect Type}
+    B -->|.mermaid .mmd| C[Mermaid]
+    B -->|.excalidraw| D[Excalidraw]
+    B -->|.drawio .dio| E[Draw.io]
+    B -->|.dot .gv| F[Graphviz]
+    C --> G[Browser Pool<br/>Chromium]
+    D --> G
+    E --> G
+    F --> H[Viz.js WASM]
+    G --> I[SVG Output]
+    H --> I
+    I --> J{Raster?}
+    J -->|No| K[Write SVG]
+    J -->|Yes| L[sharp]
+    L --> M[PNG / JPEG /<br/>WebP / AVIF]
+    K --> N[Atomic Write<br/>.tmp → rename]
+    M --> N

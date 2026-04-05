@@ -2,14 +2,9 @@ import { randomBytes } from 'node:crypto'
 import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, join, relative } from 'node:path'
 import { getExtensionMap, getMatchedExtension } from './extensions'
-import type { DiagramType, OutputFormat, RenderResult, Theme } from './types'
+import type { DiagramType, OutputFormat, OutputNamingOptions, RenderResult, Theme } from './types'
 
 type OutputVariant = 'light' | 'dark'
-
-export interface OutputNamingOptions {
-  prefix?: string
-  suffix?: string
-}
 
 export function atomicWrite(path: string, content: Buffer): void {
   const tmp = path + '.tmp.' + randomBytes(4).toString('hex')

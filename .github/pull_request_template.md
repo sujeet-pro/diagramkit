@@ -13,7 +13,8 @@
 
 ## Checklist
 
-- [ ] `npm run validate` passes (lint, typecheck, build, docs, tests)
+- [ ] `npm run validate` passes (lint/format, typecheck, lib build, tests)
+- [ ] `npm run docs:build` passes (when docs are changed)
 - [ ] Tests added/updated for new behavior
 - [ ] Documentation updated if needed
 - [ ] CLAUDE.md updated if architecture changed

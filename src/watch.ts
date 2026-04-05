@@ -2,6 +2,8 @@ import { watch as chokidarWatch } from 'chokidar'
 import { basename, dirname } from 'node:path'
 import { loadConfig } from './config'
 import { getExtensionMap, getMatchedExtension } from './extensions'
+import { createLeveledLogger } from './logging'
+import type { Manifest } from './manifest'
 import { hashFile, readManifest, updateManifest } from './manifest'
 import { renderDiagramFileToDisk } from './renderer'
 import type { DiagramFile, DiagramType, WatchOptions } from './types'
@@ -27,22 +29,29 @@ function toDiagramFile(
  */
 export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   const dir = opts.dir
-  const config = loadConfig(opts.config, dir)
+  const config = loadConfig(opts.config, dir, opts.configFile, {
+    strict: opts.strictConfig ?? false,
+  })
   const requestedFormats =
     opts.renderOptions?.formats ??
     (opts.renderOptions?.format ? [opts.renderOptions.format] : config.defaultFormats)
   const theme = opts.renderOptions?.theme ?? config.defaultTheme
   const extensionMap = getExtensionMap(config.extensionMap)
-  const log = opts.logger?.log ?? console.log
-  const warn = opts.logger?.warn ?? console.warn
+  const logger = createLeveledLogger(opts.logLevel, opts.logger)
 
-  log('Watching for diagram changes...\n')
+  logger.info('Watching for diagram changes...\n')
 
   const outputDirPattern = config.outputDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   // Watch the directory (not globs) — chokidar v5 does not fire events for glob patterns
   const watcher = chokidarWatch(dir, {
     ignoreInitial: true,
     ignored: [/node_modules/, /\/dist\//, new RegExp(`(^|/)${outputDirPattern}(/|$)`)],
+    awaitWriteFinish: {
+      stabilityThreshold: 150,
+      pollInterval: opts.pollingInterval ?? 100,
+    },
+    usePolling: opts.usePolling ?? false,
+    interval: opts.pollingInterval ?? 100,
   })
 
   // Per-file debounce to prevent concurrent renders on rapid saves
@@ -51,6 +60,17 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
   let rendering = false
   const queue: string[] = []
   const queueSet = new Set<string>()
+  // In-memory manifest cache per directory — invalidated after successful renders
+  const manifestCache = new Map<string, Manifest>()
+
+  const getCachedManifest = (dir: string): Manifest => {
+    let cached = manifestCache.get(dir)
+    if (!cached) {
+      cached = readManifest(dir, config)
+      manifestCache.set(dir, cached)
+    }
+    return cached
+  }
 
   const handle = async (path: string) => {
     const file = toDiagramFile(path, extensionMap)
@@ -60,7 +80,7 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
       // Accumulate formats from manifest so previously generated formats are re-rendered
       let effectiveFormats = requestedFormats
       if (config.useManifest) {
-        const manifest = readManifest(file.dir, config)
+        const manifest = getCachedManifest(file.dir)
         const entry = manifest.diagrams[basename(file.path)]
         if (entry?.formats) {
           effectiveFormats = [...new Set([...requestedFormats, ...entry.formats])]
@@ -75,6 +95,7 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
         contrastOptimize: opts.renderOptions?.contrastOptimize,
         mermaidDarkTheme: opts.renderOptions?.mermaidDarkTheme,
         config,
+        pool: opts.pool,
       })
       if (config.useManifest) {
         // Pre-compute hash so updateManifest does not re-read and re-hash the file
@@ -83,12 +104,14 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
           _hash: hashFile(file.path),
           _effectiveFormats: effectiveFormats,
         }
-        updateManifest([fileWithHash], requestedFormats, config, theme)
+        updateManifest([fileWithHash], effectiveFormats, config, theme)
+        // Invalidate cache so next render picks up the updated manifest
+        manifestCache.delete(file.dir)
       }
       opts.onChange?.(path)
-    } catch (err: any) {
-      // Safe mode: render failed, leave output and manifest untouched
-      warn(`  Render failed: ${path} — ${err.message}`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error(`  Render failed: ${path} — ${message}. Fix the diagram and save to retry.`)
     }
   }
 
@@ -118,7 +141,7 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
           queueSet.add(path)
         }
         void processQueue()
-      }, 200),
+      }, opts.debounceMs ?? 200),
     )
   }
 
@@ -129,13 +152,13 @@ export function watchDiagrams(opts: WatchOptions): () => Promise<void> {
 
   watcher.on('change', (path) => {
     if (!isDiagramFile(path)) return
-    log(`Changed: ${path}`)
+    logger.verbose(`Changed: ${path}`)
     debouncedHandle(path)
   })
 
   watcher.on('add', (path) => {
     if (!isDiagramFile(path)) return
-    log(`Added: ${path}`)
+    logger.verbose(`Added: ${path}`)
     debouncedHandle(path)
   })
 

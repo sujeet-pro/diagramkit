@@ -11,6 +11,16 @@ description: Render Graphviz DOT files to SVG with automatic dark mode adaptatio
 
 `.dot`, `.gv`, `.graphviz`
 
+## Capability Matrix
+
+| Capability | Graphviz |
+| --- | --- |
+| Browser required | No |
+| Native dark mode support | Partial (post-process adaptation) |
+| WCAG post-process | Yes |
+| Supports `--no-contrast` | Yes |
+| Multi-format output | SVG/PNG/JPEG/WebP/AVIF |
+
 ## Quick Start
 
 Create `dependency.dot`:
@@ -34,18 +44,28 @@ diagramkit render dependency.dot
 Output:
 
 ```
-.diagrams/
+.diagramkit/
   dependency-light.svg
   dependency-dark.svg
 ```
+
+## Using with AI Agents
+
+Tell your AI coding agent:
+
+> Render all graphviz dot files in this project to SVG
+
+Or for more control:
+
+> Render docs/dependency.dot to PNG at 3x scale with light mode only
 
 ## Dark Mode
 
 Graphviz SVG defaults to black strokes and text. diagramkit adapts the output for dark mode:
 
 1. Renders with a transparent graph background
-2. Rewrites default black text and strokes to dark-surface-friendly colors
-3. Applies the fill contrast optimizer when `contrastOptimize` is enabled
+2. Applies WCAG contrast optimization when `contrastOptimize` is enabled
+3. Rewrites default black text and strokes to dark-surface-friendly colors
 
 This keeps unstyled DOT diagrams readable on dark backgrounds while preserving any explicit non-black colors from the source.
 
@@ -72,6 +92,13 @@ const result = await render(
   { format: 'svg', theme: 'both' },
 )
 ```
+
+## Gotchas
+
+- **Only `svg` format from Viz.js** -- Graphviz renders to SVG via WASM, then diagramkit converts to raster if needed. The DOT `format` directive is ignored; diagramkit always requests SVG.
+- **Layout algorithms** -- Viz.js supports `dot`, `neato`, `fdp`, `sfdp`, `twopi`, and `circo`. The default is `dot`. Large graphs (500+ nodes) may be slow with `neato` or `fdp`.
+- **Dark mode adaptation** -- default black strokes become `#94a3b8` and text becomes `#e5e7eb`. Only unstyled (black) elements are affected; explicitly colored elements are preserved.
+- **No browser needed** -- Graphviz is the only engine that skips the browser pool. It renders faster and does not require `diagramkit warmup`.
 
 ## Tips
 

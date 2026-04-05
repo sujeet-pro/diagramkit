@@ -7,7 +7,12 @@ const GRAPHVIZ_DARK_TEXT = '#e5e7eb'
 let vizPromise: Promise<Viz> | null = null
 
 async function getViz(): Promise<Viz> {
-  if (!vizPromise) vizPromise = instance()
+  if (!vizPromise) {
+    vizPromise = instance().catch((err) => {
+      vizPromise = null
+      throw err
+    })
+  }
   return vizPromise
 }
 
@@ -53,12 +58,21 @@ export async function renderGraphviz(
   let lightSvg: string | undefined
   let darkSvg: string | undefined
 
-  if (theme === 'light' || theme === 'both') {
+  if (theme === 'both') {
+    const baseSvg = viz.renderString(preparedSource, { format: 'svg' })
+    lightSvg = baseSvg
+    darkSvg = baseSvg
+  } else if (theme === 'light') {
     lightSvg = viz.renderString(preparedSource, { format: 'svg' })
+  } else if (theme === 'dark') {
+    darkSvg = viz.renderString(preparedSource, { format: 'svg' })
   }
 
-  if (theme === 'dark' || theme === 'both') {
-    darkSvg = viz.renderString(preparedSource, { format: 'svg' })
+  if (darkSvg) {
+    // postProcessDarkSvg runs first on the raw SVG (mostly black fills → no-op since luminance < 0.4),
+    // then adaptGraphvizSvgForDarkMode sets purpose-built dark-friendly text/stroke colors.
+    // This order is intentional: the adapted colors (#e5e7eb, #94a3b8) are already optimized
+    // for dark backgrounds and must not be further darkened by the contrast optimizer.
     if (contrastOptimize) {
       darkSvg = postProcessDarkSvg(darkSvg)
     }

@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph Mermaid
+        direction TB
+        M1[Separate Dark Page<br/>mermaid.initialize dark] --> M2[Render SVG]
+        M2 --> M3[postProcessDarkSvg<br/>WCAG contrast fix]
+    end
+
+    subgraph Excalidraw
+        direction TB
+        E1[Same Page<br/>darkMode: true] --> E2[Render SVG<br/>native dark support]
+    end
+
+    subgraph Draw.io
+        direction TB
+        D1[Same Page<br/>darkMode: true] --> D2[Render SVG<br/>adjustColorForDark in browser]
+    end
+
+    subgraph Graphviz
+        direction TB
+        G1[Viz.js WASM] --> G2[postProcessDarkSvg<br/>WCAG contrast fix]
+        G2 --> G3[adaptGraphvizSvgForDarkMode<br/>black → dark-friendly colors]
+    end

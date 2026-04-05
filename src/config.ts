@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join, relative } from 'node:path'
-import type { DiagramkitConfig, FileOverride, OutputFormat, Theme } from './types'
+import { basename, dirname, join, relative } from 'node:path'
+import {
+  DiagramkitError,
+  type DiagramkitConfig,
+  type FileOverride,
+  type OutputFormat,
+  type Theme,
+} from './types'
 
 const require = createRequire(import.meta.url)
 
@@ -40,7 +46,23 @@ function getGlobalConfigDir(): string | null {
   return join(base, 'diagramkit')
 }
 
-function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
+type ConfigLoadRuntime = {
+  strict?: boolean
+  warn?: (message: string) => void
+}
+
+function warnOrThrow(
+  message: string,
+  runtime: ConfigLoadRuntime,
+  code: 'CONFIG_INVALID' = 'CONFIG_INVALID',
+): never | void {
+  if (runtime.strict) {
+    throw new DiagramkitError(code, message)
+  }
+  ;(runtime.warn ?? console.warn)(message)
+}
+
+function loadGlobalConfig(runtime: ConfigLoadRuntime): Partial<DiagramkitConfig> | null {
   const dir = getGlobalConfigDir()
   if (!dir) return null
 
@@ -54,7 +76,9 @@ function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
         return migrateRawConfig(JSON5.parse(readFileSync(path, 'utf-8')))
       }
       return migrateRawConfig(JSON.parse(readFileSync(path, 'utf-8')))
-    } catch {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      warnOrThrow(`Warning: failed to parse global config ${path}: ${msg}. Skipping.`, runtime)
       continue
     }
   }
@@ -63,7 +87,10 @@ function loadGlobalConfig(): Partial<DiagramkitConfig> | null {
 
 /* ── Local config (walks up to filesystem root) ── */
 
-function loadLocalConfig(dir: string): Partial<DiagramkitConfig> | null {
+function loadLocalConfig(
+  dir: string,
+  runtime: ConfigLoadRuntime,
+): Partial<DiagramkitConfig> | null {
   let current = dir
   while (true) {
     for (const name of LOCAL_CONFIG_NAMES) {
@@ -81,8 +108,10 @@ function loadLocalConfig(dir: string): Partial<DiagramkitConfig> | null {
           return migrateRawConfig(JSON5.parse(readFileSync(path, 'utf-8')))
         }
         return migrateRawConfig(JSON.parse(readFileSync(path, 'utf-8')))
-      } catch {
-        return null
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        warnOrThrow(`Warning: failed to parse config ${path}: ${msg}. Skipping file.`, runtime)
+        continue
       }
     }
     const parent = dirname(current)
@@ -98,9 +127,11 @@ function loadEnvConfig(): Partial<DiagramkitConfig> {
   const env: Partial<DiagramkitConfig> = {}
 
   if (process.env.DIAGRAMKIT_FORMAT) {
+    const validFmts: OutputFormat[] = ['svg', 'png', 'jpeg', 'webp', 'avif']
     const formats = process.env.DIAGRAMKIT_FORMAT.split(',')
       .map((s) => s.trim())
-      .filter(Boolean) as OutputFormat[]
+      .filter(Boolean)
+      .filter((f) => validFmts.includes(f as OutputFormat)) as OutputFormat[]
     if (formats.length > 0) env.defaultFormats = formats
   }
 
@@ -122,31 +153,35 @@ function loadEnvConfig(): Partial<DiagramkitConfig> {
 
 /* ── Config migration (backward compat for old field names) ── */
 
-function migrateRawConfig(raw: any): Partial<DiagramkitConfig> {
+function migrateRawConfig(raw: unknown): Partial<DiagramkitConfig> {
   if (!raw || typeof raw !== 'object') return {}
+  const obj = raw as Record<string, unknown>
 
   // Migrate old defaultFormat (string) → defaultFormats (array)
-  if ('defaultFormat' in raw && !('defaultFormats' in raw)) {
-    raw.defaultFormats = [raw.defaultFormat]
+  if ('defaultFormat' in obj && !('defaultFormats' in obj)) {
+    obj.defaultFormats = [obj.defaultFormat]
   }
-  delete raw.defaultFormat
+  delete obj.defaultFormat
 
   // Migrate old outputDir '.diagrams' → '.diagramkit'
-  if (raw.outputDir === '.diagrams') {
-    raw.outputDir = '.diagramkit'
+  if (obj.outputDir === '.diagrams') {
+    obj.outputDir = '.diagramkit'
   }
 
   // Migrate old manifestFile 'diagrams.manifest.json' → 'manifest.json'
-  if (raw.manifestFile === 'diagrams.manifest.json') {
-    raw.manifestFile = 'manifest.json'
+  if (obj.manifestFile === 'diagrams.manifest.json') {
+    obj.manifestFile = 'manifest.json'
   }
 
-  return raw
+  return obj as Partial<DiagramkitConfig>
 }
 
 /* ── Explicit config file ── */
 
-function loadExplicitConfig(configPath: string): Partial<DiagramkitConfig> | null {
+function loadExplicitConfig(
+  configPath: string,
+  runtime: ConfigLoadRuntime,
+): Partial<DiagramkitConfig> | null {
   const path = join(configPath) // normalize
   if (!existsSync(path)) {
     throw new Error(`Config file not found: ${configPath}`)
@@ -162,9 +197,11 @@ function loadExplicitConfig(configPath: string): Partial<DiagramkitConfig> | nul
       return migrateRawConfig(JSON5.parse(readFileSync(path, 'utf-8')))
     }
     return migrateRawConfig(JSON.parse(readFileSync(path, 'utf-8')))
-  } catch (err: any) {
-    if (err.message?.startsWith('Config file not found')) throw err
-    throw new Error(`Failed to load config file: ${configPath} — ${err.message}`)
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message?.startsWith('Config file not found')) throw err
+    const message = err instanceof Error ? err.message : String(err)
+    warnOrThrow(`Failed to load config file: ${configPath} — ${message}`, runtime)
+    return null
   }
 }
 
@@ -174,12 +211,21 @@ export function loadConfig(
   overrides?: Partial<DiagramkitConfig>,
   dir?: string,
   configFile?: string,
+  options: ConfigLoadRuntime = {},
 ): DiagramkitConfig {
+  const runtime: ConfigLoadRuntime = {
+    strict: options.strict ?? false,
+    warn: options.warn ?? console.warn,
+  }
   const defaults = getDefaultConfig()
-  const global = loadGlobalConfig()
+  const global = loadGlobalConfig(runtime)
   const env = loadEnvConfig()
   // Explicit config file takes priority over auto-discovered local config
-  const local = configFile ? loadExplicitConfig(configFile) : dir ? loadLocalConfig(dir) : null
+  const local = configFile
+    ? loadExplicitConfig(configFile, runtime)
+    : dir
+      ? loadLocalConfig(dir, runtime)
+      : null
 
   const merged = {
     ...defaults,
@@ -216,26 +262,120 @@ export function loadConfig(
   }
 
   // Reset invalid config values to defaults (catches malformed config files)
-  if (typeof merged.outputDir !== 'string') merged.outputDir = defaults.outputDir
-  if (typeof merged.manifestFile !== 'string') merged.manifestFile = defaults.manifestFile
-  if (typeof merged.useManifest !== 'boolean') merged.useManifest = defaults.useManifest
-  if (typeof merged.sameFolder !== 'boolean') merged.sameFolder = defaults.sameFolder
-  if (!Array.isArray(merged.defaultFormats) || merged.defaultFormats.length === 0)
+  if (typeof merged.outputDir !== 'string') {
+    warnOrThrow(
+      `Warning: invalid config value for outputDir (${String(merged.outputDir)}). Using default "${defaults.outputDir}".`,
+      runtime,
+    )
+    merged.outputDir = defaults.outputDir
+  }
+  if (typeof merged.manifestFile !== 'string') {
+    warnOrThrow(
+      `Warning: invalid config value for manifestFile (${String(merged.manifestFile)}). Using default "${defaults.manifestFile}".`,
+      runtime,
+    )
+    merged.manifestFile = defaults.manifestFile
+  }
+
+  // Reject path traversal early — outputDir, manifestFile, outputPrefix, outputSuffix must be safe
+  const pathTraversalRe = /(?:^|[\\/])\.\.(?:[\\/]|$)/
+  const pathSepRe = /[\\/]/
+  if (pathTraversalRe.test(merged.outputDir)) {
+    warnOrThrow(
+      `Warning: outputDir "${merged.outputDir}" contains path traversal. Using default "${defaults.outputDir}".`,
+      runtime,
+    )
+    merged.outputDir = defaults.outputDir
+  }
+  if (pathTraversalRe.test(merged.manifestFile) || pathSepRe.test(merged.manifestFile)) {
+    warnOrThrow(
+      `Warning: manifestFile "${merged.manifestFile}" is invalid. Using default "${defaults.manifestFile}".`,
+      runtime,
+    )
+    merged.manifestFile = defaults.manifestFile
+  }
+  if (pathSepRe.test(merged.outputPrefix)) {
+    warnOrThrow(
+      `Warning: outputPrefix "${merged.outputPrefix}" cannot contain path separators. Using default "${defaults.outputPrefix}".`,
+      runtime,
+    )
+    merged.outputPrefix = defaults.outputPrefix
+  }
+  if (pathSepRe.test(merged.outputSuffix)) {
+    warnOrThrow(
+      `Warning: outputSuffix "${merged.outputSuffix}" cannot contain path separators. Using default "${defaults.outputSuffix}".`,
+      runtime,
+    )
+    merged.outputSuffix = defaults.outputSuffix
+  }
+  if (typeof merged.useManifest !== 'boolean') {
+    warnOrThrow(
+      `Warning: invalid config value for useManifest (${String(merged.useManifest)}). Using default ${String(defaults.useManifest)}.`,
+      runtime,
+    )
+    merged.useManifest = defaults.useManifest
+  }
+  if (typeof merged.sameFolder !== 'boolean') {
+    warnOrThrow(
+      `Warning: invalid config value for sameFolder (${String(merged.sameFolder)}). Using default ${String(defaults.sameFolder)}.`,
+      runtime,
+    )
+    merged.sameFolder = defaults.sameFolder
+  }
+  if (!Array.isArray(merged.defaultFormats) || merged.defaultFormats.length === 0) {
+    warnOrThrow('Warning: invalid config value for defaultFormats. Using default ["svg"].', runtime)
     merged.defaultFormats = defaults.defaultFormats
-  if (typeof merged.defaultTheme !== 'string') merged.defaultTheme = defaults.defaultTheme
-  if (typeof merged.outputPrefix !== 'string') merged.outputPrefix = defaults.outputPrefix
-  if (typeof merged.outputSuffix !== 'string') merged.outputSuffix = defaults.outputSuffix
-  if (merged.extensionMap && typeof merged.extensionMap !== 'object')
+  }
+  if (typeof merged.defaultTheme !== 'string') {
+    warnOrThrow(
+      `Warning: invalid config value for defaultTheme (${String(merged.defaultTheme)}). Using default "${defaults.defaultTheme}".`,
+      runtime,
+    )
+    merged.defaultTheme = defaults.defaultTheme
+  }
+  const validThemes: Theme[] = ['light', 'dark', 'both']
+  if (!validThemes.includes(merged.defaultTheme as Theme)) {
+    warnOrThrow(
+      `Warning: invalid config value for defaultTheme (${String(merged.defaultTheme)}). Using default "${defaults.defaultTheme}".`,
+      runtime,
+    )
+    merged.defaultTheme = defaults.defaultTheme
+  }
+  if (typeof merged.outputPrefix !== 'string') {
+    warnOrThrow(
+      `Warning: invalid config value for outputPrefix (${String(merged.outputPrefix)}). Using default "${defaults.outputPrefix}".`,
+      runtime,
+    )
+    merged.outputPrefix = defaults.outputPrefix
+  }
+  if (typeof merged.outputSuffix !== 'string') {
+    warnOrThrow(
+      `Warning: invalid config value for outputSuffix (${String(merged.outputSuffix)}). Using default "${defaults.outputSuffix}".`,
+      runtime,
+    )
+    merged.outputSuffix = defaults.outputSuffix
+  }
+  if (merged.extensionMap && typeof merged.extensionMap !== 'object') {
+    warnOrThrow(
+      'Warning: invalid config value for extensionMap. Ignoring custom extension map.',
+      runtime,
+    )
     merged.extensionMap = defaults.extensionMap
-  if (merged.inputDirs !== undefined && !Array.isArray(merged.inputDirs))
+  }
+  if (merged.inputDirs !== undefined && !Array.isArray(merged.inputDirs)) {
+    warnOrThrow('Warning: invalid config value for inputDirs. Ignoring inputDirs.', runtime)
     merged.inputDirs = undefined
+  }
 
   // Validate each format in defaultFormats
   const validFormats: OutputFormat[] = ['svg', 'png', 'jpeg', 'webp', 'avif']
   merged.defaultFormats = merged.defaultFormats.filter((f: string) =>
     validFormats.includes(f as OutputFormat),
   )
-  if (merged.defaultFormats.length === 0) merged.defaultFormats = defaults.defaultFormats
+  if (merged.defaultFormats.length === 0) {
+    warnOrThrow('Warning: no valid formats in defaultFormats. Using default ["svg"].', runtime)
+    merged.defaultFormats = defaults.defaultFormats
+  }
 
   return merged
 }
@@ -254,7 +394,6 @@ export function getFileOverrides(
   const overrides = config?.overrides
   if (!overrides) return undefined
 
-  const { basename } = require('node:path') as typeof import('node:path')
   const name = basename(filePath)
   const relPath = rootDir ? relative(rootDir, filePath) : filePath
 
@@ -267,10 +406,11 @@ export function getFileOverrides(
   // Simple glob patterns: "docs/*.mermaid" or "**/*.excalidraw"
   for (const [pattern, override] of Object.entries(overrides)) {
     if (!pattern.includes('*')) continue
+    // Escape all regex metacharacters except * (which we handle as glob)
     const regex = new RegExp(
       '^' +
         pattern
-          .replace(/\./g, '\\.')
+          .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
           .replace(/\*\*/g, '{{GLOBSTAR}}')
           .replace(/\*/g, '[^/]*')
           .replace(/\{\{GLOBSTAR\}\}/g, '.*') +

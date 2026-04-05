@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   cleanOrphans,
   ensureDiagramsDir,
@@ -23,6 +23,7 @@ import {
   getDiagramsDir,
   hashFile,
   isStale,
+  planStaleFiles,
   readManifest,
   updateManifest,
   writeManifest,
@@ -123,6 +124,15 @@ describe('manifest', () => {
       writeFileSync(join(outDir, 'manifest.json'), 'not json{{')
 
       expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
+    })
+
+    it('returns default manifest and warns when manifest file is unreadable', () => {
+      const outDir = ensureDiagramsDir(testDir)
+      mkdirSync(join(outDir, 'manifest.json'))
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+
+      expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
+      expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('failed to parse manifest'))
     })
 
     it('throws when manifestFile resolves outside the output directory', () => {
@@ -396,6 +406,61 @@ describe('manifest', () => {
 
       const manifest = readManifest(testDir)
       expect(manifest.diagrams['cached.mermaid'].hash).toBe(fakeHash)
+    })
+  })
+
+  describe('planStaleFiles', () => {
+    it('returns forced reason when force=true', () => {
+      const file = createDiagram('plan-forced.mermaid', 'flowchart TD\nA-->B')
+      const plan = planStaleFiles([file], true, ['svg'], undefined, 'both')
+
+      expect(plan).toHaveLength(1)
+      expect(plan[0].path).toBe(file.path)
+      expect(plan[0].reasons).toEqual([{ code: 'forced' }])
+    })
+
+    it('returns no_manifest_entry reason for new files', () => {
+      const file = createDiagram('plan-new.mermaid', 'flowchart TD\nX-->Y')
+      const plan = planStaleFiles([file], false, ['svg'], undefined, 'both')
+
+      expect(plan).toHaveLength(1)
+      expect(plan[0].reasons).toEqual([{ code: 'no_manifest_entry' }])
+    })
+
+    it('returns content_changed reason when hash differs', () => {
+      const file = createDiagram('plan-change.mermaid', 'flowchart TD\nA-->B')
+      updateManifest([file], ['svg'], undefined, 'both')
+
+      const outDir = getDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'plan-change-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'plan-change-dark.svg'), '<svg/>')
+
+      writeFileSync(file.path, 'flowchart TD\nC-->D')
+
+      const plan = planStaleFiles([file], false, ['svg'], undefined, 'both')
+
+      expect(plan).toHaveLength(1)
+      const codes = plan[0].reasons.map((r) => r.code)
+      expect(codes).toContain('content_changed')
+    })
+
+    it('returns empty array when file is up-to-date', () => {
+      const file = createDiagram('plan-uptodate.mermaid', 'flowchart TD\nA-->B')
+      updateManifest([file], ['svg'], undefined, 'both')
+
+      const outDir = getDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'plan-uptodate-light.svg'), '<svg/>')
+      writeFileSync(join(outDir, 'plan-uptodate-dark.svg'), '<svg/>')
+
+      const plan = planStaleFiles([file], false, ['svg'], undefined, 'both')
+      expect(plan).toHaveLength(0)
+    })
+
+    it('includes effectiveFormats in plan entries', () => {
+      const file = createDiagram('plan-formats.mermaid', 'flowchart TD\nA-->B')
+      const plan = planStaleFiles([file], true, ['svg', 'png'], undefined, 'both')
+
+      expect(plan[0].effectiveFormats).toEqual(['svg', 'png'])
     })
   })
 

@@ -10,21 +10,24 @@ Read the project implementation (source code, README, CHANGELOG, package.json) a
 
 ## Steps
 
-1. Read `pagesmith.config.json5` to understand the docs configuration
-2. Read all `meta.json5` files to understand the current content structure and page ordering
-3. Read the project source code to identify public APIs, types, exports, config options, and CLI commands
-4. For each existing content page in `content/`:
+1. Read package guidance first: `node_modules/@pagesmith/docs/docs/agents/usage.md` and `node_modules/@pagesmith/core/docs/agents/usage.md`
+2. Read `pagesmith.config.json5` to understand the docs configuration
+3. Read all `meta.json5` files to understand the current content structure and page ordering
+4. Read the project source code to identify public APIs, types, exports, config options, and CLI commands
+5. For each existing content page in `<contentDir>/` (derive from `pagesmith.config.json5`):
    - Read the current content
    - Compare with the implementation
    - Update any outdated information
    - Add documentation for new features
    - Remove documentation for removed features
-5. If new pages are needed:
+6. If new pages are needed:
    - Create the page folder and `README.md` with proper frontmatter (title, description)
    - Add the slug to the appropriate `meta.json5` `items` array
-6. Follow the markdown guidelines in `.pagesmith/markdown-guidelines.md`
-7. Verify all internal links point to existing pages
-8. Ensure heading hierarchy is sequential (no skipping levels)
+7. Follow the markdown guidelines in `.pagesmith/markdown-guidelines.md`
+8. Review project skills under `.claude/skills/` and ensure docs-writing skills align with Pagesmith docs structure
+9. Ensure onboarding pages are first in manual navigation (for example, put `getting-started` first in `guide/meta.json5` when present)
+10. Verify all internal links point to existing pages
+11. Ensure heading hierarchy is sequential (no skipping levels)
 
 ## Rules
 

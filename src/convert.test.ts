@@ -17,21 +17,21 @@ describe('convertSvg', () => {
     vi.doUnmock('sharp')
   })
 
-  it('throws for density of 0', async () => {
-    await expect(convertSvg(minimalSvg, { format: 'png', density: 0 })).rejects.toThrow(
-      'density must be between 0 and 10',
+  it('throws for scale of 0', async () => {
+    await expect(convertSvg(minimalSvg, { format: 'png', scale: 0 })).rejects.toThrow(
+      'scale must be greater than 0 and at most 10',
     )
   })
 
-  it('throws for negative density', async () => {
-    await expect(convertSvg(minimalSvg, { format: 'png', density: -1 })).rejects.toThrow(
-      'density must be between 0 and 10',
+  it('throws for negative scale', async () => {
+    await expect(convertSvg(minimalSvg, { format: 'png', scale: -1 })).rejects.toThrow(
+      'scale must be greater than 0 and at most 10',
     )
   })
 
-  it('throws for density exceeding 10', async () => {
-    await expect(convertSvg(minimalSvg, { format: 'png', density: 11 })).rejects.toThrow(
-      'density must be between 0 and 10',
+  it('throws for scale exceeding 10', async () => {
+    await expect(convertSvg(minimalSvg, { format: 'png', scale: 11 })).rejects.toThrow(
+      'scale must be greater than 0 and at most 10',
     )
   })
 
@@ -68,24 +68,24 @@ describe('convertSvg', () => {
     expect(result.length).toBeGreaterThan(0)
   })
 
-  it('respects density option', async () => {
-    const low = await convertSvg(minimalSvg, { format: 'png', density: 1 })
-    const high = await convertSvg(minimalSvg, { format: 'png', density: 3 })
-    // Higher density produces larger output
+  it('respects scale option', async () => {
+    const low = await convertSvg(minimalSvg, { format: 'png', scale: 1 })
+    const high = await convertSvg(minimalSvg, { format: 'png', scale: 3 })
+    // Higher scale produces larger output
     expect(high.length).toBeGreaterThan(low.length)
   })
 
-  it('uses default density when not specified', async () => {
-    // Default density is 2; this should produce a valid PNG without specifying density
+  it('uses default scale when not specified', async () => {
+    // Default scale is 2; this should produce a valid PNG without specifying scale
     const result = await convertSvg(minimalSvg, { format: 'png' })
     expect(Buffer.isBuffer(result)).toBe(true)
     expect(result.length).toBeGreaterThan(0)
     // PNG magic bytes
     expect(result[0]).toBe(0x89)
     expect(result[1]).toBe(0x50)
-    // Default density (2) should produce a larger image than density 1
-    const lowDensity = await convertSvg(minimalSvg, { format: 'png', density: 1 })
-    expect(result.length).toBeGreaterThan(lowDensity.length)
+    // Default scale (2) should produce a larger image than scale 1
+    const lowScale = await convertSvg(minimalSvg, { format: 'png', scale: 1 })
+    expect(result.length).toBeGreaterThan(lowScale.length)
   })
 
   it('clamps quality below 1 to 1 and produces valid JPEG output', async () => {
@@ -120,5 +120,25 @@ describe('convertSvg', () => {
     expect(result.length).toBeGreaterThan(0)
     // WebP starts with RIFF
     expect(result.toString('ascii', 0, 4)).toBe('RIFF')
+  })
+
+  it('converts SVG string to AVIF buffer', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'avif', quality: 80 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+    // AVIF files start with a 'ftyp' box — the 4th-7th bytes contain 'ftyp'
+    expect(result.toString('ascii', 4, 8)).toBe('ftyp')
+  })
+
+  it('clamps AVIF quality below 1 to 1', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'avif', quality: -10 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+  })
+
+  it('clamps AVIF quality above 100 to 100', async () => {
+    const result = await convertSvg(minimalSvg, { format: 'avif', quality: 999 })
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
   })
 })

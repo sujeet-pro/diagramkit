@@ -68,7 +68,7 @@ import { renderAll, dispose } from 'diagramkit'
 
 const { rendered, skipped, failed } = await renderAll({
   dir: '/path/to/project',
-  format: 'svg',
+  formats: ['svg'],
   theme: 'both',
   force: false,
 })
@@ -89,7 +89,7 @@ import { findDiagramFiles } from 'diagramkit/utils'
 
 const files = findDiagramFiles('/path/to/project')
 for (const file of files) {
-  const written = await renderDiagramFileToDisk(file, { format: 'svg' })
+  const written = await renderDiagramFileToDisk(file, { formats: ['svg'] })
   // written -- ['flow-light.svg', 'flow-dark.svg']
 }
 await dispose()
@@ -111,6 +111,37 @@ const stop = watchDiagrams({
 await stop()
 await dispose()
 ```
+
+## `createRendererRuntime()`
+
+Create an isolated runtime with its own browser pool.
+Use this for workers, long-running services, and tests where shared singleton state is undesirable.
+
+```ts
+import { createRendererRuntime } from 'diagramkit'
+
+const runtime = createRendererRuntime()
+
+const result = await runtime.renderAll({
+  dir: '/path/to/project',
+  formats: ['svg'],
+  includeMetrics: true,
+})
+
+await runtime.dispose()
+```
+
+> [!TIP]
+> When issuing overlapping renders (`Promise.all`) for browser-backed engines, prefer `createRendererRuntime()` per worker/service boundary so each runtime has an isolated pool.
+
+`createRendererRuntime()` returns runtime-scoped versions of:
+- `render`
+- `renderFile`
+- `renderDiagramFileToDisk`
+- `renderAll`
+- `watchDiagrams`
+- `warmup`
+- `dispose`
 
 ## Browser Lifecycle
 
@@ -142,11 +173,11 @@ Convert SVG to raster format using [sharp](https://sharp.pixelplumbing.com/).
 ```ts
 import { convertSvg } from 'diagramkit/convert'
 
-const png = await convertSvg(svgBuffer, { format: 'png', density: 2 })
-const jpeg = await convertSvg(svgString, { format: 'jpeg', quality: 85, density: 3 })
+const png = await convertSvg(svgBuffer, { format: 'png', scale: 2 })
+const jpeg = await convertSvg(svgString, { format: 'jpeg', quality: 85, scale: 3 })
 ```
 
-## `loadConfig(overrides?, dir?, configFile?)`
+## `loadConfig(overrides?, dir?, configFile?, options?)`
 
 Load merged config from all sources. Pass `configFile` to load a specific file instead of auto-discovery.
 
@@ -160,6 +191,9 @@ const config = loadConfig(
 
 // Or with explicit config file
 const ciConfig = loadConfig({}, '.', './ci.config.json5')
+
+// Strict mode throws on invalid config instead of warning and falling back
+const strictConfig = loadConfig({}, '.', undefined, { strict: true })
 ```
 
 ## File Discovery
@@ -174,7 +208,7 @@ const mermaidOnly = filterByType(all, 'mermaid')
 ## Color Utilities
 
 ```ts
-import { postProcessDarkSvg } from 'diagramkit'
+import { postProcessDarkSvg } from 'diagramkit/color'
 
 const optimized = postProcessDarkSvg(rawDarkSvg)
 ```
@@ -185,7 +219,10 @@ Finds inline fill colors with high luminance and darkens them while preserving h
 
 | Import | Content |
 |:-------|:--------|
-| `diagramkit` | Main API (rendering, discovery, manifest, config, color) |
+| `diagramkit` | Core rendering functions, config, lifecycle, and `convertSvg` |
 | `diagramkit/utils` | Utility barrel (discovery, manifest, extensions, output, color) |
 | `diagramkit/color` | Color utilities only |
 | `diagramkit/convert` | SVG-to-raster conversion |
+
+> [!NOTE]
+> `convertSvg` is available from both `diagramkit` (main) and `diagramkit/convert` (subpath). Discovery, manifest, and color utilities are in the subpath exports (`diagramkit/utils`, `diagramkit/color`), not the main entry.

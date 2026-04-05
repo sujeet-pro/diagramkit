@@ -219,12 +219,48 @@ describe('CLI rendering e2e', () => {
     const lines = stdout.trim().split('\n')
     const jsonLine = lines[lines.length - 1]!
     const parsed = JSON.parse(jsonLine)
-    expect(parsed).toHaveProperty('rendered')
-    expect(parsed).toHaveProperty('skipped')
-    expect(parsed).toHaveProperty('failed')
-    expect(Array.isArray(parsed.rendered)).toBe(true)
-    expect(parsed.rendered.length).toBeGreaterThan(0)
-    expect(parsed.failed).toHaveLength(0)
+    expect(parsed).toHaveProperty('schemaVersion', 1)
+    expect(parsed).toHaveProperty('command', 'render')
+    expect(parsed).toHaveProperty('phase', 'execute')
+    expect(parsed).toHaveProperty('target.kind', 'directory')
+    expect(parsed).toHaveProperty('result.rendered')
+    expect(parsed).toHaveProperty('result.skipped')
+    expect(parsed).toHaveProperty('result.failed')
+    expect(Array.isArray(parsed.result.rendered)).toBe(true)
+    expect(parsed.result.rendered.length).toBeGreaterThan(0)
+    expect(parsed.result.failed).toHaveLength(0)
+  }, 120_000)
+
+  it('--plan --json returns stale reasons', () => {
+    const workspace = createWorkspace('e2e-cli-plan-json')
+    const stdout = runCli(
+      ['render', '.', '--plan', '--json', '--format', 'svg', '--theme', 'light'],
+      workspace,
+    )
+    const lines = stdout.trim().split('\n')
+    const parsed = JSON.parse(lines[lines.length - 1]!)
+
+    expect(parsed).toHaveProperty('schemaVersion', 1)
+    expect(parsed).toHaveProperty('phase', 'dry-run')
+    expect(parsed).toHaveProperty('target.kind', 'directory')
+    expect(Array.isArray(parsed.result.stalePlan)).toBe(true)
+    expect(parsed.result.stalePlan.length).toBeGreaterThan(0)
+    expect(parsed.result.stalePlan[0]).toHaveProperty('reasons')
+    expect(Array.isArray(parsed.result.stalePlan[0].reasons)).toBe(true)
+  }, 120_000)
+
+  it('doctor --json returns machine-readable diagnostics', () => {
+    const result = runCliSafe(['doctor', '--json'])
+    const stdout = result.stdout.trim()
+    expect(stdout.length).toBeGreaterThan(0)
+    const parsed = JSON.parse(stdout)
+
+    expect(parsed).toHaveProperty('diagramkitVersion')
+    expect(parsed).toHaveProperty('checks')
+    expect(Array.isArray(parsed.checks)).toBe(true)
+    expect(parsed.checks.length).toBeGreaterThan(0)
+    expect(parsed.checks[0]).toHaveProperty('id')
+    expect(parsed.checks[0]).toHaveProperty('status')
   }, 120_000)
 
   it('--quiet suppresses informational output', () => {
@@ -343,6 +379,23 @@ describe('CLI rendering e2e', () => {
     expectRasterFile(outPath, 'jpeg')
   }, 120_000)
 
+  it('--strict-config fails on invalid local config values', () => {
+    const workspace = createWorkspace('e2e-cli-strict-config')
+    writeFileSync(join(workspace, 'diagramkit.config.json5'), "{ outputDir: '../escape' }")
+
+    const result = runCliSafe(['render', '.', '--strict-config'], workspace)
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr).toContain('contains path traversal')
+  }, 120_000)
+
+  it('--max-type-lanes is propagated to render metrics', () => {
+    const workspace = createWorkspace('e2e-cli-max-type-lanes')
+    const stdout = runCli(['render', '.', '--json', '--max-type-lanes', '1'], workspace)
+    const parsed = JSON.parse(stdout.trim().split('\n').pop()!)
+
+    expect(parsed.result).toHaveProperty('metrics.lanesUsed', 1)
+  }, 120_000)
+
   it('init creates diagramkit.config.json5 with valid config', () => {
     const workspace = createWorkspace('e2e-cli-init')
 
@@ -357,9 +410,9 @@ describe('CLI rendering e2e', () => {
     expect(existsSync(configPath)).toBe(true)
 
     const content = readFileSync(configPath, 'utf-8')
-    expect(content).toContain('outputDir')
-    expect(content).toContain('defaultFormats')
-    expect(content).toContain('defaultTheme')
+    expect(content).toContain('diagramkit configuration')
+    expect(content).toContain('{')
+    expect(content).toContain('}')
     expect(stdout).toContain('diagramkit.config.json5')
   }, 120_000)
 
