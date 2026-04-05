@@ -41,7 +41,7 @@ The review must be thorough, opinionated, and actionable. Organize findings by s
 | Contributing         | `CONTRIBUTING.md`                                                      |
 | Agent context        | `CLAUDE.md`, `AGENTS.md`, `llms*.txt`                                  |
 | Package config       | `package.json`, `vite.config.ts`, `tsconfig.json`                      |
-| CI                   | `.github/workflows/ci.yml`, `.github/workflows/docs.yml`               |
+| CI                   | `.github/workflows/ci.yml`, `.github/workflows/publish.yml`            |
 | JSON schema          | `schemas/diagramkit-cli-render.v1.json`                                |
 
 ---

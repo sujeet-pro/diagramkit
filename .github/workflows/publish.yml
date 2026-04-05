@@ -1,5 +1,7 @@
 name: Publish
 
+# Node 24 in setup-node below — keep aligned with .node-version and package.json engines
+
 on:
   workflow_dispatch:
     inputs:
@@ -25,12 +27,12 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version-file: '.node-version'
+          node-version: '24'
           cache: npm
           registry-url: 'https://registry.npmjs.org'
 
