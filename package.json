@@ -106,13 +106,13 @@
     "json5": "^2.2.3",
     "mermaid": "^11.14.0",
     "playwright": "^1.59.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "rolldown": "^1.0.0-rc.13"
   },
   "devDependencies": {
-    "@pagesmith/core": "^0.4.1",
-    "@pagesmith/docs": "^0.4.1",
+    "@pagesmith/core": "^0.5.0",
+    "@pagesmith/docs": "^0.5.0",
     "@types/node": "^25.5.2",
     "@vitest/coverage-v8": "^4.1.2",
     "sharp": "^0.34.5",
