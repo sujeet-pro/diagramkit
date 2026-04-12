@@ -13,29 +13,23 @@ function copyIfExists(src, dest) {
   console.log(`Copied ${src} -> ${dest}`)
 }
 
-// Diagramkit project-level llms files.
-for (const file of ['llms.txt', 'llms-full.txt', 'llms-quick.txt']) {
-  const src = join(root, file)
-  copyIfExists(src, join(outRoot, file))
-  copyIfExists(src, join(outRoot, 'packages/diagramkit', file))
-}
-
 // Pagesmith package-level llms files from installed packages.
+// Root-level and /packages/diagramkit/ copies are handled by pagesmith assets config.
 const packageFiles = [
   {
-    src: join(root, 'node_modules/@pagesmith/core/docs/llms.txt'),
+    src: join(root, 'node_modules/@pagesmith/core/ai-guidelines/llms.txt'),
     dest: join(outRoot, 'packages/pagesmith/core/llms.txt'),
   },
   {
-    src: join(root, 'node_modules/@pagesmith/core/docs/llms-full.txt'),
+    src: join(root, 'node_modules/@pagesmith/core/ai-guidelines/llms-full.txt'),
     dest: join(outRoot, 'packages/pagesmith/core/llms-full.txt'),
   },
   {
-    src: join(root, 'node_modules/@pagesmith/docs/docs/llms.txt'),
+    src: join(root, 'node_modules/@pagesmith/docs/ai-guidelines/llms.txt'),
     dest: join(outRoot, 'packages/pagesmith/docs/llms.txt'),
   },
   {
-    src: join(root, 'node_modules/@pagesmith/docs/docs/llms-full.txt'),
+    src: join(root, 'node_modules/@pagesmith/docs/ai-guidelines/llms-full.txt'),
     dest: join(outRoot, 'packages/pagesmith/docs/llms-full.txt'),
   },
 ]

@@ -19,7 +19,7 @@ Render `.mermaid`, `.excalidraw`, `.drawio`, and Graphviz `.dot` / `.gv` / `.gra
 ## Install
 
 ```bash
-npm install diagramkit
+npm add diagramkit
 ```
 
 Install the Playwright Chromium binary (once per environment):
@@ -31,7 +31,7 @@ npx diagramkit warmup
 For raster output (PNG, JPEG, WebP, AVIF), also install `sharp`:
 
 ```bash
-npm install sharp
+npm add sharp
 ```
 
 ## Quick start
@@ -79,7 +79,9 @@ Output files are placed in a `.diagramkit/` folder next to each source file. Fil
 
 diagramkit is designed for AI agent workflows. Ask your AI coding agent:
 
-> Install diagramkit, render all diagrams in my project to SVG
+```text
+Set up diagramkit in this repository. Install the package, then read `node_modules/diagramkit/llms.txt` before making changes. Add a `package.json` script named `render:diagrams` that runs `diagramkit render .`. If this repo needs non-default behavior, create `diagramkit.config.json5`. Run `npx diagramkit --install-skill` to install project skills for Claude and Cursor, warm up Chromium unless the repo is Graphviz-only, and render all diagrams to SVG.
+```
 
 diagramkit ships three agent docs with every npm install:
 
@@ -89,9 +91,11 @@ diagramkit ships three agent docs with every npm install:
 | `llms.txt`       | You want practical CLI defaults and examples |
 | `llms-full.txt`  | You need complete CLI + API reference        |
 
-You can also run `diagramkit --agent-help` to print the full reference.
+After installation, `node_modules/diagramkit/llms.txt` is the best single day-to-day setup reference. Use `node_modules/diagramkit/llms-full.txt` or `diagramkit --agent-help` when the agent needs the full reference.
 
-See the [Getting Started guide](https://projects.sujeet.pro/diagramkit/guide/getting-started#configuring-ai-agents) for more agent setup details.
+`npx diagramkit --install-skill` writes project skills to `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md` without overwriting existing files.
+
+See the [Getting Started guide](https://projects.sujeet.pro/diagramkit/guide/getting-started/) for the full agent bootstrap flow.
 
 ## Embedding light/dark SVGs in Markdown
 

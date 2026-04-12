@@ -56,6 +56,16 @@ diagramkit init          # diagramkit.config.json5
 diagramkit init --ts     # diagramkit.config.ts with defineConfig()
 ```
 
+### `--install-skill`
+
+Install project-level skills for Claude and Cursor in the current repository.
+
+```bash
+diagramkit --install-skill
+```
+
+This writes `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md` if they do not already exist. The generated skill tells agents to read `node_modules/diagramkit/llms.txt`, add a `render:diagrams` script, and create `diagramkit.config.json5` only when the repo needs non-default behavior.
+
 ## Render Options
 
 ### Output Format
@@ -174,6 +184,7 @@ diagramkit -h
 diagramkit --version    # show version
 diagramkit -v
 diagramkit --agent-help # output full reference for LLM agents
+diagramkit --install-skill # install project skills
 ```
 
 ## Examples

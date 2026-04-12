@@ -17,6 +17,7 @@ describe('cli/bin helpers', () => {
     it('detects long boolean flags', () => {
       expect(getFlag('watch', ['render', '.', '--watch'])).toBe(true)
       expect(getFlag('force', ['render', '.'])).toBe(false)
+      expect(getFlag('install-skill', ['--install-skill'])).toBe(true)
     })
 
     it('detects mapped short flags', () => {
@@ -98,7 +99,7 @@ describe('cli/bin helpers', () => {
 
     it('does not warn for known flags', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      warnUnknownFlags(['render', '.', '--watch', '--format', 'svg', '-w'])
+      warnUnknownFlags(['render', '.', '--watch', '--format', 'svg', '-w', '--install-skill'])
       expect(warnSpy).not.toHaveBeenCalled()
     })
   })

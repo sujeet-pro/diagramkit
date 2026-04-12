@@ -17,6 +17,17 @@ For raster output — PNG, JPEG, WebP, AVIF (optional):
 npm add sharp
 ```
 
+### Repo Bootstrap For Agents
+
+Use `node_modules/diagramkit/llms.txt` as the first file to read when adding diagramkit to an existing repository.
+
+Recommended setup steps:
+
+1. Add `"render:diagrams": "diagramkit render ."` to `package.json`.
+2. Create `diagramkit.config.json5` only if the repository needs non-default behavior.
+3. Run `npx diagramkit --install-skill` to create `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md`.
+4. Run `npx diagramkit warmup` unless the repository is Graphviz-only.
+
 ## CLI Reference
 
 ### Commands
@@ -27,6 +38,7 @@ diagramkit <file-or-dir> [options]           Alias for "diagramkit render"
 diagramkit warmup                            Pre-install Playwright chromium browser
 diagramkit doctor                            Validate runtime dependencies and environment
 diagramkit init [--ts]                       Create config file (JSON5 or TypeScript)
+diagramkit --install-skill                   Install project skills for Claude and Cursor
 diagramkit --version                         Show version
 diagramkit --help                            Show help
 diagramkit --agent-help                      Output full reference for LLM agents (this file)

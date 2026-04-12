@@ -7,14 +7,23 @@ Focus on concrete, implementation-ready help:
 - configure createContentLayer and defineConfig
 - prefer folder-based markdown entries when local assets sit beside content
 - follow the markdown guidelines in `.pagesmith/markdown-guidelines.md`
+- for docs bootstrap or retrofit tasks, start with `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md`
+- read `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md` and `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md` before editing docs content or structure
 - for docs sites, follow the convention-based `content/` structure
 - drive top navigation from top-level folders and use frontmatter for labels/order
+- use the version-matched schema files in `node_modules/@pagesmith/docs/schemas/` for config, meta.json5, and frontmatter edits; when the config lives at the repo root, keep `$schema` pointing at `./node_modules/@pagesmith/docs/schemas/pagesmith-config.schema.json`
 - keep Pagefind as the built-in search strategy
 
 For package usage guidance and full API reference, read:
-- `node_modules/@pagesmith/docs/docs/agents/usage.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/usage.md`
 - `node_modules/@pagesmith/docs/REFERENCE.md`
-- `node_modules/@pagesmith/core/docs/agents/usage.md`
+- `node_modules/@pagesmith/docs/schemas/*.schema.json`
+- `node_modules/@pagesmith/core/ai-guidelines/core-guidelines.md`
+- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
 - `node_modules/@pagesmith/core/REFERENCE.md`
 
 Return code, config, or documentation-ready guidance instead of vague summaries.

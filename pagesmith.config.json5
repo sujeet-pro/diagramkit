@@ -1,21 +1,49 @@
 {
+  $schema: './node_modules/@pagesmith/docs/schemas/pagesmith-config.schema.json',
   name: 'diagramkit',
   title: 'diagramkit',
-  description: 'Diagram rendering CLI and library — convert Mermaid, Excalidraw, Draw.io, and Graphviz files to SVG/PNG/JPEG/WebP/AVIF with light/dark mode support',
   origin: 'https://projects.sujeet.pro',
+  basePath: '/diagramkit',
   contentDir: './docs',
   outDir: './gh-pages',
-  basePath: '/diagramkit',
+  copyright: {
+    projectName: 'diagramkit',
+    startYear: 2026,
+    endYear: null,
+  },
+  search: {
+    enabled: true,
+  },
+  description: 'Diagram rendering CLI and library — convert Mermaid, Excalidraw, Draw.io, and Graphviz files to SVG/PNG/JPEG/WebP/AVIF with light/dark mode support',
   sidebar: {
     collapsible: true,
   },
   footerLinks: [
-    { label: 'Guide', path: '/guide' },
-    { label: 'Reference', path: '/reference' },
-    { label: 'GitHub', path: 'https://github.com/sujeet-pro/diagramkit' },
+    {
+      header: 'Docs',
+      links: [
+        {
+          label: 'Guide',
+          path: '/guide',
+        },
+        {
+          label: 'Reference',
+          path: '/reference',
+        },
+      ],
+    },
+    {
+      header: 'Project',
+      links: [
+        {
+          label: 'GitHub',
+          path: 'https://github.com/sujeet-pro/diagramkit',
+        },
+      ],
+    },
   ],
-  favicon: './docs/public/favicon.svg',
-  search: {
-    enabled: true,
+  assets: {
+    '/': ['llms-quick.txt'],
+    '/packages/diagramkit': ['llms.txt', 'llms-full.txt', 'llms-quick.txt'],
   },
 }

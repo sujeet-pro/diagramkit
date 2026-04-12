@@ -7,11 +7,15 @@ description: Install diagramkit and render your first diagram in under a minute.
 
 ## Using an AI Agent (Recommended)
 
-If you use an AI coding agent (Claude Code, Cursor, Windsurf, GitHub Copilot, etc.), the fastest path is to ask it directly:
+If you use an AI coding agent (Claude Code, Cursor, Windsurf, GitHub Copilot, etc.), the fastest path is to give it one bootstrap prompt and let it set up the repo:
 
-> Install diagramkit and render all diagram files in this project to SVG
+### Copy-Paste Project Setup Prompt
 
-diagramkit ships `llms-quick.txt`, `llms.txt`, and `llms-full.txt` with every install, so agents already know the full CLI and API. You can also run `diagramkit --agent-help` to output the complete reference into any agent context.
+```text
+Set up diagramkit in this repository. Install the package, then read `node_modules/diagramkit/llms.txt` before making changes. Add a `package.json` script named `render:diagrams` that runs `diagramkit render .`. If this repo needs non-default behavior, create `diagramkit.config.json5`. Run `npx diagramkit --install-skill` to install project skills for Claude and Cursor under `.claude/skills/diagramkit/` and `.cursor/skills/diagramkit/`. Run `npx diagramkit warmup` unless the repo is Graphviz-only, then render the current repo and summarize what changed.
+```
+
+After installation, `node_modules/diagramkit/llms.txt` is the best single file for day-to-day setup guidance. Use `node_modules/diagramkit/llms-full.txt` or `diagramkit --agent-help` when the agent needs the full CLI and API reference.
 
 For programmatic agent pipelines, use the JavaScript API:
 
@@ -132,31 +136,24 @@ npx diagramkit init --ts       # TypeScript config with defineConfig()
 
 See [Configuration](/guide/configuration) for all options.
 
-## Configuring AI Agents
+## Install Project Skills
 
-Add a snippet to your project's agent instructions so AI coding tools render diagrams automatically.
+Use the CLI to install project-level skills for both Claude and Cursor:
 
-For a complete setup flow and prompt recipes, see [AI Agents](/guide/ai-agents).
-
-**CLAUDE.md** (for Claude Code):
-
-```markdown
-## Diagrams
-
-This project uses diagramkit to render diagrams. When creating or modifying diagram files (.mermaid, .excalidraw, .drawio, .dot), render them with:
-
-\`\`\`bash
-npx diagramkit render <file-or-dir>
-\`\`\`
-
-Output goes to `.diagramkit/` folders next to source files. Always render both light and dark variants (the default).
+```bash
+npx diagramkit --install-skill
 ```
 
-**`.cursor/rules`** (for Cursor):
+This creates:
 
-```
-When working with diagram files (.mermaid, .excalidraw, .drawio, .dot/.gv), render them using: npx diagramkit render <path>
-```
+- `.claude/skills/diagramkit/SKILL.md`
+- `.cursor/skills/diagramkit/SKILL.md`
+
+The generated skill tells agents to read `node_modules/diagramkit/llms.txt`, prefer `diagramkit render <file-or-dir>`, add a `render:diagrams` script in `package.json`, and only create `diagramkit.config.json5` when the repo needs non-default behavior.
+
+Existing skill files are left untouched, so it is safe to rerun after upgrading `diagramkit`.
+
+For a deeper setup flow and more prompt recipes, see [AI Agents](/guide/ai-agents).
 
 ## Next Steps
 

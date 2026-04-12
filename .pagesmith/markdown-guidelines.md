@@ -5,11 +5,12 @@ Markdown feature support for content authored with `@pagesmith/core` and `@pages
 ## Pipeline Order
 
 ```
-remark-parse → remark-gfm → remark-math → remark-frontmatter
-  → remark-github-alerts → remark-smartypants → [user remark plugins]
+remark-parse → remark-gfm → remark-frontmatter
+  → remark-github-alerts → remark-smartypants → remark-math (when `markdown.math` is enabled or auto-detected) → [user remark plugins]
   → remark-rehype
-  → rehype-mathjax
-  → rehype-expressive-code (dual themes, line numbers, titles, copy, collapse, mark/ins/del)
+  → rehype-mathjax (when math is enabled)
+  → applyPagesmithCodeRenderer (dual themes, line numbers, titles, copy, collapse, mark/ins/del)
+  → rehype-code-tabs → rehype-scrollable-tables
   → rehype-slug → rehype-autolink-headings
   → rehype-external-links → rehype-accessible-emojis
   → heading extraction → [user rehype plugins] → rehype-stringify
@@ -21,8 +22,10 @@ remark-parse → remark-gfm → remark-math → remark-frontmatter
 - One `# h1` per page (validator enforces)
 - Sequential heading depth (no skipping from h2 to h4)
 - Prefer relative links for internal content
-- Do NOT add manual copy-button JS — Expressive Code handles it
-- Do NOT import separate code block CSS — Expressive Code injects inline styles
+- `allowDangerousHtml` defaults to `true`; disable it when rendering untrusted markdown
+- `math` defaults to `'auto'`; Pagesmith only enables the math plugins when the page contains math markers
+- Do NOT add manual copy-button JS inside markdown content — the built-in renderer injects its own copy/collapse runtime
+- Include the shipped Pagesmith markdown CSS so code block chrome and tabs render correctly
 
 ## Supported Features
 
@@ -41,7 +44,7 @@ remark-parse → remark-gfm → remark-math → remark-frontmatter
 | Heading anchors  | Auto `id` + wrapped anchor                                                | All headings                          |
 | Accessible emoji | Unicode emoji                                                             | Auto `role="img"` + `aria-label`      |
 
-## Code Block Features (Expressive Code)
+## Code Block Features (Built-in Renderer)
 
 | Meta               | Example                    | Description            |
 | ------------------ | -------------------------- | ---------------------- |

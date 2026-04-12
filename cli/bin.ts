@@ -19,6 +19,7 @@ Usage:
   diagramkit warmup
   diagramkit doctor
   diagramkit init [--ts] [--yes]
+  diagramkit --install-skill
   diagramkit --version
   diagramkit --help
   diagramkit --agent-help
@@ -65,6 +66,7 @@ General:
   -v, --version                       Show version
   -y, --yes                           Accept defaults for interactive commands
   --agent-help                        Output full reference for LLM agents
+  --install-skill                     Install project skills for Claude and Cursor
 
 Examples:
   diagramkit render .                                  # Render all in cwd
@@ -79,6 +81,7 @@ Examples:
   diagramkit render . --config ./custom.config.json5   # Explicit config file
   diagramkit render . --dry-run                        # Preview what would render
   diagramkit render . --quiet                          # Minimal output
+  diagramkit --install-skill                           # Install project skills
 `)
 }
 
@@ -329,6 +332,7 @@ export function warnUnknownFlags(argv: string[] = args) {
     'version',
     'yes',
     'agent-help',
+    'install-skill',
     'ts',
   ])
   const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
@@ -579,6 +583,50 @@ ${Object.entries(cfg)
   }
   writeFileSync(finalPath, previewContent)
   outro(`Created ${basename(finalPath)}`)
+}
+
+async function commandInstallSkill() {
+  const { mkdirSync } = await import('node:fs')
+  const { DIAGRAMKIT_PROJECT_SKILL_FILES, getDiagramkitSkillContent } =
+    await import('../src/agent-skill')
+  const { atomicWrite } = await import('../src/output')
+
+  const created: string[] = []
+  const skipped: string[] = []
+  const content = Buffer.from(getDiagramkitSkillContent(), 'utf-8')
+
+  for (const relativePath of DIAGRAMKIT_PROJECT_SKILL_FILES) {
+    const targetPath = resolve(relativePath)
+    if (existsSync(targetPath)) {
+      skipped.push(relativePath)
+      continue
+    }
+
+    mkdirSync(dirname(targetPath), { recursive: true })
+    atomicWrite(targetPath, content)
+    created.push(relativePath)
+  }
+
+  if (created.length > 0) {
+    console.log('Installed diagramkit project skills:')
+    for (const file of created) {
+      console.log(`  - ${file}`)
+    }
+  } else {
+    console.log('No new diagramkit project skills were installed.')
+  }
+
+  if (skipped.length > 0) {
+    console.log('Skipped existing files:')
+    for (const file of skipped) {
+      console.log(`  - ${file}`)
+    }
+  }
+
+  console.log('Next steps:')
+  console.log('  - Read node_modules/diagramkit/llms.txt for repo setup guidance')
+  console.log('  - Add "render:diagrams": "diagramkit render ." to package.json')
+  console.log('  - Run "npx diagramkit warmup" unless the repo is Graphviz-only')
 }
 
 function emitJson(payload: unknown): void {
@@ -1089,6 +1137,11 @@ async function main() {
 
   if (getFlag('agent-help')) {
     printAgentHelp()
+    return
+  }
+
+  if (getFlag('install-skill')) {
+    await commandInstallSkill()
     return
   }
 

@@ -10,11 +10,11 @@ Read the project implementation (source code, README, CHANGELOG, package.json) a
 
 ## Steps
 
-1. Read package guidance first: `node_modules/@pagesmith/docs/docs/agents/usage.md` and `node_modules/@pagesmith/core/docs/agents/usage.md`
+1. Read package guidance first: `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md`, `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md`, `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md`, `node_modules/@pagesmith/docs/ai-guidelines/usage.md`, plus `node_modules/@pagesmith/core/ai-guidelines/core-guidelines.md`, `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`, and `node_modules/@pagesmith/core/ai-guidelines/usage.md`
 2. Read `pagesmith.config.json5` to understand the docs configuration
 3. Read all `meta.json5` files to understand the current content structure and page ordering
 4. Read the project source code to identify public APIs, types, exports, config options, and CLI commands
-5. For each existing content page in `<contentDir>/` (derive from `pagesmith.config.json5`):
+5. For each existing content page in `content/`:
    - Read the current content
    - Compare with the implementation
    - Update any outdated information

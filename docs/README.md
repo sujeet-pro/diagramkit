@@ -36,9 +36,9 @@ features:
 
 The fastest way to get started is to tell your AI coding agent:
 
-> Render all diagram files in this repo to SVG using diagramkit
+> Set up diagramkit in this repo. Install the package, read `node_modules/diagramkit/llms.txt`, add a `render:diagrams` script, run `npx diagramkit --install-skill`, and render all diagram files to SVG.
 
-The agent will install diagramkit, set up the browser, and render everything. If you are using Claude Code, [Cursor](https://cursor.com), or a similar tool, diagramkit ships `llms-quick.txt`, `llms.txt`, and `llms-full.txt` so the agent already knows the full API.
+The agent will install diagramkit, set up the browser when needed, add project skills for Claude and Cursor, and render everything. If you are using Claude Code, [Cursor](https://cursor.com), or a similar tool, diagramkit ships `llms-quick.txt`, `llms.txt`, and `llms-full.txt` so the agent already knows the full API.
 
 Need a setup playbook? See [AI Agents](/guide/ai-agents).
 

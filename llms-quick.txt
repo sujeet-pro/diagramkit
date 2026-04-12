@@ -11,6 +11,7 @@ Core commands:
 - diagramkit warmup          # install Chromium for browser-based engines
 - diagramkit doctor          # diagnose environment issues
 - diagramkit init            # create config file
+- diagramkit --install-skill # install project skills for Claude and Cursor
 - diagramkit --agent-help    # full reference for LLM agents
 
 Defaults:
@@ -68,6 +69,11 @@ Safe automation notes:
 - do not edit files under .diagramkit manually
 - call dispose() in long-running scripts/tests when finished
 - prefer --dry-run before large first-time renders
+
+Repo bootstrap:
+- read node_modules/diagramkit/llms.txt after install
+- add "render:diagrams": "diagramkit render ." to package.json
+- run diagramkit --install-skill to create .claude/skills/diagramkit/SKILL.md and .cursor/skills/diagramkit/SKILL.md
 
 More detail:
 - short overview: llms.txt

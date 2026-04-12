@@ -416,6 +416,31 @@ describe('CLI rendering e2e', () => {
     expect(stdout).toContain('diagramkit.config.json5')
   }, 120_000)
 
+  it('--install-skill creates project skills and skips existing files', () => {
+    const workspace = createWorkspace('e2e-cli-install-skill')
+    const claudeSkillPath = join(workspace, '.claude', 'skills', 'diagramkit', 'SKILL.md')
+    const cursorSkillPath = join(workspace, '.cursor', 'skills', 'diagramkit', 'SKILL.md')
+
+    const first = runCli(['--install-skill'], workspace)
+
+    expect(existsSync(claudeSkillPath)).toBe(true)
+    expect(existsSync(cursorSkillPath)).toBe(true)
+    expect(first).toContain('.claude/skills/diagramkit/SKILL.md')
+    expect(first).toContain('.cursor/skills/diagramkit/SKILL.md')
+
+    const installedContent = readFileSync(cursorSkillPath, 'utf-8')
+    expect(installedContent).toContain('node_modules/diagramkit/llms.txt')
+    expect(installedContent).toContain('"render:diagrams": "diagramkit render ."')
+
+    writeFileSync(claudeSkillPath, 'custom skill\n')
+
+    const second = runCli(['--install-skill'], workspace)
+
+    expect(readFileSync(claudeSkillPath, 'utf-8')).toBe('custom skill\n')
+    expect(readFileSync(cursorSkillPath, 'utf-8')).toBe(installedContent)
+    expect(second).toContain('Skipped existing files:')
+  }, 120_000)
+
   it('--agent-help outputs llms-full.txt content', () => {
     const stdout = runCli(['--agent-help'])
 

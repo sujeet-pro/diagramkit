@@ -11,15 +11,19 @@ This page is the fastest path for agent-driven setup and usage.
 
 Ask your coding agent:
 
-> Install diagramkit, warm up Chromium, and render all diagrams in this repo to SVG.
+> Set up diagramkit in this repo. Install the package, read `node_modules/diagramkit/llms.txt`, add a `render:diagrams` script to `package.json`, create `diagramkit.config.json5` only if the repo needs non-default behavior, run `npx diagramkit --install-skill`, warm up Chromium unless the repo is Graphviz-only, and render all diagrams to SVG.
 
 Expected commands:
 
 ```bash
 npm add diagramkit
+npx diagramkit --install-skill
 npx diagramkit warmup
-npx diagramkit render .
+npm run render:diagrams
 ```
+
+> [!NOTE]
+> `npx diagramkit warmup` is only required for Mermaid, Excalidraw, and Draw.io. Graphviz-only repos can skip it.
 
 ## Which Agent Doc to Use
 
@@ -39,6 +43,23 @@ diagramkit --agent-help
 
 This prints `llms-full.txt` so agents can ingest a single stream.
 
+For repo bootstrap, start with `node_modules/diagramkit/llms.txt`. It is the best single file for install, config, and package-script guidance.
+
+## Install Project Skills
+
+Use the CLI to install project-level skills for both Claude and Cursor:
+
+```bash
+npx diagramkit --install-skill
+```
+
+This creates:
+
+- `.claude/skills/diagramkit/SKILL.md`
+- `.cursor/skills/diagramkit/SKILL.md`
+
+The generated skill tells agents to read `node_modules/diagramkit/llms.txt`, suggests `"render:diagrams": "diagramkit render ."` for `package.json`, and skips existing files instead of overwriting them.
+
 ## Recommended Prompt Sequence
 
 1. **Execute:** "Render all diagram files to SVG."
@@ -46,9 +67,11 @@ This prints `llms-full.txt` so agents can ingest a single stream.
 3. **Harden:** "Use --dry-run and show what will re-render before changing files."
 4. **Automate:** "Add a CI step that runs diagramkit render . and fails on errors."
 
-## Agent Rules Snippets
+## Manual Fallback Rules
 
-### CLAUDE.md
+If your assistant does not support project skills yet, paste the equivalent guidance into the repo's memory or rules files.
+
+### `CLAUDE.md`
 
 ~~~markdown
 ## Diagram Rendering
@@ -65,7 +88,7 @@ Use defaults unless asked otherwise:
 - outputs in .diagramkit/ next to source files
 ~~~
 
-### .cursor/rules
+### `.cursor/rules`
 
 ```text
 When editing diagram files (.mermaid, .mmd, .excalidraw, .drawio, .dot, .gv), run:

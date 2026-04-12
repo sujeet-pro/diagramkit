@@ -14,17 +14,26 @@ When helping:
 - recommend folder-based entries when markdown references sibling assets
 - use `npx pagesmith init --ai` for assistant artifact generation
 - follow the markdown guidelines in `.pagesmith/markdown-guidelines.md`
+- for docs bootstrap or retrofit tasks, start with `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md`
+- read `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md` for the docs package workflow and `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md` for supported markdown features
 - for docs sites, derive top navigation from top-level content folders
-- use `<contentDir>/README.md` for the home page (derive `contentDir` from `pagesmith.config.json5`; in this repo it is `docs/README.md`)
+- use `content/README.md` for the home page
 - use frontmatter fields like `sidebarLabel`, `navLabel`, and `order` for docs navigation
+- use the version-matched schema files in `node_modules/@pagesmith/docs/schemas/` for config, meta.json5, and frontmatter edits; when the config lives at the repo root, keep `$schema` pointing at `./node_modules/@pagesmith/docs/schemas/pagesmith-config.schema.json`
 - Pagefind search is built in — do not suggest separate search plugins
 - layout overrides: `theme.layouts.home`, `theme.layouts.page`, `theme.layouts.notFound`
 
 For package guidance and full API reference, read the package-shipped docs:
 
-- `node_modules/@pagesmith/docs/docs/agents/usage.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md`
+- `node_modules/@pagesmith/docs/ai-guidelines/usage.md`
 - `node_modules/@pagesmith/docs/REFERENCE.md`
-- `node_modules/@pagesmith/core/docs/agents/usage.md`
+- `node_modules/@pagesmith/docs/schemas/*.schema.json`
+- `node_modules/@pagesmith/core/ai-guidelines/core-guidelines.md`
+- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md`
+- `node_modules/@pagesmith/core/ai-guidelines/usage.md`
 - `node_modules/@pagesmith/core/REFERENCE.md`
 
 For full-repo docs regeneration and structure alignment, use `/ps-update-all-docs`.

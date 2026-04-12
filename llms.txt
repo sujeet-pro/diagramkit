@@ -25,6 +25,7 @@ diagramkit <file-or-dir> [options]           Alias for "diagramkit render"
 diagramkit warmup                            Pre-install Playwright chromium
 diagramkit doctor                            Validate runtime dependencies
 diagramkit init [--ts]                       Create config file
+diagramkit --install-skill                   Install project skills for Claude and Cursor
 diagramkit --version / --help / --agent-help
 ```
 
@@ -114,6 +115,17 @@ All three files are shipped in npm:
 - `llms-full.txt` - complete CLI + API + type reference
 
 Use `diagramkit --agent-help` when you want the full reference in one command output.
+
+## Repo Bootstrap With Agents
+
+Use `node_modules/diagramkit/llms.txt` as the first file an agent reads after installing the package.
+
+Recommended repo bootstrap steps:
+
+- add `"render:diagrams": "diagramkit render ."` to `package.json`
+- create `diagramkit.config.json5` only when the repository needs non-default behavior
+- run `npx diagramkit --install-skill` to create `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md`
+- run `npx diagramkit warmup` unless the repository is Graphviz-only
 
 ## Programmatic API
 

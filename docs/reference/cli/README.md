@@ -14,9 +14,12 @@ description: Complete command and option reference for the diagramkit CLI.
 | `warmup` | Pre-install Playwright Chromium browser |
 | `doctor` | Validate runtime dependencies and environment |
 | `init [--ts] [--yes]` | Create config file (`--yes` accepts defaults) |
+| `--install-skill` | Install project skills for Claude and Cursor |
 | `--help`, `-h` | Show help |
 | `--version`, `-v` | Show version |
 | `--agent-help` | Output full reference for LLM agents |
+
+`diagramkit --install-skill` writes `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md` in the current repository. The generated skill points agents at `node_modules/diagramkit/llms.txt`, recommends a `render:diagrams` package script, and skips existing files instead of overwriting them.
 
 ## `render` Options
 

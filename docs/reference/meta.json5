@@ -3,7 +3,7 @@
   description: 'CLI, configuration, API, and type reference',
   orderBy: 'manual',
   // CLI + config before API: run the tool, then tune it, then integrate in code.
-  items: ['cli', 'config', 'api', 'types'],
+  items: ['overview', 'cli', 'config', 'api', 'types'],
   series: [
     {
       slug: 'cli-config',

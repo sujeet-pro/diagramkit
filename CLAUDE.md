@@ -181,6 +181,7 @@ diagramkit init                                # Create diagramkit.config.json5
 diagramkit init --ts                           # Create diagramkit.config.ts
 diagramkit init --yes                          # Non-interactive config with defaults
 diagramkit doctor                              # Diagnose environment and config
+diagramkit --install-skill                     # Install project skills for Claude and Cursor
 diagramkit --agent-help                        # Output full reference for LLM agents
 ```
 
@@ -333,16 +334,17 @@ npm run validate    # All checks in sequence (lint + typecheck + lib build + all
 - **llms.txt** — CLI-focused summary. Points to llms-full.txt for programmatic API.
 - **llms-quick.txt** — Ultra-short command-focused cheatsheet.
 - **llms-full.txt** — Comprehensive reference covering both CLI and programmatic API, types, config, architecture.
+- **`diagramkit --install-skill`** — CLI command that writes project skills for `.claude/skills/diagramkit/` and `.cursor/skills/diagramkit/`.
 - **`diagramkit --agent-help`** — CLI command that outputs `llms-full.txt` content, intended for LLM agents to consume within skills or tool pipelines.
 - When updating the codebase, keep these files in sync with actual behavior.
-- No agent skills ship with the npm package — the llms files are the canonical LLM reference.
+- No prebuilt agent skill files ship with the npm package — generated project skills come from `diagramkit --install-skill`, and the llms files remain the canonical LLM reference.
 
 ## Documentation site
 
 The docs site uses `@pagesmith/docs` (convention-based static site builder). Content lives in `docs/` following the folder/README.md convention with `meta.json5` for section ordering.
 
 - **Config:** `pagesmith.config.json5` — site metadata, contentDir (`./docs`), outDir (`./gh-pages`), basePath (`/diagramkit`)
-- **Build:** `npm run docs:build` — runs `pagesmith build` then copies `llms.txt` and `llms-full.txt` to `gh-pages/`
+- **Build:** `npm run docs:build` — runs `pagesmith build` (auto-copies root llms files, copies assets) then copies pagesmith package llms files to `gh-pages/`
 - **Dev:** `npm run docs:dev` — local dev server with live reload
 - **Preview:** `npm run docs:preview` — preview built site
 - **Output:** `gh-pages/` (gitignored) — built HTML + llms files, deployed to GitHub Pages
@@ -383,23 +385,33 @@ Working rules:
 
 Docs-specific rules:
 
-- `@pagesmith/docs` is convention-based and builds a static docs site from `<contentDir>` plus `pagesmith.config.json5`
+- `@pagesmith/docs` is convention-based and builds a static docs site from `content/` plus `pagesmith.config.json5`
 - top-level content folders become top navigation sections (for example `guide/`, `reference/`, `packages/`)
+- for first-time docs setup or retrofit work, read `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md` before choosing or creating a docs folder
+- prefer `pagesmith init` for bootstrap work; for GitHub repos it should default to `basePath: "/<repo-name>"` and probe `https://<owner>.github.io` for the origin
 - folder-based markdown entries should prefer `README.md` or `index.md` when a page owns sibling assets
-- the home page is `<contentDir>/README.md`; optional home-specific data can live in `<contentDir>/home.json5`
+- the home page is `content/README.md`; optional home-specific data can live in `content/home.json5`
 - sidebar labels, nav labels, and ordering live in frontmatter (`sidebarLabel`, `navLabel`, `order`)
-- footer links live in `pagesmith.config.json5` under `footerLinks`
+- footer links live in `pagesmith.config.json5` under `footerLinks`; they can be a flat wrapped row of links or grouped columns with optional headers, and when omitted the footer reuses the major top-level nav links
+- the footer legal line combines `copyright` with the default Pagesmith sign-off, which can include a maintainer credit from `maintainer` or `package.json` author
 - Pagefind search is built in; do not recommend a separate search plugin package
 - layout overrides use fixed keys under `theme.layouts` such as `home`, `page`, and `notFound`
+- use the version-matched schema files in `node_modules/@pagesmith/docs/schemas/` when authoring `pagesmith.config.json5`, `meta.json5`, and docs frontmatter; when the config lives at the repo root, keep `$schema` pointing at `./node_modules/@pagesmith/docs/schemas/pagesmith-config.schema.json`
 - for MCP-compatible tooling, prefer `pagesmith mcp --stdio` from `@pagesmith/docs`
 
 If the pagesmith skill is installed, prefer invoking it when the user explicitly asks for Pagesmith-specific help.
 
 For package usage rules and full API/config details, read the package-shipped docs from node_modules:
 
-- `node_modules/@pagesmith/docs/docs/agents/usage.md` — docs package usage contract
+- `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md` — bootstrap/retrofit prompt for docs integration
+- `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md` — docs package usage guidance
+- `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md` — supported markdown features for docs projects
+- `node_modules/@pagesmith/docs/ai-guidelines/usage.md` — docs package usage contract
 - `node_modules/@pagesmith/docs/REFERENCE.md` — docs config, CLI, content structure, layout overrides
-- `node_modules/@pagesmith/core/docs/agents/usage.md` — core package usage contract
+- `node_modules/@pagesmith/docs/schemas/*.schema.json` — version-matched schemas for config, meta.json5, and docs frontmatter; when `pagesmith.config.json5` is at the repo root, keep `$schema` pointing at `./node_modules/@pagesmith/docs/schemas/pagesmith-config.schema.json`
+- `node_modules/@pagesmith/core/ai-guidelines/core-guidelines.md` — core package workflow guidance
+- `node_modules/@pagesmith/core/ai-guidelines/markdown-guidelines.md` — supported markdown features for content projects
+- `node_modules/@pagesmith/core/ai-guidelines/usage.md` — core package usage contract
 - `node_modules/@pagesmith/core/REFERENCE.md` — core API, collections, loaders, markdown, CSS, JSX runtime
 
 ## Quick Start — @pagesmith/core
@@ -433,15 +445,35 @@ const rendered = await entries[0]?.render()
 ```json5
 // pagesmith.config.json5
 {
+  $schema: './node_modules/@pagesmith/docs/schemas/pagesmith-config.schema.json',
   name: 'Acme Docs',
   title: 'Acme Docs',
+  origin: 'https://acme.github.io',
+  basePath: '/acme-docs',
   description: 'Multi-package documentation',
   contentDir: './content',
-  outDir: './dist',
+  outDir: './gh-pages',
+  maintainer: {
+    name: 'Sujeet Jaiswal',
+    link: 'https://sujeet.pro',
+  },
+  copyright: {
+    projectName: 'Acme Docs',
+    startYear: 2024,
+    endYear: null,
+  },
   footerLinks: [
-    { label: 'Guide', path: '/guide' },
-    { label: 'Reference', path: '/reference' },
+    {
+      header: 'Docs',
+      links: [
+        { label: 'Guide', path: '/guide' },
+        { label: 'Reference', path: '/reference' },
+      ],
+    },
   ],
+  editLink: {
+    repo: 'https://github.com/acme/docs',
+  },
   search: { enabled: true },
 }
 ```

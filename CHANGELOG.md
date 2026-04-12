@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `diagramkit --install-skill` to scaffold project-level Claude and Cursor skills for repo-local diagram workflows
 - `diagramkit doctor` command with `--json` diagnostics for environment readiness (Node, Playwright, Chromium, sharp)
 - `diagramkit render --plan --json` for stale-file planning with structured staleness reasons
 - Runtime-scoped API via `createRendererRuntime()` for isolated browser pool lifecycle
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent onboarding docs and shipped `llms*.txt` guidance now include a copy-paste repo bootstrap flow (`node_modules/diagramkit/llms.txt`, `package.json` script setup, optional `diagramkit.config.json5`, and `--install-skill`)
 - `--json` output now uses a versioned envelope (`schemaVersion: 1`) with nested `result`
 - CLI supports `diagramkit <file-or-dir>` as alias for `diagramkit render <file-or-dir>`
 - Strict config mode is available via `--strict-config` and programmatic `loadConfig(..., { strict: true })`
