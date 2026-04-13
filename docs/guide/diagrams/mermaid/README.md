@@ -55,6 +55,7 @@ Output:
 .diagramkit/
   architecture-light.svg
   architecture-dark.svg
+  manifest.json
 ```
 
 ## Using with AI Agents

@@ -87,6 +87,8 @@ npx diagramkit render .
 
 This finds all supported files (`.mermaid`, `.mmd`, `.mmdc`, `.excalidraw`, `.drawio`, `.drawio.xml`, `.dio`, `.dot`, `.gv`, `.graphviz`) recursively, skipping `node_modules`, hidden directories, and symlinks.
 
+You can also omit the `render` subcommand when the first argument is an existing file or directory, for example `npx diagramkit .`.
+
 ## Output Convention
 
 Images go into a `.diagramkit/` hidden folder next to each source file:

@@ -382,6 +382,8 @@ type ManifestEntry = {
   outputs: ManifestOutput[]
   formats: OutputFormat[]
   theme?: Theme
+  mtimeMs?: number
+  size?: number
 }
 ```
 

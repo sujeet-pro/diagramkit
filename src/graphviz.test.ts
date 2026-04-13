@@ -86,4 +86,20 @@ describe('renderGraphviz', () => {
   it('throws a descriptive error for invalid DOT syntax', async () => {
     await expect(renderGraphviz('not valid dot {')).rejects.toThrow()
   })
+
+  it('supports concurrent programmatic renders safely', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        renderGraphviz(`digraph { A${index} -> B${index} }`, {
+          theme: index % 2 === 0 ? 'both' : 'dark',
+        }),
+      ),
+    )
+
+    expect(results).toHaveLength(6)
+    expect(results[0].lightSvg).toContain('<svg')
+    expect(results[0].darkSvg).toContain('<svg')
+    expect(results[1].lightSvg).toBeUndefined()
+    expect(results[1].darkSvg).toContain('<svg')
+  })
 })

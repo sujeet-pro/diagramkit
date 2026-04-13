@@ -117,7 +117,10 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
     const laneLimit = Math.max(1, Math.min(4, opts.maxConcurrentLanes ?? 4))
 
     await runWithConcurrency(laneEntries, laneLimit, async ({ type, files }) => {
-      for (const file of files) {
+      const profile = ENGINE_PROFILES[type]
+      const fileConcurrency = profile?.serializedWithinLane ? 1 : files.length
+
+      await runWithConcurrency(files, fileConcurrency, async (file) => {
         if (!countsByType[type]) countsByType[type] = { rendered: 0, failed: 0 }
         progressDone++
         if (opts.progress) {
@@ -155,7 +158,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
           })
           countsByType[type]!.failed++
         }
-      }
+      })
     })
 
     if (successful.length > 0) {

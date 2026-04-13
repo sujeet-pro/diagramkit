@@ -166,12 +166,13 @@ export function getFlagValue(
   name: string,
   argv: string[] = args,
   exitOnError = true,
+  allowLeadingDash = false,
 ): string | undefined {
   const idx = argv.indexOf(`--${name}`)
   if (idx !== -1 && idx + 1 < argv.length) {
     const value = argv[idx + 1]!
     // Reject if the next token looks like a flag (starts with -)
-    if (value.startsWith('-')) {
+    if (!allowLeadingDash && value.startsWith('-')) {
       const message = `Missing value for --${name}`
       if (exitOnError) {
         console.error(message)
@@ -736,8 +737,8 @@ async function commandRender() {
   if (manifestFile) configOverrides.manifestFile = manifestFile
   if (noManifest) configOverrides.useManifest = false
   if (sameFolder) configOverrides.sameFolder = true
-  const outputPrefix = getFlagValue('output-prefix')
-  const outputSuffix = getFlagValue('output-suffix')
+  const outputPrefix = getFlagValue('output-prefix', args, true, true)
+  const outputSuffix = getFlagValue('output-suffix', args, true, true)
   if (outputPrefix !== undefined) configOverrides.outputPrefix = outputPrefix
   if (outputSuffix !== undefined) configOverrides.outputSuffix = outputSuffix
 

@@ -40,6 +40,12 @@ describe('cli/bin helpers', () => {
         /Missing value/,
       )
     })
+
+    it('allows leading dashes for output naming values', () => {
+      expect(
+        getFlagValue('output-suffix', ['render', '.', '--output-suffix', '-v2'], false, true),
+      ).toBe('-v2')
+    })
   })
 
   describe('validateEnum', () => {

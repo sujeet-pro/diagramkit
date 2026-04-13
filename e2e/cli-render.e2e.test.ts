@@ -207,6 +207,48 @@ describe('CLI rendering e2e', () => {
     expectNotExists(join(outDir, 'manifest.json'))
   }, 120_000)
 
+  it('--format svg,png renders multiple formats in one pass', () => {
+    const workspace = createWorkspace('e2e-cli-multi-format')
+
+    runCli(['render', '.', '--format', 'svg,png', '--theme', 'light'], workspace)
+
+    const outDir = join(workspace, '.diagramkit')
+    expectSvgFile(join(outDir, 'architecture-light.svg'))
+    expectRasterFile(join(outDir, 'architecture-light.png'), 'png')
+
+    const manifest = readJson<{
+      diagrams: Record<string, { formats: string[]; outputs: Array<{ file: string }> }>
+    }>(join(outDir, 'manifest.json'))
+    expect(manifest.diagrams['architecture.mmd'].formats).toEqual(['svg', 'png'])
+    expect(manifest.diagrams['architecture.mmd'].outputs.map((output) => output.file)).toEqual(
+      expect.arrayContaining(['architecture-light.svg', 'architecture-light.png']),
+    )
+  }, 120_000)
+
+  it('--output-prefix and --output-suffix affect generated filenames', () => {
+    const workspace = createWorkspace('e2e-cli-naming')
+
+    runCli(
+      [
+        'render',
+        '.',
+        '--format',
+        'svg',
+        '--theme',
+        'light',
+        '--output-prefix',
+        'dk-',
+        '--output-suffix',
+        '-v2',
+      ],
+      workspace,
+    )
+
+    const outDir = join(workspace, '.diagramkit')
+    expectSvgFile(join(outDir, 'dk-architecture-v2-light.svg'))
+    expectSvgFile(join(outDir, 'dk-dependency-v2-light.svg'))
+  }, 120_000)
+
   it('--json outputs parseable JSON for directory render', () => {
     const workspace = createWorkspace('e2e-cli-json')
 
@@ -377,6 +419,24 @@ describe('CLI rendering e2e', () => {
 
     const outPath = join(workspace, '.diagramkit', 'architecture-light.jpeg')
     expectRasterFile(outPath, 'jpeg')
+  }, 120_000)
+
+  it('--format webp produces valid WebP files', () => {
+    const workspace = createWorkspace('e2e-cli-webp')
+
+    runCli(['render', '.', '--format', 'webp', '--theme', 'light'], workspace)
+
+    expectRasterFile(join(workspace, '.diagramkit', 'architecture-light.webp'), 'webp')
+    expectRasterFile(join(workspace, '.diagramkit', 'dependency-light.webp'), 'webp')
+  }, 120_000)
+
+  it('--format avif produces valid AVIF files', () => {
+    const workspace = createWorkspace('e2e-cli-avif')
+
+    runCli(['render', '.', '--format', 'avif', '--theme', 'light'], workspace)
+
+    expectRasterFile(join(workspace, '.diagramkit', 'architecture-light.avif'), 'avif')
+    expectRasterFile(join(workspace, '.diagramkit', 'dependency-light.avif'), 'avif')
   }, 120_000)
 
   it('--strict-config fails on invalid local config values', () => {

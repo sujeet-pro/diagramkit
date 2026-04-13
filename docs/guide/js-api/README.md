@@ -134,6 +134,9 @@ await runtime.dispose()
 > [!TIP]
 > When issuing overlapping renders (`Promise.all`) for browser-backed engines, prefer `createRendererRuntime()` per worker/service boundary so each runtime has an isolated pool.
 
+> [!NOTE]
+> The top-level APIs (`render`, `renderAll`, `watchDiagrams`, `warmup`, `dispose`) share a singleton browser pool. Runtime methods use their own isolated pool, so clean them up with `runtime.dispose()` instead of the global `dispose()`.
+
 `createRendererRuntime()` returns runtime-scoped versions of:
 - `render`
 - `renderFile`

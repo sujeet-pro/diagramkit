@@ -111,6 +111,35 @@ jobs:
           test -f dist/utils.mjs
           test -f dist/utils.d.mts
           test -f dist/cli/bin.mjs
+          test -f schemas/diagramkit-cli-render.v1.json
+
+      - name: Verify exported targets exist
+        run: |
+          node --input-type=module <<'EOF'
+          import { existsSync, readFileSync } from 'node:fs'
+
+          const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
+          const missing = []
+
+          function visit(value) {
+            if (typeof value === 'string') {
+              if (!existsSync(value)) missing.push(value)
+              return
+            }
+            if (!value || typeof value !== 'object') return
+            for (const nested of Object.values(value)) visit(nested)
+          }
+
+          visit(pkg.exports)
+
+          if (missing.length > 0) {
+            console.error(`Missing export targets:\n${missing.join('\n')}`)
+            process.exit(1)
+          }
+          EOF
+
+      - name: Inspect npm package contents
+        run: npm pack --dry-run
 
       - name: Verify docs output exists
         run: test -d gh-pages

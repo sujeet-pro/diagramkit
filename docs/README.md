@@ -8,8 +8,11 @@ actions:
   - text: Get Started
     link: /guide/getting-started
     theme: brand
-  - text: CLI Reference
+  - text: CLI Guide
     link: /guide/cli
+    theme: alt
+  - text: CLI Options Table
+    link: /reference/cli
     theme: alt
   - text: API Reference
     link: /reference/api

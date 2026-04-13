@@ -138,6 +138,8 @@ function createRendererRuntime(): RendererRuntime
 
 Creates an isolated runtime with its own `BrowserPool`. Use this when you need lifecycle isolation from the default singleton runtime.
 
+Do not mix `runtime.dispose()` with the top-level `dispose()` for the same work unit. Runtime methods manage their own pool; the top-level API manages the shared singleton pool.
+
 ### `DiagramkitError`
 
 ```ts

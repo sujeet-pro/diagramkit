@@ -380,4 +380,24 @@ describe('getFileOverrides', () => {
     )
     expect(result).toEqual(override)
   })
+
+  it('matches normalized relative paths for backslash-separated file paths', () => {
+    const override = { theme: 'dark' as const }
+    const result = getFileOverrides(
+      '/repo/docs\\arch.mermaid',
+      { overrides: { 'docs/arch.mermaid': override } },
+      '/repo',
+    )
+    expect(result).toEqual(override)
+  })
+
+  it('matches glob patterns for backslash-separated file paths', () => {
+    const override = { quality: 70 }
+    const result = getFileOverrides(
+      '/repo/docs\\nested\\flow.excalidraw',
+      { overrides: { 'docs/**/*.excalidraw': override } },
+      '/repo',
+    )
+    expect(result).toEqual(override)
+  })
 })

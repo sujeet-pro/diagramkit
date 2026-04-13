@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
 import { getEngineProfile } from './engine-profiles'
@@ -41,7 +42,7 @@ export async function render(
 
   try {
     // Unique prefix avoids mermaid element ID collisions across concurrent renders
-    const renderId = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+    const renderId = randomUUID()
     const engine = engineRenderers[type]
     const { lightSvg, darkSvg } = await engine({
       source,
@@ -162,6 +163,11 @@ export async function renderDiagramFileToDisk(
   // Import convertSvg once if any raster formats are requested
   const needsRaster = formats.some((f) => f !== 'svg')
   const doConvert = needsRaster ? (await import('./convert')).convertSvg : undefined
+  const rasterScale = options.scale ?? 2
+  const rasterWidth =
+    svgResult.width !== undefined ? Math.round(svgResult.width * rasterScale) : undefined
+  const rasterHeight =
+    svgResult.height !== undefined ? Math.round(svgResult.height * rasterScale) : undefined
 
   for (const fmt of formats) {
     let result: RenderResult
@@ -191,10 +197,10 @@ export async function renderDiagramFileToDisk(
         file: fileName,
         format: fmt,
         theme,
-        width: svgResult.width,
-        height: svgResult.height,
+        width: fmt === 'svg' ? svgResult.width : rasterWidth,
+        height: fmt === 'svg' ? svgResult.height : rasterHeight,
         quality: fmt !== 'svg' ? (options.quality ?? 90) : undefined,
-        scale: fmt !== 'svg' ? (options.scale ?? 2) : undefined,
+        scale: fmt !== 'svg' ? rasterScale : undefined,
       })
     }
   }

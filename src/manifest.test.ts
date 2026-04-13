@@ -12,7 +12,15 @@
  * - v1 manifests are migrated to v2 on read
  */
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
@@ -126,6 +134,16 @@ describe('manifest', () => {
       expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
     })
 
+    it('moves corrupt manifest files aside before resetting', () => {
+      const outDir = ensureDiagramsDir(testDir)
+      writeFileSync(join(outDir, 'manifest.json'), 'not json{{')
+
+      readManifest(testDir)
+
+      const entries = readdirSync(outDir)
+      expect(entries.some((entry) => entry.startsWith('manifest.json.corrupt.'))).toBe(true)
+    })
+
     it('returns default manifest and warns when manifest file is unreadable', () => {
       const outDir = ensureDiagramsDir(testDir)
       mkdirSync(join(outDir, 'manifest.json'))
@@ -220,6 +238,8 @@ describe('manifest', () => {
       expect(entry.hash).toBe(hashFile(file.path))
       expect(entry.formats).toEqual(['png'])
       expect(entry.theme).toBe('light')
+      expect(entry.mtimeMs).toBe(statSync(file.path).mtimeMs)
+      expect(entry.size).toBe(statSync(file.path).size)
       // Outputs should be ManifestOutput objects
       expect(entry.outputs).toEqual([
         expect.objectContaining({ file: 'flow-light.png', format: 'png', theme: 'light' }),

@@ -107,6 +107,8 @@ export interface RenderableFile extends DiagramFile {
   _hash?: string
   _effectiveFormats?: OutputFormat[]
   _outputMeta?: OutputMetadata[]
+  _mtimeMs?: number
+  _size?: number
 }
 
 /** Per-output metadata for manifest entries */

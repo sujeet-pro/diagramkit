@@ -10,7 +10,7 @@
 
 - Trailing commas in function parameters, arrays, objects
 - No semicolons (except where required in `for` loops)
-- Section headers use the pattern: `/* -- Name -- */`
+- Section headers use the pattern: `/* ── Name ── */`
 - Double quotes for strings in configuration; single quotes are fine in code
 
 ## Async and I/O
@@ -70,7 +70,7 @@
 - Unit tests for pure logic: color conversions, manifest operations, extension resolution
 - Integration tests that need Playwright should be separate (slower, require chromium)
 - Unit tests colocated with source (`src/*.test.ts`), e2e tests in `e2e/`
-- Run with `npm test` (vitest run) or `npm run test:watch` (vitest watch)
+- Run with `npm test` (`vp test run`), `npm run test:watch` (full watch mode), or `npm run test:unit:watch` (unit-only watch mode)
 - Type checking: `npm run typecheck` (tsc --noEmit)
 
 ## Build

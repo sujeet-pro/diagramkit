@@ -259,7 +259,7 @@ Review all source files in `src/` and `cli/` for:
 - TypeScript strict mode compliance
 - No `any` types unless absolutely necessary (and commented why)
 - Trailing commas, no semicolons (per GUIDELINES.md)
-- Section headers use `/* -- Name -- */` pattern
+- Section headers use `/* ── Name ── */` pattern
 - Comments explain reasoning, not what code does
 
 ### 1.2 Error Handling

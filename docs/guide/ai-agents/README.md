@@ -110,7 +110,7 @@ npx diagramkit doctor --json
 `failedDetails` provides machine-readable diagnostics (`file`, `code`, `message`) for each failed render.
 `--plan --json` includes stale reasons before execution.
 
-JSON schema: `schemas/diagramkit-cli-render.v1.json` (shipped in npm package).
+JSON schema: `diagramkit/schemas/diagramkit-cli-render.v1.json` (exported from the npm package).
 
 Use `--quiet --json` together for clean JSON on stdout (suppresses log noise to stderr).
 

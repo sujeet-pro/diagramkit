@@ -27,6 +27,12 @@ npm install
 npx playwright install chromium
 ```
 
+On Linux and CI runners, prefer:
+
+```bash
+npx playwright install --with-deps chromium
+```
+
 Build the project:
 
 ```bash
@@ -45,6 +51,12 @@ Run only unit tests (fast, no browser required):
 
 ```bash
 npm run test:unit
+```
+
+Watch unit tests while iterating:
+
+```bash
+npm run test:unit:watch
 ```
 
 Run only end-to-end tests (requires Playwright Chromium, build first):
@@ -82,7 +94,7 @@ npm run docs:build
 - Sync FS for file reading (`readFileSync`)
 - No CLI framework -- manual arg parsing
 - Comments explain reasoning, not what code does
-- Section headers use the format `/* -- Name -- */`
+- Section headers use the format `/* ── Name ── */`
 - Dynamic imports for optional dependencies (e.g., `sharp`)
 
 Run the linter and formatter:
@@ -110,4 +122,17 @@ See `CLAUDE.md` for a detailed architecture overview, directory structure, and g
 2. Make your changes, following the code style above
 3. Add or update tests as appropriate -- unit tests for pure logic, e2e tests for rendering behavior
 4. Run `npm run validate` to verify everything passes
-5. Open a pull request against `main` with a clear description of the change -- GitHub will auto-apply the PR template
+5. Update `CHANGELOG.md` for user-visible changes, breaking changes, or release-facing docs updates
+6. Open a pull request against `main` with a clear description of the change -- GitHub will auto-apply the PR template
+
+## Maintainer Releases
+
+Releases are published with `.github/workflows/publish.yml`.
+
+Before running the workflow:
+
+- make sure `CHANGELOG.md` has a real versioned entry for the release and a reset `[Unreleased]` section
+- confirm `npm run validate` passes locally or on CI
+- verify npm publish credentials and GitHub release permissions are available
+
+The publish workflow bumps the version, runs checks/tests, publishes to npm, pushes the tag, and creates the GitHub Release.

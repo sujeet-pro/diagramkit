@@ -382,6 +382,10 @@ export function loadConfig(
 
 /* ── Per-file overrides ── */
 
+function normalizeOverridePath(path: string): string {
+  return path.replace(/\\/g, '/')
+}
+
 /**
  * Resolve per-file overrides for a given file path.
  * Matches against config.overrides keys: exact filename match first, then glob-like patterns.
@@ -394,22 +398,28 @@ export function getFileOverrides(
   const overrides = config?.overrides
   if (!overrides) return undefined
 
-  const name = basename(filePath)
-  const relPath = rootDir ? relative(rootDir, filePath) : filePath
+  const normalizedFilePath = normalizeOverridePath(filePath)
+  const name = basename(normalizedFilePath)
+  const rawRelPath = rootDir ? relative(rootDir, filePath) : filePath
+  const relPath = rootDir
+    ? normalizeOverridePath(relative(normalizeOverridePath(rootDir), normalizedFilePath))
+    : normalizedFilePath
 
   // Exact filename match (highest priority)
   if (overrides[name]) return overrides[name]
 
   // Relative path match
+  if (overrides[rawRelPath]) return overrides[rawRelPath]
   if (overrides[relPath]) return overrides[relPath]
 
   // Simple glob patterns: "docs/*.mermaid" or "**/*.excalidraw"
   for (const [pattern, override] of Object.entries(overrides)) {
     if (!pattern.includes('*')) continue
+    const normalizedPattern = normalizeOverridePath(pattern)
     // Escape all regex metacharacters except * (which we handle as glob)
     const regex = new RegExp(
       '^' +
-        pattern
+        normalizedPattern
           .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
           .replace(/\*\*/g, '{{GLOBSTAR}}')
           .replace(/\*/g, '[^/]*')

@@ -73,9 +73,11 @@
     "./convert": {
       "types": "./dist/convert.d.mts",
       "import": "./dist/convert.mjs"
-    }
+    },
+    "./schemas/diagramkit-cli-render.v1.json": "./schemas/diagramkit-cli-render.v1.json"
   },
   "scripts": {
+    "prepack": "npm run lib:build",
     "build": "npm run lib:build",
     "build:all": "npm run lib:build && npm run docs:build",
     "preview": "npm run build:all && npm run docs:preview",
@@ -86,6 +88,7 @@
     "docs:preview": "node ./scripts/run-pagesmith.mjs preview",
     "test": "vp test run",
     "test:unit": "vp test run src/ --pool forks --fileParallelism",
+    "test:unit:watch": "vp test src/",
     "test:e2e": "vp test run e2e/ --pool forks --fileParallelism",
     "test:coverage": "vp test run --coverage",
     "test:watch": "vp test",

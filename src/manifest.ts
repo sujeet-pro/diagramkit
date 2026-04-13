@@ -6,6 +6,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -54,6 +55,8 @@ export type ManifestEntry = {
   outputs: ManifestOutput[]
   formats: OutputFormat[]
   theme?: Theme
+  mtimeMs?: number
+  size?: number
 }
 
 export type Manifest = {
@@ -129,6 +132,18 @@ function parseOutputFilename(file: string): { format: OutputFormat; theme: 'ligh
   return { format, theme }
 }
 
+function moveCorruptManifestAside(candidate: string): string | null {
+  const backupPath =
+    candidate + `.corrupt.${Date.now().toString(36)}.${randomBytes(2).toString('hex')}`
+  try {
+    renameSync(candidate, backupPath)
+    return backupPath
+  } catch (err: unknown) {
+    debugLog(`failed to move corrupt manifest aside: ${candidate}`, err)
+    return null
+  }
+}
+
 export function readManifest(sourceDir: string, config?: Partial<DiagramkitConfig>): Manifest {
   const manifestFile = config?.manifestFile ?? 'manifest.json'
   const outDir = getDiagramsDir(sourceDir, config)
@@ -168,8 +183,11 @@ export function readManifest(sourceDir: string, config?: Partial<DiagramkitConfi
       return { version: 2, diagrams }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
+      const backupPath = moveCorruptManifestAside(candidate)
       process.stderr.write(
-        `Warning: failed to parse manifest ${candidate}: ${message}. Resetting manifest.\n`,
+        `Warning: failed to parse manifest ${candidate}: ${message}.` +
+          (backupPath ? ` Backed up to ${backupPath}.` : '') +
+          ' Resetting manifest.\n',
       )
       return { version: 2, diagrams: {} }
     }
@@ -206,6 +224,23 @@ export function writeManifest(
 export function hashFile(filePath: string): string {
   const content = readFileSync(filePath)
   return 'sha256:' + createHash('sha256').update(content).digest('hex').slice(0, 16)
+}
+
+type FileFingerprint = {
+  mtimeMs: number
+  size: number
+}
+
+function getFileFingerprint(filePath: string): FileFingerprint {
+  const stat = statSync(filePath)
+  return {
+    mtimeMs: stat.mtimeMs,
+    size: stat.size,
+  }
+}
+
+function shouldCompareHash(entry: ManifestEntry, fingerprint: FileFingerprint): boolean {
+  return entry.mtimeMs !== fingerprint.mtimeMs || entry.size !== fingerprint.size
 }
 
 /* ── Staleness checking ── */
@@ -251,9 +286,6 @@ export function isStale(
   // Early return for files never rendered — avoids unnecessary hash computation
   if (!entry) return true
 
-  const hash = hashFile(file.path)
-  if (entry.hash !== hash) return true
-
   // Theme change triggers re-render
   if (theme && entry.theme !== theme) return true
 
@@ -270,7 +302,17 @@ export function isStale(
     theme ?? entry.theme ?? 'both',
     naming,
   )
-  return expectedOutputs.some((output) => !existsSync(join(outDir, output)))
+  if (expectedOutputs.some((output) => !existsSync(join(outDir, output)))) {
+    return true
+  }
+
+  const fingerprint = getFileFingerprint(file.path)
+  if (!shouldCompareHash(entry, fingerprint)) {
+    return false
+  }
+
+  const hash = hashFile(file.path)
+  return entry.hash !== hash
 }
 
 /** Filter files to only those that have changed since last render. Caches manifests per directory. */
@@ -332,10 +374,21 @@ export function filterStaleFiles(
       return result
     }
 
-    // Content hash comparison — only case that requires reading the file
+    const fingerprint = getFileFingerprint(f.path)
+    if (!shouldCompareHash(entry, fingerprint)) {
+      return result
+    }
+
+    // Content hash comparison — only when cheap file metadata changed
     const hash = hashFile(f.path)
     if (entry.hash !== hash) {
-      result.push({ ...f, _hash: hash, _effectiveFormats: effectiveFormats })
+      result.push({
+        ...f,
+        _hash: hash,
+        _mtimeMs: fingerprint.mtimeMs,
+        _size: fingerprint.size,
+        _effectiveFormats: effectiveFormats,
+      })
       return result
     }
 
@@ -411,6 +464,11 @@ export function planStaleFiles(
       continue
     }
 
+    const fingerprint = getFileFingerprint(f.path)
+    if (!shouldCompareHash(entry, fingerprint)) {
+      continue
+    }
+
     const hash = hashFile(f.path)
     if (entry.hash !== hash) {
       reasons.push({ code: 'content_changed', previousHash: entry.hash, currentHash: hash })
@@ -462,12 +520,19 @@ export function updateManifest(
         })
       }
 
+      const fingerprint =
+        f._mtimeMs !== undefined && f._size !== undefined
+          ? { mtimeMs: f._mtimeMs, size: f._size }
+          : getFileFingerprint(f.path)
+
       manifest.diagrams[name] = {
         hash: f._hash ?? hashFile(f.path),
         generatedAt: new Date().toISOString(),
         outputs,
         formats: effectiveFormats,
         theme,
+        mtimeMs: fingerprint.mtimeMs,
+        size: fingerprint.size,
       }
     }
 

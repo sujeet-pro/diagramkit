@@ -205,6 +205,8 @@ Per-file render overrides. Keys can be exact filenames, relative paths, or glob 
     "flow.mermaid": {
       "hash": "sha256:a1b2c3d4e5f67890",
       "generatedAt": "2026-04-04T10:30:00.000Z",
+      "mtimeMs": 1712226600000.123,
+      "size": 248,
       "outputs": [
         { "file": "flow-light.svg", "format": "svg", "theme": "light", "width": 800, "height": 600 },
         { "file": "flow-dark.svg", "format": "svg", "theme": "dark", "width": 800, "height": 600 }
@@ -222,6 +224,8 @@ Per-file render overrides. Keys can be exact filenames, relative paths, or glob 
 | `diagrams` | `Record<string, ManifestEntry>` | Source filename to entry |
 | `hash` | `string` | SHA-256 content hash (first 16 hex chars) |
 | `generatedAt` | `string` | ISO 8601 timestamp |
+| `mtimeMs` | `number` | Last-seen source file mtime, used for cheap no-op checks before re-hashing |
+| `size` | `number` | Last-seen source file size in bytes, paired with `mtimeMs` for fast stale checks |
 | `outputs` | `ManifestOutput[]` | Per-output metadata |
 | `formats` | `OutputFormat[]` | All tracked formats (accumulative) |
 | `theme` | `Theme` | Theme variant used |

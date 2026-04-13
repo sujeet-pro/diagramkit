@@ -91,10 +91,16 @@ The file watcher (chokidar) monitors supported extensions. If changes are not de
 
 ## CI Pipeline Hangs
 
-The browser pool stays alive for 5 seconds after the last render. In CI, always call `dispose()` in scripts or use `--no-manifest` to avoid leftover processes:
+The CLI automatically disposes the shared browser pool after normal non-watch renders. If a CI job hangs, the usual causes are:
+
+- a watch-mode process that is meant to stay alive
+- a custom script using the JavaScript API without calling `dispose()`
+- another long-running task waiting on stdin/stdout rather than render completion
+
+For CLI usage, prefer a normal one-shot render:
 
 ```bash
-npx diagramkit render . --json --no-manifest
+npx diagramkit render . --quiet --json
 ```
 
 For the JavaScript API:
@@ -109,6 +115,8 @@ try {
   await dispose()
 }
 ```
+
+`--no-manifest` only disables incremental caching. It does not control browser lifecycle cleanup.
 
 ## Agent-Specific Checks
 

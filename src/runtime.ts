@@ -22,6 +22,10 @@ export interface RendererRuntime {
   dispose: () => Promise<void>
 }
 
+/**
+ * Create an isolated rendering runtime with its own browser pool.
+ * Use this for worker/service boundaries where sharing the default singleton would be surprising.
+ */
 export function createRendererRuntime(): RendererRuntime {
   const pool = new BrowserPool()
 

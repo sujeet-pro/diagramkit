@@ -124,7 +124,7 @@ Watch mode stays running until `Ctrl+C`.
 }
 ```
 
-JSON schema: `schemas/diagramkit-cli-render.v1.json` (shipped in npm package).
+JSON schema: `diagramkit/schemas/diagramkit-cli-render.v1.json` (exported from the npm package).
 
 ### Breaking Change Note
 

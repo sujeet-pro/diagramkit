@@ -148,6 +148,8 @@ diagramkit render . --output-prefix "dk-"
 diagramkit render . --output-suffix "-v2"
 ```
 
+When you use `--output`, diagramkit writes to that folder directly. Directory renders skip manifest tracking for that run, and single-file renders do not update the source directory manifest. Use `--output-dir` if you want custom folder naming while keeping incremental manifests.
+
 ### Explicit Config File
 
 ```bash
@@ -224,7 +226,7 @@ diagramkit render . --plan --json
 `--json` now emits a versioned envelope with `schemaVersion: 1` and nested `result`.  
 If you parsed legacy root-level JSON fields directly, migrate to `result.*`.
 
-JSON schema: `schemas/diagramkit-cli-render.v1.json` (shipped in npm package).
+JSON schema: `diagramkit/schemas/diagramkit-cli-render.v1.json` (exported from the npm package).
 
 ## Exit Codes
 

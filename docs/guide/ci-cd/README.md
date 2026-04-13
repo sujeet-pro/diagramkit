@@ -155,9 +155,9 @@ Run with:
 npx tsx scripts/render-diagrams.ts
 ```
 
-## Pre-commit Hook
+## Pre-commit: Require Rendered Outputs
 
-Validate diagrams before commit:
+Block commits when tracked diagram outputs are stale:
 
 ```bash
 # .husky/pre-commit
@@ -171,6 +171,8 @@ npx diagramkit render . --dry-run --json | node -e "
   }
 "
 ```
+
+This checks for stale diagram outputs, not diagram syntax correctness. If you want full validation, run `diagramkit render .` in CI and fail on non-empty `failed`.
 
 ## Monorepo Setup
 

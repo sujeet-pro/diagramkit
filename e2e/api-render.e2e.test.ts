@@ -97,6 +97,28 @@ describe('API rendering e2e', () => {
     expect(manifest.diagrams['architecture.mmd'].theme).toBe('light')
   }, 120_000)
 
+  it('renders multiple formats in one pass and records all outputs in the manifest', async () => {
+    const workspace = createWorkspace('e2e-api-multi-format')
+
+    await renderAll({
+      dir: workspace,
+      formats: ['svg', 'png'],
+      theme: 'light',
+    })
+
+    const outDir = join(workspace, '.diagramkit')
+    expectSvgFile(join(outDir, 'architecture-light.svg'))
+    expectRasterFile(join(outDir, 'architecture-light.png'), 'png')
+    expectSvgFile(join(outDir, 'dependency-light.svg'))
+    expectRasterFile(join(outDir, 'dependency-light.png'), 'png')
+
+    const manifest = readManifest(workspace)
+    expect(manifest.diagrams['architecture.mmd']?.formats).toEqual(['svg', 'png'])
+    expect(manifest.diagrams['architecture.mmd']?.outputs.map((output) => output.file)).toEqual(
+      expect.arrayContaining(['architecture-light.svg', 'architecture-light.png']),
+    )
+  }, 120_000)
+
   it('supports same-folder output without manifest', async () => {
     const workspace = createWorkspace('e2e-api-samefolder')
 

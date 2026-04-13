@@ -30,6 +30,13 @@ function debugLog(message: string, err?: unknown): void {
   process.stderr.write(`[diagramkit:pool] ${message}${details ? `: ${details}` : ''}\n`)
 }
 
+function createPoolStateError(): DiagramkitError {
+  return new DiagramkitError(
+    'RENDER_FAILED',
+    'BrowserPool not acquired. Call acquire() before requesting a renderer page.',
+  )
+}
+
 /**
  * Shared browser pool for diagram rendering.
  * Manages a single Chromium instance with reusable pages for
@@ -173,7 +180,7 @@ export class BrowserPool {
   /* ── Mermaid pages ── */
 
   async getMermaidLightPage(): Promise<Page> {
-    if (!this.context) throw new Error('BrowserPool not acquired')
+    if (!this.context) throw createPoolStateError()
     if (!this.mermaidLightPage || this.mermaidLightPage.isClosed()) {
       this.mermaidLightPage = await this.createMermaidPage('default')
     }
@@ -181,7 +188,7 @@ export class BrowserPool {
   }
 
   async getMermaidDarkPage(themeVariables: Record<string, string>): Promise<Page> {
-    if (!this.context) throw new Error('BrowserPool not acquired')
+    if (!this.context) throw createPoolStateError()
     const varsKey = JSON.stringify(themeVariables)
     if (
       !this.mermaidDarkPage ||
@@ -229,7 +236,7 @@ export class BrowserPool {
   /* ── Excalidraw page ── */
 
   async getExcalidrawPage(warn?: Logger['warn']): Promise<Page> {
-    if (!this.context) throw new Error('BrowserPool not acquired')
+    if (!this.context) throw createPoolStateError()
     if (this.excalidrawPage && !this.excalidrawPage.isClosed()) {
       return this.excalidrawPage
     }
@@ -277,7 +284,7 @@ export class BrowserPool {
   /* ── Draw.io page ── */
 
   async getDrawioPage(warn?: Logger['warn']): Promise<Page> {
-    if (!this.context) throw new Error('BrowserPool not acquired')
+    if (!this.context) throw createPoolStateError()
     if (this.drawioPage && !this.drawioPage.isClosed()) {
       return this.drawioPage
     }
@@ -335,6 +342,16 @@ function canUseDiskBundleCache(): boolean {
   return true
 }
 
+function appendLockfileMtimes(hasher: ReturnType<typeof createHash>): void {
+  for (const lockfileName of ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'] as const) {
+    try {
+      const lockfilePath = fileURLToPath(new URL(`../${lockfileName}`, import.meta.url))
+      const lockMtime = statSync(lockfilePath).mtimeMs.toString()
+      hasher.update(`${lockfileName}:${lockMtime}`)
+    } catch {}
+  }
+}
+
 async function buildOrReadCachedBundle(name: string, entryPath: string): Promise<string> {
   if (!canUseDiskBundleCache()) {
     const { rolldown } = await import('rolldown')
@@ -345,14 +362,10 @@ async function buildOrReadCachedBundle(name: string, entryPath: string): Promise
     return code
   }
 
-  // Cache key = SHA-256 of entry file content + lockfile mtime so npm update invalidates cache
+  // Cache key = SHA-256 of entry file content + lockfile mtimes so dependency updates invalidate cache
   const entryContent = readFileSync(entryPath)
   const hasher = createHash('sha256').update(entryContent)
-  try {
-    const lockfilePath = fileURLToPath(new URL('../package-lock.json', import.meta.url))
-    const lockMtime = statSync(lockfilePath).mtimeMs.toString()
-    hasher.update(lockMtime)
-  } catch {}
+  appendLockfileMtimes(hasher)
   const hash = hasher.digest('hex').slice(0, 12)
   const cacheFile = join(CACHE_DIR, `${name}-${hash}.iife.js`)
 

@@ -293,6 +293,28 @@ describe('renderDiagramFileToDisk', () => {
     const pngOutputs = written.filter((n) => n.endsWith('.png'))
     expect(pngOutputs.length).toBeGreaterThanOrEqual(1)
   })
+
+  it('stores scaled raster dimensions in output metadata', async () => {
+    const file = {
+      path: '/tmp/test.dot',
+      name: 'test',
+      dir: '/tmp',
+      ext: '.dot',
+    }
+
+    await renderDiagramFileToDisk(file, { formats: ['png'], scale: 3 })
+
+    expect((file as { _outputMeta?: Array<Record<string, unknown>> })._outputMeta).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          format: 'png',
+          width: 900,
+          height: 600,
+          scale: 3,
+        }),
+      ]),
+    )
+  })
 })
 
 /* ── RenderAllResult structure ── */

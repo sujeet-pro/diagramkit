@@ -36,7 +36,7 @@ Config:
 - legacy local: .diagramkitrc.json
 - global: ~/.config/diagramkit/config.json5
 - env: DIAGRAMKIT_FORMAT, DIAGRAMKIT_THEME, DIAGRAMKIT_OUTPUT_DIR, DIAGRAMKIT_NO_MANIFEST
-- merge order: defaults -> global -> env -> local -> overrides
+- merge order: defaults -> global -> env -> local -> CLI/API overrides
 
 Programmatic API:
 - render(source, type, options?)

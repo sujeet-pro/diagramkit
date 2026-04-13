@@ -39,38 +39,38 @@ npm add sharp
 Render a single file (produces both light and dark SVGs):
 
 ```bash
-diagramkit render architecture.mermaid
+npx diagramkit render architecture.mermaid
 ```
 
 Render all diagrams in a directory:
 
 ```bash
-diagramkit render .
+npx diagramkit render .
 ```
 
 Watch for changes and re-render automatically:
 
 ```bash
-diagramkit render . --watch
+npx diagramkit render . --watch
 ```
 
 Render to PNG for use in emails or Confluence:
 
 ```bash
-diagramkit render . --format png --theme light
+npx diagramkit render . --format png --theme light
 ```
 
 Render high-resolution WebP:
 
 ```bash
-diagramkit render . --format webp --quality 85 --scale 3
+npx diagramkit render . --format webp --quality 85 --scale 3
 ```
 
 Filter by diagram type:
 
 ```bash
-diagramkit render . --type mermaid
-diagramkit render . --type graphviz
+npx diagramkit render . --type mermaid
+npx diagramkit render . --type graphviz
 ```
 
 Output files are placed in a `.diagramkit/` folder next to each source file. Filenames include `-light` or `-dark` suffixes.
@@ -129,10 +129,13 @@ await dispose()
 console.log(batchResult.failedDetails)
 ```
 
+For isolated workers or long-running services, use `createRendererRuntime()` and call `runtime.dispose()` when that runtime is done. The default top-level APIs share a singleton browser pool.
+
 Import paths:
 
 - `diagramkit` - core rendering APIs
 - `diagramkit/utils` - discovery/manifest/output helpers for custom pipelines
+- `diagramkit/color` - dark SVG contrast utilities
 - `diagramkit/convert` - SVG-to-raster conversion only
 
 ## Configuration

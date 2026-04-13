@@ -7,41 +7,44 @@ outputs, and cleans up all created files.
 ## Running
 
 ```bash
+npm run build
 npm run test:e2e
 ```
 
-Requires `npm run build` first — CLI tests run against the built `dist/cli/bin.mjs`.
+CLI tests run against the built `dist/cli/bin.mjs`.
 
-## Test Cases
+## Coverage Highlights
 
-### API Tests (api-render.e2e.test.ts)
+### API (`api-render.e2e.test.ts`)
 
-| #   | Name                                                    | What it verifies                                            |
-| --- | ------------------------------------------------------- | ----------------------------------------------------------- |
-| 1   | Render all types to SVG (both themes)                   | `renderAll` produces 8 SVGs, manifest has 4 entries         |
-| 2   | Raster PNG with custom output dir and manifest filename | Custom `outputDir` + `manifestFile` config, PNG magic bytes |
-| 3   | Same-folder output without manifest                     | `sameFolder` + `useManifest: false`, sources intact         |
-| 4   | Manifest skip + incremental rebuild + orphan cleanup    | mtime unchanged on skip, updated on change, orphan cleanup  |
-| 5   | Type filtering (mermaid only)                           | Only mermaid outputs produced                               |
+- default SVG rendering for all engines and both themes
+- custom output directories and manifest filenames
+- same-folder output with manifest disabled
+- incremental skip, re-render, and orphan cleanup behavior
+- multi-format rendering (`formats: ['svg', 'png']`)
+- type filtering and custom extension maps
+- JPEG, WebP, and AVIF raster output
+- string/file APIs for Mermaid, Graphviz, Excalidraw, and Draw.io
 
-### CLI Tests (cli-render.e2e.test.ts)
+### CLI (`cli-render.e2e.test.ts`)
 
-| #   | Name                                               | What it verifies                               |
-| --- | -------------------------------------------------- | ---------------------------------------------- |
-| 6   | Single file to custom output dir                   | `--output` flag, dark theme only               |
-| 7   | Directory with custom output-dir and manifest-file | `--output-dir` + `--manifest-file`, PNG light  |
-| 8   | Same-folder + no-manifest + type filter            | `--same-folder --no-manifest --type mermaid`   |
-| 9   | Watch mode re-renders on file change               | `--watch` picks up source edits and re-renders |
-| 10  | JSON envelope output                               | `--json` returns schemaVersioned envelope      |
-| 11  | Plan mode JSON with stale reasons                  | `--plan --json` includes stale reason metadata |
-| 12  | Doctor command JSON                                | `doctor --json` returns diagnostics            |
+- single-file and directory rendering flows
+- `--output`, `--output-dir`, `--manifest-file`, and same-folder behavior
+- multi-format `--format svg,png`
+- raster formats through the CLI (`png`, `jpeg`, `webp`, `avif`)
+- `--output-prefix` / `--output-suffix` naming controls
+- `--force`, `--dry-run`, `--plan --json`, `--json`, `--quiet`
+- `--no-contrast`, `--scale`, `--quality`, `--strict-config`, `--max-type-lanes`
+- `init`, `doctor`, `--install-skill`, `--agent-help`, `warmup`
+- watch mode re-rendering on file changes
 
 ## Structure
 
-```
+```text
 e2e/
-  api-render.e2e.test.ts   API rendering tests (vitest)
-  cli-render.e2e.test.ts   CLI rendering tests (vitest)
-  test-utils.ts            Shared helpers (workspace, assertions, CLI runner)
-  fixtures/                Diagram source files (mermaid, excalidraw, drawio, graphviz)
+  api-render.e2e.test.ts        API rendering tests
+  cli-render.e2e.test.ts        CLI rendering tests
+  test-utils.ts                 Shared helpers (workspace, assertions, CLI runner)
+  fixtures/
+    mixed-diagrams/             Mermaid, Excalidraw, Draw.io, and Graphviz fixtures
 ```

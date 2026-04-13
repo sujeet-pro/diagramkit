@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-04-13
+
 ### Added
 
 - `diagramkit --install-skill` to scaffold project-level Claude and Cursor skills for repo-local diagram workflows
@@ -71,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration layering (defaults, global, local, overrides)
 - LLM reference files (`llms.txt`, `llms-full.txt`) and `--agent-help` CLI command
 
-[Unreleased]: https://github.com/sujeet-pro/diagramkit/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/sujeet-pro/diagramkit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/sujeet-pro/diagramkit/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/sujeet-pro/diagramkit/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/sujeet-pro/diagramkit/releases/tag/v0.0.1

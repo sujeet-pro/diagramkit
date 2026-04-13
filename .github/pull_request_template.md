@@ -17,4 +17,5 @@
 - [ ] `npm run docs:build` passes (when docs are changed)
 - [ ] Tests added/updated for new behavior
 - [ ] Documentation updated if needed
+- [ ] CHANGELOG updated for user-visible changes (or N/A)
 - [ ] CLAUDE.md updated if architecture changed
