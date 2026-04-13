@@ -19,6 +19,12 @@ import {
   removeWorkspace,
   runCli,
   runCliSafe,
+  runCliAsExecutableViaBin,
+  runCliAsExecutableViaBinSafe,
+  runCliViaBin,
+  runCliViaBinSafe,
+  runCliViaRelativeBin,
+  runCliViaRelativeBinSafe,
 } from './test-utils'
 
 describe('CLI rendering e2e', () => {
@@ -352,6 +358,78 @@ describe('CLI rendering e2e', () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toMatch(/diagramkit v\d+\.\d+\.\d+/)
+  }, 120_000)
+
+  it('prints the version through a symlinked bin path', () => {
+    const workspace = createWorkspace('e2e-cli-bin-version')
+    const result = runCliViaBinSafe(['--version'], workspace)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toMatch(/diagramkit v\d+\.\d+\.\d+/)
+  }, 120_000)
+
+  it('prints the version through a relative symlinked bin path', () => {
+    const workspace = createWorkspace('e2e-cli-relative-bin-version')
+    const result = runCliViaRelativeBinSafe(['--version'], workspace)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toMatch(/diagramkit v\d+\.\d+\.\d+/)
+  }, 120_000)
+
+  it('prints the version through the executable bin shim path', () => {
+    const workspace = createWorkspace('e2e-cli-executable-bin-version')
+    const result = runCliAsExecutableViaBinSafe(['--version'], workspace)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toMatch(/diagramkit v\d+\.\d+\.\d+/)
+  }, 120_000)
+
+  it('renders through a symlinked bin path', () => {
+    const workspace = createWorkspace('e2e-cli-bin-render')
+
+    const stdout = runCliViaBin(
+      ['render', 'architecture.mmd', '--format', 'svg', '--theme', 'light'],
+      workspace,
+    )
+
+    expectSvgFile(join(workspace, '.diagramkit', 'architecture-light.svg'))
+    expect(stdout).toContain('architecture-light.svg')
+  }, 120_000)
+
+  it('renders through a relative symlinked bin path', () => {
+    const workspace = createWorkspace('e2e-cli-relative-bin-render')
+
+    const stdout = runCliViaRelativeBin(
+      ['render', 'architecture.mmd', '--format', 'svg', '--theme', 'light'],
+      workspace,
+    )
+
+    expectSvgFile(join(workspace, '.diagramkit', 'architecture-light.svg'))
+    expect(stdout).toContain('architecture-light.svg')
+  }, 120_000)
+
+  it('renders when the executable bin shim is invoked directly', () => {
+    const workspace = createWorkspace('e2e-cli-executable-bin-render')
+
+    const stdout = runCliAsExecutableViaBin(
+      ['render', 'architecture.mmd', '--format', 'svg', '--theme', 'light'],
+      workspace,
+    )
+
+    expectSvgFile(join(workspace, '.diagramkit', 'architecture-light.svg'))
+    expect(stdout).toContain('architecture-light.svg')
+  }, 120_000)
+
+  it('supports path-alias rendering through the executable bin shim', () => {
+    const workspace = createWorkspace('e2e-cli-executable-bin-alias')
+
+    const stdout = runCliAsExecutableViaBin(
+      ['architecture.mmd', '--format', 'svg', '--theme', 'light'],
+      workspace,
+    )
+
+    expectSvgFile(join(workspace, '.diagramkit', 'architecture-light.svg'))
+    expect(stdout).toContain('architecture-light.svg')
   }, 120_000)
 
   it('--no-contrast produces different dark SVG than default', () => {

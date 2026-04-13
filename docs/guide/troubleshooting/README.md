@@ -5,6 +5,20 @@ description: Common issues and solutions for diagramkit rendering problems.
 
 # Troubleshooting
 
+## Local npm Bin Command Is Silent
+
+**Symptom:** `./node_modules/.bin/diagramkit --version` prints nothing, or `npx diagramkit render ...` exits without output.
+
+**Fix:** upgrade to the latest patch release, then retry one of the supported startup paths:
+
+```bash
+npx diagramkit --version
+./node_modules/.bin/diagramkit --version
+node ./node_modules/diagramkit/dist/cli/bin.mjs --version
+```
+
+Current releases normalize symlinked npm bin paths to the real CLI entrypoint, so local npm bin shims, `npx`, and direct `dist/cli/bin.mjs` execution should behave the same.
+
 ## Chromium Not Found
 
 **Error:** `Chromium browser not found. Run "diagramkit warmup" to install it.`

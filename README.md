@@ -28,6 +28,14 @@ Install the Playwright Chromium binary (once per environment):
 npx diagramkit warmup
 ```
 
+The CLI supports the common installed-package entrypoints:
+
+```bash
+npx diagramkit --version
+./node_modules/.bin/diagramkit --version
+node ./node_modules/diagramkit/dist/cli/bin.mjs --version
+```
+
 For raster output (PNG, JPEG, WebP, AVIF), also install `sharp`:
 
 ```bash

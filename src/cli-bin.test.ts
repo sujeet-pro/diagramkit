@@ -1,7 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, relative } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   getFlag,
   getFlagValue,
+  isCliEntrypoint,
   parseFormats,
   validateEnum,
   validatePositiveNumber,
@@ -9,8 +14,89 @@ import {
 } from '../cli/bin'
 
 describe('cli/bin helpers', () => {
+  const tempDirs: string[] = []
+
+  function createEntrypointFixture() {
+    const dir = mkdtempSync(join(tmpdir(), 'diagramkit-cli-bin-'))
+    tempDirs.push(dir)
+
+    const targetPath = join(dir, 'dist', 'cli', 'bin.mjs')
+    mkdirSync(dirname(targetPath), { recursive: true })
+    writeFileSync(targetPath, '#!/usr/bin/env node\n')
+
+    return {
+      dir,
+      targetPath,
+      metaUrl: pathToFileURL(targetPath).href,
+    }
+  }
+
   afterEach(() => {
     vi.restoreAllMocks()
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  describe('isCliEntrypoint', () => {
+    it('returns true for the direct entry file path', () => {
+      const { targetPath, metaUrl } = createEntrypointFixture()
+
+      expect(isCliEntrypoint(targetPath, metaUrl)).toBe(true)
+    })
+
+    it('returns true for a relative direct entry file path', () => {
+      const { targetPath, metaUrl } = createEntrypointFixture()
+
+      expect(isCliEntrypoint(relative(process.cwd(), targetPath), metaUrl)).toBe(true)
+    })
+
+    it('returns true for a symlinked npm bin path', () => {
+      const { dir, targetPath, metaUrl } = createEntrypointFixture()
+      const symlinkPath = join(dir, 'node_modules', '.bin', 'diagramkit')
+      mkdirSync(dirname(symlinkPath), { recursive: true })
+      symlinkSync(targetPath, symlinkPath, 'file')
+
+      expect(isCliEntrypoint(symlinkPath, metaUrl)).toBe(true)
+    })
+
+    it('returns true for a relative symlinked npm bin path', () => {
+      const { dir, targetPath, metaUrl } = createEntrypointFixture()
+      const symlinkPath = join(dir, 'node_modules', '.bin', 'diagramkit')
+      mkdirSync(dirname(symlinkPath), { recursive: true })
+      symlinkSync(targetPath, symlinkPath, 'file')
+
+      expect(isCliEntrypoint(relative(process.cwd(), symlinkPath), metaUrl)).toBe(true)
+    })
+
+    it('returns false when argv1 is missing', () => {
+      const { metaUrl } = createEntrypointFixture()
+
+      expect(isCliEntrypoint(undefined, metaUrl)).toBe(false)
+    })
+
+    it('returns false when argv1 points to a different file', () => {
+      const { dir, metaUrl } = createEntrypointFixture()
+      const otherPath = join(dir, 'dist', 'cli', 'other.mjs')
+      writeFileSync(otherPath, '#!/usr/bin/env node\n')
+
+      expect(isCliEntrypoint(otherPath, metaUrl)).toBe(false)
+    })
+
+    it('falls back safely when matching unresolved paths cannot be realpathed', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'diagramkit-cli-missing-'))
+      tempDirs.push(dir)
+      const missingPath = join(dir, 'bin.mjs')
+      const metaUrl = pathToFileURL(missingPath).href
+
+      expect(isCliEntrypoint(missingPath, metaUrl)).toBe(true)
+    })
+
+    it('falls back safely when realpath resolution fails', () => {
+      const { dir, metaUrl } = createEntrypointFixture()
+
+      expect(isCliEntrypoint(join(dir, 'missing-bin.mjs'), metaUrl)).toBe(false)
+    })
   })
 
   describe('getFlag', () => {

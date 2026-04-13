@@ -7,6 +7,18 @@ description: Complete guide to the diagramkit command-line interface -- the reco
 
 The CLI is the recommended way to use diagramkit. It handles file discovery, incremental builds, watch mode, and output naming automatically.
 
+## Invocation Paths
+
+After installation, these entrypoints all invoke the same CLI:
+
+```bash
+npx diagramkit --version
+./node_modules/.bin/diagramkit --version
+node ./node_modules/diagramkit/dist/cli/bin.mjs --version
+```
+
+Use whichever form fits your environment. Local npm bin shims and direct `dist/cli/bin.mjs` execution behave the same as `npx diagramkit`.
+
 ## Commands
 
 ### `render`

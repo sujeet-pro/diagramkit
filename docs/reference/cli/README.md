@@ -5,6 +5,16 @@ description: Complete command and option reference for the diagramkit CLI.
 
 # CLI Reference
 
+## Invocation Paths
+
+These startup forms are equivalent after installation:
+
+```bash
+npx diagramkit --version
+./node_modules/.bin/diagramkit --version
+node ./node_modules/diagramkit/dist/cli/bin.mjs --version
+```
+
 ## Commands
 
 | Command | Description |

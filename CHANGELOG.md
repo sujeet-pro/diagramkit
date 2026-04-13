@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- CLI startup now resolves symlinked npm bin entrypoints to the real file, so `npx diagramkit`, `./node_modules/.bin/diagramkit`, and direct `dist/cli/bin.mjs` invocation behave consistently for `--version` and normal render commands.
+
 ## [0.1.0] - 2026-04-13
 
 ### Added

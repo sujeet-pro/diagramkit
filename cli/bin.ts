@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import type { DiagramType, DiagramkitConfig, OutputFormat, Theme } from '../src/types'
 
 const args = process.argv.slice(2)
@@ -1125,6 +1125,20 @@ async function renderDirectory(opts: DirectoryOpts) {
 
 /* ── Main ── */
 
+export function isCliEntrypoint(argv1 = process.argv[1], metaUrl = import.meta.url): boolean {
+  if (!argv1) return false
+
+  const argvPath = resolve(argv1)
+  const entryPath = resolve(fileURLToPath(metaUrl))
+
+  try {
+    // npm bin shims often invoke the CLI through a symlink, so prefer canonical paths.
+    return realpathSync(argvPath) === realpathSync(entryPath)
+  } catch {
+    return argvPath === entryPath
+  }
+}
+
 async function main() {
   if (args.length === 0 || getFlag('help')) {
     printHelp()
@@ -1184,7 +1198,7 @@ async function main() {
   process.exit(1)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isCliEntrypoint()) {
   main().catch((err: unknown) => {
     console.error(err instanceof Error ? err.message : String(err))
     process.exit(1)

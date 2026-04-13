@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -80,6 +81,20 @@ export function readJson<T>(path: string): T {
 
 /* -- CLI runner -- */
 
+function getSymlinkedCliPath(cwd: string): string {
+  const binDir = join(cwd, 'node_modules', '.bin')
+  const binPath = join(binDir, 'diagramkit')
+  mkdirSync(binDir, { recursive: true })
+  rmSync(binPath, { force: true })
+  symlinkSync(distCliPath, binPath, 'file')
+  return binPath
+}
+
+function getRelativeSymlinkedCliPath(cwd: string): string {
+  getSymlinkedCliPath(cwd)
+  return './node_modules/.bin/diagramkit'
+}
+
 export function runCli(args: string[], cwd = repoRoot): string {
   return execFileSync('node', [distCliPath, ...args], {
     cwd,
@@ -98,6 +113,81 @@ export interface CliResult {
 export function runCliSafe(args: string[], cwd = repoRoot): CliResult {
   try {
     const stdout = execFileSync('node', [distCliPath, ...args], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { stdout, stderr: '', exitCode: 0 }
+  } catch (err: any) {
+    return {
+      stdout: (err.stdout as string) ?? '',
+      stderr: (err.stderr as string) ?? '',
+      exitCode: (err.status as number) ?? 1,
+    }
+  }
+}
+
+export function runCliViaBin(args: string[], cwd = repoRoot): string {
+  return execFileSync('node', [getSymlinkedCliPath(cwd), ...args], {
+    cwd,
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+export function runCliViaRelativeBin(args: string[], cwd = repoRoot): string {
+  return execFileSync('node', [getRelativeSymlinkedCliPath(cwd), ...args], {
+    cwd,
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+export function runCliAsExecutableViaBin(args: string[], cwd = repoRoot): string {
+  return execFileSync(getRelativeSymlinkedCliPath(cwd), args, {
+    cwd,
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+export function runCliViaBinSafe(args: string[], cwd = repoRoot): CliResult {
+  try {
+    const stdout = execFileSync('node', [getSymlinkedCliPath(cwd), ...args], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { stdout, stderr: '', exitCode: 0 }
+  } catch (err: any) {
+    return {
+      stdout: (err.stdout as string) ?? '',
+      stderr: (err.stderr as string) ?? '',
+      exitCode: (err.status as number) ?? 1,
+    }
+  }
+}
+
+export function runCliViaRelativeBinSafe(args: string[], cwd = repoRoot): CliResult {
+  try {
+    const stdout = execFileSync('node', [getRelativeSymlinkedCliPath(cwd), ...args], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { stdout, stderr: '', exitCode: 0 }
+  } catch (err: any) {
+    return {
+      stdout: (err.stdout as string) ?? '',
+      stderr: (err.stderr as string) ?? '',
+      exitCode: (err.status as number) ?? 1,
+    }
+  }
+}
+
+export function runCliAsExecutableViaBinSafe(args: string[], cwd = repoRoot): CliResult {
+  try {
+    const stdout = execFileSync(getRelativeSymlinkedCliPath(cwd), args, {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
