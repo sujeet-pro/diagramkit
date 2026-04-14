@@ -1,5 +1,4 @@
 ---
-layout: DocHome
 title: diagramkit
 tagline: Diagram files to images, with dark mode
 description: Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv files to SVG/PNG/JPEG/WebP/AVIF with automatic light and dark theme variants.
