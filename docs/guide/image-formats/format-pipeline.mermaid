@@ -1,0 +1,10 @@
+flowchart LR
+    A[Diagram Source] --> B[Engine Render]
+    B --> C[SVG]
+    C --> D{Raster needed?}
+    D -->|No| E[SVG Output]
+    D -->|Yes| F[sharp]
+    F --> G[PNG]
+    F --> H[JPEG]
+    F --> I[WebP]
+    F --> J[AVIF]

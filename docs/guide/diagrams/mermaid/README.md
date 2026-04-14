@@ -5,6 +5,11 @@ description: Render Mermaid text-based diagrams with automatic light/dark theme 
 
 # Mermaid
 
+<picture>
+  <source srcset=".diagramkit/mermaid-pipeline-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/mermaid-pipeline-light.svg" alt="Mermaid rendering pipeline: source to light/dark SVG via browser pool">
+</picture>
+
 [Mermaid](https://mermaid.js.org/) is a text-based diagramming language. diagramkit renders Mermaid files using headless Chromium with the official mermaid library.
 
 ## File Extensions

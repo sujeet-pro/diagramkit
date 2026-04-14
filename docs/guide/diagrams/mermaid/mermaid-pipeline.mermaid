@@ -1,0 +1,7 @@
+flowchart LR
+    A[".mermaid Source"] --> B[Browser Pool]
+    B --> C["Light Page<br/>theme: default"]
+    B --> D["Dark Page<br/>theme: base +<br/>custom variables"]
+    C --> E[Light SVG]
+    D --> F[WCAG Contrast<br/>Post-Process]
+    F --> G[Dark SVG]

@@ -1,0 +1,20 @@
+digraph GraphvizPipeline {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fillcolor="#f0f4ff", fontname="Helvetica"];
+    edge [fontname="Helvetica"];
+
+    source [label=".dot / .gv\nSource"];
+    wasm [label="Viz.js\nWASM"];
+    svg [label="Raw SVG"];
+    adapt [label="Adapt Colors\nfor Dark Mode"];
+    contrast [label="WCAG Contrast\nPost-Process"];
+    light [label="Light SVG"];
+    dark [label="Dark SVG"];
+
+    source -> wasm;
+    wasm -> svg;
+    svg -> light;
+    svg -> adapt;
+    adapt -> contrast;
+    contrast -> dark;
+}

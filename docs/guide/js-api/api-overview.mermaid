@@ -1,0 +1,29 @@
+flowchart TB
+    subgraph Core ["Core API (diagramkit)"]
+        render["render()"]
+        renderFile["renderFile()"]
+        renderAll["renderAll()"]
+        renderToDisk["renderDiagramFileToDisk()"]
+        watch["watchDiagrams()"]
+        warmup["warmup()"]
+        dispose["dispose()"]
+        runtime["createRendererRuntime()"]
+    end
+
+    subgraph Utils ["Utilities (diagramkit/utils)"]
+        find["findDiagramFiles()"]
+        filter["filterByType()"]
+        manifest["readManifest() / writeManifest()"]
+        stale["filterStaleFiles()"]
+    end
+
+    subgraph Sub ["Subpath Exports"]
+        color["diagramkit/color"]
+        convert["diagramkit/convert"]
+    end
+
+    renderAll --> renderToDisk
+    renderToDisk --> render
+    watch --> renderToDisk
+    renderAll --> find
+    renderAll --> stale

@@ -1,0 +1,7 @@
+flowchart TB
+    A{What do you need?} -->|Source string → buffer| B["render()"]
+    A -->|File → buffer| C["renderFile()"]
+    A -->|File → disk| D["renderDiagramFileToDisk()"]
+    A -->|Directory → disk| E["renderAll()"]
+    A -->|Live re-render| F["watchDiagrams()"]
+    A -->|Isolated pool| G["createRendererRuntime()"]

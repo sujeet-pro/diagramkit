@@ -5,6 +5,11 @@ description: Choose between SVG, PNG, JPEG, and WebP output based on your use ca
 
 # Image Formats
 
+<picture>
+  <source srcset=".diagramkit/format-pipeline-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/format-pipeline-light.svg" alt="Format conversion pipeline: SVG-first with optional raster conversion via sharp">
+</picture>
+
 diagramkit supports five output formats. SVG is the default and recommended format.
 
 ## Format Comparison

@@ -5,6 +5,11 @@ description: Install diagramkit and render your first diagram in under a minute.
 
 # Getting Started
 
+<picture>
+  <source srcset=".diagramkit/getting-started-flow-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/getting-started-flow-light.svg" alt="Getting started flow: install, warmup, create diagram, render, output">
+</picture>
+
 ## Using an AI Agent (Recommended)
 
 If you use an AI coding agent (Claude Code, Cursor, Windsurf, GitHub Copilot, etc.), the fastest path is to give it one bootstrap prompt and let it set up the repo:

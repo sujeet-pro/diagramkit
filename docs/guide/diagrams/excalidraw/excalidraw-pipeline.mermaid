@@ -1,0 +1,5 @@
+flowchart LR
+    A[".excalidraw JSON"] --> B["Bundle IIFE<br/>(rolldown)"]
+    B --> C["Browser Page<br/>__renderExcalidraw()"]
+    C -->|darkMode: false| D[Light SVG]
+    C -->|darkMode: true| E[Dark SVG]

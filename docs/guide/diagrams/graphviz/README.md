@@ -5,6 +5,11 @@ description: Render Graphviz DOT files to SVG with automatic dark mode adaptatio
 
 # Graphviz
 
+<picture>
+  <source srcset=".diagramkit/graphviz-pipeline-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/graphviz-pipeline-light.svg" alt="Graphviz rendering pipeline: DOT source to Viz.js WASM to SVG with dark mode adaptation">
+</picture>
+
 [Graphviz](https://graphviz.org/) is a graph layout system built around the DOT language. diagramkit renders `.dot`, `.gv`, and `.graphviz` files to SVG using bundled Viz.js/WASM -- no browser needed.
 
 ## File Extensions

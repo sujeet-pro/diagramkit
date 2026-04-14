@@ -1,0 +1,14 @@
+flowchart TB
+    A[diagramkit] --> B[render]
+    A --> C[warmup]
+    A --> D[doctor]
+    A --> E[init]
+    A --> F[--install-skill]
+    A --> G[--agent-help]
+
+    B --> B1["--format svg,png,jpeg,webp,avif"]
+    B --> B2["--theme light,dark,both"]
+    B --> B3["--watch / --force"]
+    B --> B4["--output / --output-dir"]
+    B --> B5["--json / --dry-run / --plan"]
+    B --> B6["--type / --no-contrast / --scale"]

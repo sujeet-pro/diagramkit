@@ -5,6 +5,11 @@ description: Use diagramkit in GitHub Actions, GitLab CI, and other continuous i
 
 # CI/CD Integration
 
+<picture>
+  <source srcset=".diagramkit/ci-pipeline-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/ci-pipeline-light.svg" alt="CI/CD pipeline: checkout, install, warmup, render, check failures">
+</picture>
+
 diagramkit works in any CI environment with Node.js 24+. The key requirements are:
 
 1. Install dependencies including Playwright Chromium

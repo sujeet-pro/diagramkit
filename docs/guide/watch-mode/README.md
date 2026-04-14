@@ -5,6 +5,11 @@ description: Automatically re-render diagrams when source files change.
 
 # Watch Mode
 
+<picture>
+  <source srcset=".diagramkit/watch-loop-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/watch-loop-light.svg" alt="Watch mode event loop: monitor, debounce, re-render, update manifest">
+</picture>
+
 Watch mode monitors diagram source files and re-renders them on save. It uses [chokidar](https://github.com/paulmillr/chokidar) for file watching.
 
 ## CLI Usage

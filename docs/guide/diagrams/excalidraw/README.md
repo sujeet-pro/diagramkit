@@ -5,6 +5,11 @@ description: Render Excalidraw hand-drawn style diagrams from JSON files with au
 
 # Excalidraw
 
+<picture>
+  <source srcset=".diagramkit/excalidraw-pipeline-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/excalidraw-pipeline-light.svg" alt="Excalidraw rendering pipeline: JSON to IIFE bundle to browser page to SVG">
+</picture>
+
 [Excalidraw](https://excalidraw.com/) is a virtual whiteboard that produces hand-drawn style diagrams. diagramkit renders `.excalidraw` JSON files using the official `@excalidraw/excalidraw` library in headless Chromium.
 
 ## File Extensions

@@ -5,6 +5,11 @@ description: Core architecture principles that guide diagramkit implementation a
 
 # Design Principles
 
+<picture>
+  <source srcset=".diagramkit/design-principles-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/design-principles-light.svg" alt="diagramkit design principles mindmap">
+</picture>
+
 These principles define how diagramkit is built and what should remain stable through 1.0+ evolution.
 
 ## One Chromium, Shared Pool

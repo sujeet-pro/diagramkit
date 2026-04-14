@@ -1,16 +1,16 @@
 {
+  $schema: './node_modules/@pagesmith/docs/schemas/docs-section-meta.schema.json',
   displayName: 'Guide',
   description: 'Learn how to use diagramkit',
   orderBy: 'manual',
-  // Slugs are the last path segment of each page (Pagesmith manual order).
   items: [
     'getting-started',
     'design-principles',
     'ai-agents',
-    'mermaid',
-    'excalidraw',
-    'drawio',
-    'graphviz',
+    'diagrams/mermaid',
+    'diagrams/excalidraw',
+    'diagrams/drawio',
+    'diagrams/graphviz',
     'cli',
     'configuration',
     'image-formats',
@@ -35,7 +35,7 @@
     {
       slug: 'diagram-sources',
       displayName: 'Diagram sources',
-      articles: ['mermaid', 'excalidraw', 'drawio', 'graphviz'],
+      articles: ['diagrams/mermaid', 'diagrams/excalidraw', 'diagrams/drawio', 'diagrams/graphviz'],
     },
     {
       slug: 'cli-workflow',

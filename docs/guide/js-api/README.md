@@ -5,6 +5,11 @@ description: Programmatic rendering for build scripts, custom tooling, and Node.
 
 # JavaScript API
 
+<picture>
+  <source srcset=".diagramkit/api-overview-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/api-overview-light.svg" alt="JavaScript API overview: core rendering, utilities, and subpath exports">
+</picture>
+
 For programmatic control, diagramkit exports an async API. All rendering functions return promises. Mermaid, Excalidraw, and Draw.io use Playwright internally; Graphviz uses bundled Viz.js/WASM.
 
 ```bash

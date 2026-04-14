@@ -6,17 +6,24 @@
   basePath: '/diagramkit',
   contentDir: './docs',
   outDir: './gh-pages',
+  description: 'Diagram rendering CLI and library — convert Mermaid, Excalidraw, Draw.io, and Graphviz files to SVG/PNG/JPEG/WebP/AVIF with light/dark mode support',
+  maintainer: {
+    name: 'Sujeet Jaiswal',
+    link: 'https://sujeet.pro',
+  },
   copyright: {
     projectName: 'diagramkit',
     startYear: 2026,
     endYear: null,
   },
+  sidebar: {
+    collapsible: true,
+  },
   search: {
     enabled: true,
   },
-  description: 'Diagram rendering CLI and library — convert Mermaid, Excalidraw, Draw.io, and Graphviz files to SVG/PNG/JPEG/WebP/AVIF with light/dark mode support',
-  sidebar: {
-    collapsible: true,
+  editLink: {
+    repo: 'https://github.com/sujeet-pro/diagramkit',
   },
   footerLinks: [
     {

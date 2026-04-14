@@ -1,0 +1,9 @@
+flowchart TB
+    A{What's wrong?} -->|Empty render| B[Check source syntax<br/>Validate at mermaid.live]
+    A -->|Chromium not found| C[Run npx diagramkit warmup]
+    A -->|sharp error| D[Run npm add sharp]
+    A -->|Manifest stale| E["Run --force or<br/>delete manifest.json"]
+    A -->|Dark colors wrong| F["Try --no-contrast<br/>Use neutral fills"]
+    A -->|Watch not detecting| G[Check extensions<br/>Avoid node_modules]
+    A -->|CI hangs| H["Call dispose() or<br/>use one-shot render"]
+    A -->|Out of memory| I["Lower --scale"]

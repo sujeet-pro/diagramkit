@@ -1,0 +1,6 @@
+flowchart LR
+    A[".drawio XML"] --> B["Bundle IIFE<br/>(rolldown)"]
+    B --> C["Browser Page<br/>DOMParser"]
+    C --> D["Parse mxCells<br/>vertices + edges"]
+    D -->|light colors| E[Light SVG]
+    D -->|adjustColorForDark| F[Dark SVG]

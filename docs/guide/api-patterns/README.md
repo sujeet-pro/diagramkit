@@ -5,6 +5,11 @@ description: Practical JavaScript API workflows for common diagramkit automation
 
 # API Patterns
 
+<picture>
+  <source srcset=".diagramkit/api-decision-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/api-decision-light.svg" alt="API decision flowchart: choosing the right API for your use case">
+</picture>
+
 ## 1) Batch Render in CI
 
 Use this when you want rendered outputs committed or published from a docs repo.

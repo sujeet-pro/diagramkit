@@ -1,8 +1,8 @@
 ---
 title: Reference
-description: API and implementation reference for this project.
+description: Complete CLI, configuration, API, and type reference for diagramkit.
 ---
 
 # Reference
 
-Use this section for API details, commands, and integration notes.
+Detailed reference for the diagramkit CLI commands, configuration options, JavaScript API, and TypeScript types.

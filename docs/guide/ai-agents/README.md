@@ -5,6 +5,11 @@ description: Agent-first onboarding and automation workflow for diagramkit.
 
 # AI Agents
 
+<picture>
+  <source srcset=".diagramkit/ai-agent-workflow-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/ai-agent-workflow-light.svg" alt="AI agent workflow sequence diagram">
+</picture>
+
 This page is the fastest path for agent-driven setup and usage.
 
 ## 60-Second Agent Flow

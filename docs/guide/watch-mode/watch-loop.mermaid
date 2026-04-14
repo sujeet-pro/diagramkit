@@ -1,0 +1,12 @@
+flowchart TB
+    A[Start Watch Mode] --> B[Initial Full Render]
+    B --> C[Monitor File Changes<br/>chokidar]
+    C --> D{File Changed?}
+    D -->|Yes| E[Debounce 200ms]
+    E --> F[Re-render Changed File]
+    F --> G{Render OK?}
+    G -->|Yes| H[Update Manifest]
+    G -->|No| I[Preserve Existing Output<br/>Log Error]
+    H --> C
+    I --> C
+    D -->|Ctrl+C| J[Dispose Browser Pool]

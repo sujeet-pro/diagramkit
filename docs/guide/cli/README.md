@@ -5,6 +5,11 @@ description: Complete guide to the diagramkit command-line interface -- the reco
 
 # CLI
 
+<picture>
+  <source srcset=".diagramkit/cli-commands-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/cli-commands-light.svg" alt="diagramkit CLI command structure">
+</picture>
+
 The CLI is the recommended way to use diagramkit. It handles file discovery, incremental builds, watch mode, and output naming automatically.
 
 ## Invocation Paths

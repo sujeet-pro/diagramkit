@@ -1,8 +1,8 @@
 ---
 title: Guide
-description: Start here to learn how this project is documented.
+description: Step-by-step guides for installing, configuring, and using diagramkit to render diagrams.
 ---
 
 # Guide
 
-Use this section for onboarding, setup, and configuration walkthroughs.
+Learn how to install diagramkit, render your first diagram, configure themes and output formats, integrate with CI/CD, and use the JavaScript API for programmatic control.

@@ -5,6 +5,11 @@ description: Common issues and solutions for diagramkit rendering problems.
 
 # Troubleshooting
 
+<picture>
+  <source srcset=".diagramkit/troubleshooting-flow-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/troubleshooting-flow-light.svg" alt="Troubleshooting decision tree: common issues and quick fixes">
+</picture>
+
 ## Local npm Bin Command Is Silent
 
 **Symptom:** `./node_modules/.bin/diagramkit --version` prints nothing, or `npx diagramkit render ...` exits without output.

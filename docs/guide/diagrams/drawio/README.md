@@ -5,6 +5,11 @@ description: Render Draw.io XML diagrams with automatic light/dark theme color a
 
 # Draw.io
 
+<picture>
+  <source srcset=".diagramkit/drawio-pipeline-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src=".diagramkit/drawio-pipeline-light.svg" alt="Draw.io rendering pipeline: XML to IIFE bundle to browser page to SVG">
+</picture>
+
 [Draw.io](https://www.drawio.com/) (diagrams.net) produces XML-based diagram files. diagramkit includes a built-in renderer that parses mxGraphModel XML and converts shapes and edges to SVG.
 
 ## File Extensions

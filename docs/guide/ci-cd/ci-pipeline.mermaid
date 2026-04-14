@@ -1,0 +1,8 @@
+flowchart LR
+    A[Checkout Code] --> B[npm ci]
+    B --> C[Cache Playwright<br/>Browser Binary]
+    C --> D[npx diagramkit warmup]
+    D --> E["npx diagramkit render .<br/>--json --format svg"]
+    E --> F{Failures?}
+    F -->|No| G[Upload Artifacts<br/>or Commit Outputs]
+    F -->|Yes| H[Fail Build<br/>Report Errors]
