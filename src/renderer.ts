@@ -41,8 +41,11 @@ export async function render(
   if (pool) await pool.acquire()
 
   try {
-    // Unique prefix avoids mermaid element ID collisions across concurrent renders
-    const renderId = randomUUID()
+    // Unique prefix avoids mermaid element ID collisions across concurrent renders.
+    // Prefix with 'g' so the SVG id (and CSS selectors referencing it) always starts
+    // with a letter — CSS identifiers beginning with a digit are invalid per the spec
+    // and cause browsers to ignore every rule that references the id.
+    const renderId = `g${randomUUID()}`
     const engine = engineRenderers[type]
     const { lightSvg, darkSvg } = await engine({
       source,
