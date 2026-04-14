@@ -82,7 +82,7 @@
     "build:all": "npm run lib:build && npm run docs:build",
     "preview": "npm run build:all && npm run docs:preview",
     "lib:build": "vp pack",
-    "ai:init": "pagesmith init --ai --no-llms --yes --config ./pagesmith.config.json5",
+    "ai:init": "pagesmith-docs init --ai --no-llms --yes --config ./pagesmith.config.json5",
     "docs:dev": "node ./scripts/run-pagesmith.mjs dev",
     "docs:build": "node ./scripts/run-pagesmith.mjs build && node ./scripts/copy-llms.mjs",
     "docs:preview": "node ./scripts/run-pagesmith.mjs preview",
