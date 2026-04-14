@@ -110,7 +110,7 @@
     "mermaid": "^11.14.0",
     "playwright": "^1.59.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.2.5",
     "rolldown": "^1.0.0-rc.13"
   },
   "devDependencies": {
