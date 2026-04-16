@@ -1,6 +1,9 @@
+%% Diagram: Draw.io Rendering Pipeline
+%% Type: flowchart
 flowchart LR
-    A[".drawio XML"] --> B["Bundle IIFE<br/>(rolldown)"]
-    B --> C["Browser Page<br/>DOMParser"]
-    C --> D["Parse mxCells<br/>vertices + edges"]
-    D -->|light colors| E[Light SVG]
-    D -->|adjustColorForDark| F[Dark SVG]
+    source[".drawio XML"] --> bundle["Bundle IIFE<br/>(rolldown)"]
+    bundle --> browser_page["Browser Page<br/>DOMParser"]
+    browser_page --> parse_cells["Parse mxCells<br/>vertices + edges"]
+    parse_cells -->|light colors| light_svg[Light SVG]
+    parse_cells -->|adjustColorForDark| contrast[WCAG Contrast<br/>Post-Process]
+    contrast --> dark_svg[Dark SVG]

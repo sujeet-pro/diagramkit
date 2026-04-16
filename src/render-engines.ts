@@ -1,7 +1,7 @@
 import type { Page } from 'playwright'
 import { postProcessDarkSvg } from './color/contrast'
 import { renderGraphviz } from './graphviz'
-import { defaultMermaidDarkTheme } from './mermaid-theme'
+import { defaultMermaidDarkTheme, MERMAID_LIGHT_BG, MERMAID_DARK_BG } from './mermaid-theme'
 import type { BrowserPool } from './pool'
 import { DiagramkitError } from './types'
 import type { DiagramType, Theme } from './types'
@@ -34,6 +34,30 @@ type ExcalidrawGlobal = {
 
 type DrawioGlobal = {
   __renderDrawio: (xml: string, darkMode: boolean) => string
+}
+
+/**
+ * Inject an explicit background rect into a Mermaid SVG.
+ *
+ * Mermaid renders SVGs with a transparent background. When these are loaded
+ * as `<img>` inside `<picture>`, the wrong theme variant can briefly flash
+ * (e.g. dark SVG on a light page) before the JS runtime corrects it.
+ * An explicit background makes each variant self-contained.
+ */
+function injectSvgBackground(svg: string, bgColor: string): string {
+  const viewBoxMatch = svg.match(/viewBox="([^"]*)"/)
+  if (!viewBoxMatch) return svg
+
+  const [minX, minY, width, height] = viewBoxMatch[1].split(/\s+/).map(Number)
+  if ([minX, minY, width, height].some((v) => v == null || isNaN(v))) return svg
+
+  const bgRect = `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}"/>`
+
+  // Insert after the opening <svg ...> tag, before any content
+  const svgOpenEnd = svg.indexOf('>', svg.indexOf('<svg'))
+  if (svgOpenEnd === -1) return svg
+
+  return svg.slice(0, svgOpenEnd + 1) + bgRect + svg.slice(svgOpenEnd + 1)
 }
 
 const pageRenderQueues = new WeakMap<BrowserPool, Map<string, Promise<void>>>()
@@ -126,16 +150,20 @@ const browserEngineRenderers: Record<'mermaid' | 'excalidraw' | 'drawio', Engine
           renderMermaidPage(darkPage, trimmed, `${ctx.renderId}-dark`),
         ),
       ])
-      lightSvg = rawLight
-      darkSvg = ctx.contrastOptimize ? postProcessDarkSvg(rawDark) : rawDark
+      lightSvg = injectSvgBackground(rawLight, MERMAID_LIGHT_BG)
+      darkSvg = injectSvgBackground(
+        ctx.contrastOptimize ? postProcessDarkSvg(rawDark) : rawDark,
+        MERMAID_DARK_BG,
+      )
       return { lightSvg, darkSvg }
     }
 
     if (ctx.theme === 'light') {
       const page = await ctx.pool.getMermaidLightPage()
-      lightSvg = await withPageRenderLock(ctx.pool, 'mermaid-light', () =>
+      const raw = await withPageRenderLock(ctx.pool, 'mermaid-light', () =>
         renderMermaidPage(page, trimmed, `${ctx.renderId}-light`),
       )
+      lightSvg = injectSvgBackground(raw, MERMAID_LIGHT_BG)
       return { lightSvg, darkSvg }
     }
 
@@ -145,7 +173,10 @@ const browserEngineRenderers: Record<'mermaid' | 'excalidraw' | 'drawio', Engine
       const rawDark = await withPageRenderLock(ctx.pool, 'mermaid-dark', () =>
         renderMermaidPage(page, trimmed, `${ctx.renderId}-dark`),
       )
-      darkSvg = ctx.contrastOptimize ? postProcessDarkSvg(rawDark) : rawDark
+      darkSvg = injectSvgBackground(
+        ctx.contrastOptimize ? postProcessDarkSvg(rawDark) : rawDark,
+        MERMAID_DARK_BG,
+      )
     }
 
     return { lightSvg, darkSvg }
@@ -163,12 +194,15 @@ const browserEngineRenderers: Record<'mermaid' | 'excalidraw' | 'drawio', Engine
             renderExcalidrawPage(page, ctx.source, false),
           )
         : undefined
-    const darkSvg =
+    let darkSvg =
       ctx.theme === 'dark' || ctx.theme === 'both'
         ? await withPageRenderLock(ctx.pool, 'excalidraw', () =>
             renderExcalidrawPage(page, ctx.source, true),
           )
         : undefined
+    if (darkSvg && ctx.contrastOptimize) {
+      darkSvg = postProcessDarkSvg(darkSvg)
+    }
     return { lightSvg, darkSvg }
   },
   drawio: async (ctx) => {
@@ -181,12 +215,15 @@ const browserEngineRenderers: Record<'mermaid' | 'excalidraw' | 'drawio', Engine
             renderDrawioPage(page, ctx.source, false),
           )
         : undefined
-    const darkSvg =
+    let darkSvg =
       ctx.theme === 'dark' || ctx.theme === 'both'
         ? await withPageRenderLock(ctx.pool, 'drawio', () =>
             renderDrawioPage(page, ctx.source, true),
           )
         : undefined
+    if (darkSvg && ctx.contrastOptimize) {
+      darkSvg = postProcessDarkSvg(darkSvg)
+    }
     return { lightSvg, darkSvg }
   },
 }

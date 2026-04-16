@@ -22,8 +22,8 @@ description: Render Draw.io XML diagrams with automatic light/dark theme color a
 | --- | --- |
 | Browser required | Yes |
 | Native dark mode support | Yes (renderer-side transforms) |
-| WCAG post-process | No |
-| Supports `--no-contrast` | No |
+| WCAG post-process | Yes |
+| Supports `--no-contrast` | Yes |
 | Multi-format output | SVG/PNG/JPEG/WebP/AVIF |
 
 ## Quick Start
@@ -116,7 +116,7 @@ The renderer adjusts colors during SVG generation:
 - Hue is preserved -- a blue node stays blue, just darker
 
 > [!NOTE]
-> The `--no-contrast` flag applies to Mermaid and Graphviz only. Draw.io handles dark mode color adjustments in its own renderer.
+> Draw.io handles dark mode color adjustments in its browser-side renderer. The WCAG contrast post-processor also runs on the dark SVG output to catch any remaining high-luminance fills. Use `--no-contrast` to disable this additional processing.
 
 ## Programmatic Usage
 
@@ -146,7 +146,7 @@ This does not use the mxGraph engine. It covers common shapes and produces clean
 
 - **Not a full mxGraph renderer** -- diagramkit's Draw.io renderer covers common shapes (rectangles, ellipses, rhombuses, cylinders) and edges. Complex shapes, custom plugins, swimlanes, and advanced mxGraph features may not render with full fidelity.
 - **Edge routing is simplified** -- orthogonal and curved edge styles are simplified to straight lines between source and target midpoints.
-- **`--no-contrast` has no effect** -- Draw.io handles dark mode color adjustments in its own browser-side renderer, not through the Node-side post-processor.
+- **`--no-contrast` disables post-processing** -- Draw.io handles dark mode in its browser-side renderer, but the WCAG contrast post-processor also runs by default. Use `--no-contrast` to skip the Node-side processing.
 - **Multi-page diagrams** -- only the first page of multi-page `.drawio` files is rendered.
 
 ## Tips

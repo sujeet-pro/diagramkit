@@ -1,5 +1,7 @@
+%% Diagram: Getting Started Flow
+%% Type: flowchart
 flowchart LR
-    A[Install<br/>npm add diagramkit] --> B[Warmup<br/>npx diagramkit warmup]
-    B --> C[Create Diagram<br/>.mermaid .excalidraw<br/>.drawio .dot]
-    C --> D[Render<br/>npx diagramkit render]
-    D --> E[".diagramkit/<br/>diagram-light.svg<br/>diagram-dark.svg"]
+    install[Install<br/>npm add diagramkit] --> warmup[Warmup<br/>npx diagramkit warmup]
+    warmup --> create[Create Diagram<br/>.mermaid .excalidraw<br/>.drawio .dot]
+    create --> render[Render<br/>npx diagramkit render]
+    render --> output[".diagramkit/<br/>diagram-light.svg<br/>diagram-dark.svg"]

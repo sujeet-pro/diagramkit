@@ -1,10 +1,14 @@
+%% Diagram: Configuration Merge Order
+%% Type: flowchart
 flowchart TB
-    A["Built-in Defaults<br/><i>outputDir: .diagramkit<br/>theme: both, format: svg</i>"] --> B
-    B["Global Config<br/><i>~/.config/diagramkit/config.json5</i>"] --> C
-    C["Environment Variables<br/><i>DIAGRAMKIT_FORMAT<br/>DIAGRAMKIT_THEME<br/>DIAGRAMKIT_OUTPUT_DIR</i>"] --> D
-    D["Local Config<br/><i>diagramkit.config.json5<br/>diagramkit.config.ts<br/>walks up directory tree</i>"] --> E
-    E["CLI Flags / API Overrides<br/><i>--format --theme --scale<br/>programmatic options</i>"] --> F
-    F["Final Merged Config"]
+    defaults["Built-in Defaults<br/><i>outputDir: .diagramkit<br/>theme: both, format: svg</i>"] --> global_config
+    global_config["Global Config<br/><i>~/.config/diagramkit/config.json5</i>"] --> env_vars
+    env_vars["Environment Variables<br/><i>DIAGRAMKIT_FORMAT<br/>DIAGRAMKIT_THEME<br/>DIAGRAMKIT_OUTPUT_DIR</i>"] --> local_config
+    local_config["Local Config<br/><i>diagramkit.config.json5<br/>diagramkit.config.ts<br/>walks up directory tree</i>"] --> cli_flags
+    cli_flags["CLI Flags / API Overrides<br/><i>--format --theme --scale<br/>programmatic options</i>"] --> final
+    final["Final Merged Config"]
 
-    style A fill:#1a1a2e,stroke:#555,color:#e5e5e5
-    style F fill:#16213e,stroke:#0f3460,color:#e5e5e5
+    classDef layer fill:#4C78A8,stroke:#2E5A88,color:#fff
+    classDef result fill:#54A24B,stroke:#3D8B3D,color:#fff
+    class defaults,global_config,env_vars,local_config,cli_flags layer
+    class final result

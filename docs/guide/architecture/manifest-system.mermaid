@@ -1,21 +1,23 @@
+%% Diagram: Manifest-Based Incremental Build
+%% Type: flowchart
 flowchart TD
-    A[Scan Directory] --> B[Find Diagram Files]
-    B --> C{Manifest Exists?}
-    C -->|No| D[Render All]
-    C -->|Yes| E[Read Manifest]
-    E --> F{For Each File}
-    F --> G{Hash Changed?}
-    G -->|Yes| D
-    G -->|No| H{Theme Changed?}
-    H -->|Yes| D
-    H -->|No| I{Outputs Missing?}
-    I -->|Yes| D
-    I -->|No| J[Skip - Up to Date]
-    D --> K[Render SVG]
-    K --> L{Raster Formats?}
-    L -->|Yes| M[Convert via sharp]
-    L -->|No| N[Write Outputs]
-    M --> N
-    N --> O[Update Manifest<br/>hash + formats + outputs]
-    O --> P[Clean Orphans]
-    J --> P
+    scan[Scan Directory] --> find_files[Find Diagram Files]
+    find_files --> manifest_check{Manifest Exists?}
+    manifest_check -->|No| render_all[Render All]
+    manifest_check -->|Yes| read_manifest[Read Manifest]
+    read_manifest --> each_file{For Each File}
+    each_file --> hash_check{Hash Changed?}
+    hash_check -->|Yes| render_all
+    hash_check -->|No| theme_check{Theme Changed?}
+    theme_check -->|Yes| render_all
+    theme_check -->|No| output_check{Outputs Missing?}
+    output_check -->|Yes| render_all
+    output_check -->|No| skip[Skip - Up to Date]
+    render_all --> render_svg[Render SVG]
+    render_svg --> raster_check{Raster Formats?}
+    raster_check -->|Yes| convert[Convert via sharp]
+    raster_check -->|No| write_output[Write Outputs]
+    convert --> write_output
+    write_output --> update_manifest[Update Manifest<br/>hash + formats + outputs]
+    update_manifest --> clean_orphans[Clean Orphans]
+    skip --> clean_orphans

@@ -1,9 +1,11 @@
+%% Diagram: Troubleshooting Decision Tree
+%% Type: flowchart
 flowchart TB
-    A{What's wrong?} -->|Empty render| B[Check source syntax<br/>Validate at mermaid.live]
-    A -->|Chromium not found| C[Run npx diagramkit warmup]
-    A -->|sharp error| D[Run npm add sharp]
-    A -->|Manifest stale| E["Run --force or<br/>delete manifest.json"]
-    A -->|Dark colors wrong| F["Try --no-contrast<br/>Use neutral fills"]
-    A -->|Watch not detecting| G[Check extensions<br/>Avoid node_modules]
-    A -->|CI hangs| H["Call dispose() or<br/>use one-shot render"]
-    A -->|Out of memory| I["Lower --scale"]
+    problem{What's wrong?} -->|Empty render| syntax_fix[Check source syntax<br/>Validate at mermaid.live]
+    problem -->|Chromium not found| warmup_fix[Run npx diagramkit warmup]
+    problem -->|sharp error| sharp_fix[Run npm add sharp]
+    problem -->|Manifest stale| manifest_fix["Run --force or<br/>delete manifest.json"]
+    problem -->|Dark colors wrong| contrast_fix["Try --no-contrast<br/>Use neutral fills"]
+    problem -->|Watch not detecting| watch_fix[Check extensions<br/>Avoid node_modules]
+    problem -->|CI hangs| dispose_fix["Call dispose() or<br/>use one-shot render"]
+    problem -->|Out of memory| memory_fix["Lower --scale"]

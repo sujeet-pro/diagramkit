@@ -1,7 +1,9 @@
+%% Diagram: API Decision Tree
+%% Type: flowchart
 flowchart TB
-    A{What do you need?} -->|Source string → buffer| B["render()"]
-    A -->|File → buffer| C["renderFile()"]
-    A -->|File → disk| D["renderDiagramFileToDisk()"]
-    A -->|Directory → disk| E["renderAll()"]
-    A -->|Live re-render| F["watchDiagrams()"]
-    A -->|Isolated pool| G["createRendererRuntime()"]
+    need{What do you need?} -->|Source string → buffer| render["render()"]
+    need -->|File → buffer| renderFile["renderFile()"]
+    need -->|File → disk| renderToDisk["renderDiagramFileToDisk()"]
+    need -->|Directory → disk| renderAll["renderAll()"]
+    need -->|Live re-render| watch["watchDiagrams()"]
+    need -->|Isolated pool| runtime["createRendererRuntime()"]

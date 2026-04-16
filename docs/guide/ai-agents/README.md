@@ -32,7 +32,20 @@ npm run render:diagrams
 
 ## Which Agent Doc to Use
 
-diagramkit ships three agent-readable files:
+diagramkit ships agent-readable files in two locations:
+
+### AI Guidelines (npm package)
+
+The `ai-guidelines/` folder is included in the npm package and provides structured guidance for AI agents:
+
+| File | Purpose |
+| --- | --- |
+| `ai-guidelines/usage.md` | Primary agent instructions — setup, prompts, quick reference |
+| `ai-guidelines/diagram-authoring.md` | Exhaustive diagram authoring guide — all engines, colors, theming, embedding |
+| `ai-guidelines/llms.txt` | Compact CLI reference |
+| `ai-guidelines/llms-full.txt` | Full CLI + API + types + architecture reference |
+
+### LLM Reference Files (root)
 
 | File | Best for | Includes |
 | --- | --- | --- |
@@ -48,7 +61,7 @@ diagramkit --agent-help
 
 This prints `llms-full.txt` so agents can ingest a single stream.
 
-For repo bootstrap, start with `node_modules/diagramkit/llms.txt`. It is the best single file for install, config, and package-script guidance.
+For repo bootstrap, start with `node_modules/diagramkit/ai-guidelines/usage.md`. It is the best single file for install, config, and package-script guidance.
 
 ## Install Project Skills
 
@@ -64,6 +77,22 @@ This creates:
 - `.cursor/skills/diagramkit/SKILL.md`
 
 The generated skill tells agents to read `node_modules/diagramkit/llms.txt`, suggests `"render:diagrams": "diagramkit render ."` for `package.json`, and skips existing files instead of overwriting them.
+
+## Agent Prompts
+
+These prompts can be given to any AI coding agent. Each references the `ai-guidelines/` files shipped in the npm package.
+
+### Add diagrams to documentation
+
+> Add visual diagrams to the documentation in this project. Install `diagramkit` if not present. Read `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` for engine selection, syntax, color palettes, and embedding patterns. Create diagram source files in `diagrams/` folders next to the markdown they support. Render with `npx diagramkit render .` and embed using the appropriate pattern for the target surface.
+
+### Create a diagram skill for this project
+
+> Create a project-level diagram skill based on diagramkit. Read `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` for the full reference. Create `.claude/skills/diagrams/SKILL.md` that includes: engine selection guidance, the project's preferred color palette, file layout conventions, embedding patterns, and rendering commands. Keep the skill focused on this project's needs — reference the ai-guidelines files for exhaustive engine details.
+
+### Review and update existing diagrams
+
+> Review and update the diagrams in this project. Read `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` for guidelines. Check each diagram against the quality checklist and color palette. Re-render with `npx diagramkit render . --force` after changes. Verify both light and dark variants.
 
 ## Recommended Prompt Sequence
 

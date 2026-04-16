@@ -81,13 +81,13 @@ Each engine handles dark mode differently. The common goal is readable output on
 | Engine | Dark Mode Strategy | `--no-contrast` Effect |
 |:-------|:-------------------|:-----------------------|
 | **Mermaid** | Separate dark page with `theme: 'base'` + custom variables. Then `postProcessDarkSvg()` WCAG contrast fix. | Disables contrast fix |
-| **Excalidraw** | Native `exportWithDarkMode: true` in the same page. | No effect |
-| **Draw.io** | Browser-side `adjustColorForDark()` during SVG generation. | No effect |
+| **Excalidraw** | Native `exportWithDarkMode: true` in the same page. Then `postProcessDarkSvg()` WCAG contrast fix. | Disables contrast fix |
+| **Draw.io** | Browser-side `adjustColorForDark()` during SVG generation. Then `postProcessDarkSvg()` WCAG contrast fix. | Disables contrast fix |
 | **Graphviz** | `postProcessDarkSvg()` WCAG contrast fix + `adaptGraphvizSvgForDarkMode()` to replace default black strokes/text. | Disables contrast fix |
 
 ### WCAG Contrast Optimization (`postProcessDarkSvg`)
 
-Applied to Mermaid and Graphviz dark SVGs:
+Applied to all four engines' dark SVGs:
 
 1. Scans inline `fill` color attributes (both `style="fill:#hex"` and `fill="#hex"`)
 2. Computes WCAG 2.0 relative luminance for each color

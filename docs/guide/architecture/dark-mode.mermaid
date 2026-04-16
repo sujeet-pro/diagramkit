@@ -1,22 +1,24 @@
+%% Diagram: Dark Mode Rendering Strategy
+%% Type: flowchart
 flowchart LR
     subgraph Mermaid
         direction TB
-        M1[Separate Dark Page<br/>mermaid.initialize dark] --> M2[Render SVG]
-        M2 --> M3[postProcessDarkSvg<br/>WCAG contrast fix]
+        mermaid_dark_page[Separate Dark Page<br/>mermaid.initialize dark] --> mermaid_render[Render SVG]
+        mermaid_render --> mermaid_contrast[postProcessDarkSvg<br/>WCAG contrast fix]
     end
 
     subgraph Excalidraw
         direction TB
-        E1[Same Page<br/>darkMode: true] --> E2[Render SVG<br/>native dark support]
+        excalidraw_page[Same Page<br/>darkMode: true] --> excalidraw_render[Render SVG<br/>native dark + contrast fix]
     end
 
     subgraph Draw.io
         direction TB
-        D1[Same Page<br/>darkMode: true] --> D2[Render SVG<br/>adjustColorForDark in browser]
+        drawio_page[Same Page<br/>darkMode: true] --> drawio_render[Render SVG<br/>browser color adjust + contrast fix]
     end
 
     subgraph Graphviz
         direction TB
-        G1[Viz.js WASM] --> G2[postProcessDarkSvg<br/>WCAG contrast fix]
-        G2 --> G3[adaptGraphvizSvgForDarkMode<br/>black → dark-friendly colors]
+        graphviz_wasm[Viz.js WASM] --> graphviz_contrast[postProcessDarkSvg<br/>WCAG contrast fix]
+        graphviz_contrast --> graphviz_adapt[adaptGraphvizSvgForDarkMode<br/>black → dark-friendly colors]
     end

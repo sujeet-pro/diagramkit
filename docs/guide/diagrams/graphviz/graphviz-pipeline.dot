@@ -1,15 +1,17 @@
+// Diagram: Graphviz Rendering Pipeline
 digraph GraphvizPipeline {
     rankdir=LR;
-    node [shape=box, style="rounded,filled", fillcolor="#f0f4ff", fontname="Helvetica"];
-    edge [fontname="Helvetica"];
+    graph [bgcolor="transparent"];
+    node [shape=box, style="rounded,filled", fillcolor="#dae8fc", fontname="Helvetica", fontsize=12, fontcolor="#333333", color="#6c8ebf"];
+    edge [fontname="Helvetica", fontsize=10];
 
     source [label=".dot / .gv\nSource"];
     wasm [label="Viz.js\nWASM"];
     svg [label="Raw SVG"];
     adapt [label="Adapt Colors\nfor Dark Mode"];
     contrast [label="WCAG Contrast\nPost-Process"];
-    light [label="Light SVG"];
-    dark [label="Dark SVG"];
+    light [label="Light SVG", fillcolor="#d5e8d4", color="#82b366"];
+    dark [label="Dark SVG", fillcolor="#e1d5e7", color="#9673a6"];
 
     source -> wasm;
     wasm -> svg;

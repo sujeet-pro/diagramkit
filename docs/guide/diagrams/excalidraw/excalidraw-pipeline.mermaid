@@ -1,5 +1,8 @@
+%% Diagram: Excalidraw Rendering Pipeline
+%% Type: flowchart
 flowchart LR
-    A[".excalidraw JSON"] --> B["Bundle IIFE<br/>(rolldown)"]
-    B --> C["Browser Page<br/>__renderExcalidraw()"]
-    C -->|darkMode: false| D[Light SVG]
-    C -->|darkMode: true| E[Dark SVG]
+    source[".excalidraw JSON"] --> bundle["Bundle IIFE<br/>(rolldown)"]
+    bundle --> browser_page["Browser Page<br/>__renderExcalidraw()"]
+    browser_page -->|darkMode: false| light_svg[Light SVG]
+    browser_page -->|darkMode: true| contrast[WCAG Contrast<br/>Post-Process]
+    contrast --> dark_svg[Dark SVG]

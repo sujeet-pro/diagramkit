@@ -47,6 +47,7 @@
   "files": [
     "dist",
     "schemas",
+    "ai-guidelines",
     "llms-quick.txt",
     "llms.txt",
     "llms-full.txt",
@@ -74,7 +75,12 @@
       "types": "./dist/convert.d.mts",
       "import": "./dist/convert.mjs"
     },
-    "./schemas/diagramkit-cli-render.v1.json": "./schemas/diagramkit-cli-render.v1.json"
+    "./schemas/diagramkit-cli-render.v1.json": "./schemas/diagramkit-cli-render.v1.json",
+    "./ai-guidelines/*": "./ai-guidelines/*",
+    "./llms": "./ai-guidelines/llms.txt",
+    "./llms-full": "./ai-guidelines/llms-full.txt",
+    "./agents/usage": "./ai-guidelines/usage.md",
+    "./agents/diagram-authoring": "./ai-guidelines/diagram-authoring.md"
   },
   "scripts": {
     "prepack": "npm run lib:build",
@@ -141,5 +147,10 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "npm@11.12.1"
+  "packageManager": "npm@11.12.1",
+  "ai": {
+    "context": "./ai-guidelines/llms.txt",
+    "fullContext": "./ai-guidelines/llms-full.txt",
+    "agentsDir": "./ai-guidelines"
+  }
 }

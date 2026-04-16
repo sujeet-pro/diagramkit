@@ -1,8 +1,10 @@
+%% Diagram: CI/CD Pipeline
+%% Type: flowchart
 flowchart LR
-    A[Checkout Code] --> B[npm ci]
-    B --> C[Cache Playwright<br/>Browser Binary]
-    C --> D[npx diagramkit warmup]
-    D --> E["npx diagramkit render .<br/>--json --format svg"]
-    E --> F{Failures?}
-    F -->|No| G[Upload Artifacts<br/>or Commit Outputs]
-    F -->|Yes| H[Fail Build<br/>Report Errors]
+    checkout[Checkout Code] --> npm_install[npm ci]
+    npm_install --> cache_browser[Cache Playwright<br/>Browser Binary]
+    cache_browser --> warmup[npx diagramkit warmup]
+    warmup --> render["npx diagramkit render .<br/>--json --format svg"]
+    render --> failure_check{Failures?}
+    failure_check -->|No| upload[Upload Artifacts<br/>or Commit Outputs]
+    failure_check -->|Yes| fail_build[Fail Build<br/>Report Errors]

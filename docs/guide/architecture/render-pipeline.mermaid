@@ -1,18 +1,20 @@
+%% Diagram: Render Pipeline
+%% Type: flowchart
 flowchart LR
-    A[Source File] --> B{Detect Type}
-    B -->|.mermaid .mmd| C[Mermaid]
-    B -->|.excalidraw| D[Excalidraw]
-    B -->|.drawio .dio| E[Draw.io]
-    B -->|.dot .gv| F[Graphviz]
-    C --> G[Browser Pool<br/>Chromium]
-    D --> G
-    E --> G
-    F --> H[Viz.js WASM]
-    G --> I[SVG Output]
-    H --> I
-    I --> J{Raster?}
-    J -->|No| K[Write SVG]
-    J -->|Yes| L[sharp]
-    L --> M[PNG / JPEG /<br/>WebP / AVIF]
-    K --> N[Atomic Write<br/>.tmp → rename]
-    M --> N
+    source[Source File] --> detect_type{Detect Type}
+    detect_type -->|.mermaid .mmd| mermaid[Mermaid]
+    detect_type -->|.excalidraw| excalidraw[Excalidraw]
+    detect_type -->|.drawio .dio| drawio[Draw.io]
+    detect_type -->|.dot .gv| graphviz[Graphviz]
+    mermaid --> browser_pool[Browser Pool<br/>Chromium]
+    excalidraw --> browser_pool
+    drawio --> browser_pool
+    graphviz --> viz_wasm[Viz.js WASM]
+    browser_pool --> svg_output[SVG Output]
+    viz_wasm --> svg_output
+    svg_output --> raster_check{Raster?}
+    raster_check -->|No| write_svg[Write SVG]
+    raster_check -->|Yes| sharp_convert[sharp]
+    sharp_convert --> raster_output[PNG / JPEG /<br/>WebP / AVIF]
+    write_svg --> atomic_write[Atomic Write<br/>.tmp → rename]
+    raster_output --> atomic_write

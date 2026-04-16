@@ -22,8 +22,8 @@ description: Render Excalidraw hand-drawn style diagrams from JSON files with au
 | --- | --- |
 | Browser required | Yes |
 | Native dark mode support | Yes (per render call) |
-| WCAG post-process | No |
-| Supports `--no-contrast` | No |
+| WCAG post-process | Yes |
+| Supports `--no-contrast` | Yes |
 | Multi-format output | SVG/PNG/JPEG/WebP/AVIF |
 
 ## Quick Start
@@ -101,7 +101,7 @@ Excalidraw handles dark mode natively through its `exportToSvg` API:
 Both variants render in the same browser page (unlike Mermaid, which needs separate pages).
 
 > [!NOTE]
-> The `--no-contrast` flag has no effect on Excalidraw. Dark mode color adjustments are handled by the Excalidraw library itself.
+> Excalidraw handles dark mode natively through its `exportToSvg` API. The WCAG contrast post-processor also runs on dark SVG output to ensure high-luminance fills maintain readability. Use `--no-contrast` to disable this additional processing.
 
 ## Programmatic Usage
 
@@ -126,7 +126,7 @@ The bundle is cached after the first build.
 
 - **File must be raw JSON** -- diagramkit needs the `.excalidraw` JSON with `elements`, `appState`, and `files` keys. Do not export as SVG or PNG from the editor; those cannot be re-rendered into both themes.
 - **Embedded images** -- if the `files` key contains embedded images, they are included in the SVG output. Large embedded images increase file size.
-- **`--no-contrast` has no effect** -- Excalidraw handles dark mode natively through its `exportToSvg` API. The WCAG contrast post-processor is not applied.
+- **`--no-contrast` disables post-processing** -- Excalidraw handles dark mode natively, but the WCAG contrast post-processor also runs by default to fix high-luminance fills. Use `--no-contrast` to skip this step.
 - **React dependency** -- the Excalidraw renderer bundles `react` and `react-dom` into an IIFE at build time. The bundle is cached after the first render.
 
 ## Tips

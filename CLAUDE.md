@@ -118,6 +118,11 @@ e2e/
 scripts/
   copy-llms.mjs        Copies llms.txt and llms-full.txt to gh-pages/ after docs build
   run-pagesmith.mjs    Wrapper for pagesmith CLI (docs dev/build/preview)
+ai-guidelines/            AI agent guidance (shipped in npm package)
+  usage.md              Primary agent instructions — setup, prompts, quick reference
+  diagram-authoring.md  Exhaustive diagram authoring guide (all engines, colors, theming, embedding)
+  llms.txt              Compact CLI reference (copy of root llms.txt)
+  llms-full.txt         Full CLI + API reference (copy of root llms-full.txt)
 schemas/
   diagramkit-cli-render.v1.json  JSON schema for CLI render JSON output (schemaVersion 1)
 docs/                 Documentation site content (@pagesmith/docs convention)
@@ -329,15 +334,38 @@ Or run everything at once:
 npm run validate    # All checks in sequence (lint + typecheck + lib build + all tests)
 ```
 
-## LLM files
+## AI guidelines and LLM files
+
+### ai-guidelines/ (shipped in npm package)
+
+The `ai-guidelines/` folder is included in the npm package and provides structured guidance for AI agents:
+
+- **ai-guidelines/usage.md** — Primary agent entry point. Setup, prompts, quick reference.
+- **ai-guidelines/diagram-authoring.md** — Exhaustive diagram authoring guide covering all 4 engines, color palettes, theming, embedding patterns.
+- **ai-guidelines/llms.txt** — Compact CLI reference (copy of root llms.txt).
+- **ai-guidelines/llms-full.txt** — Full CLI + API reference (copy of root llms-full.txt).
+
+The package.json `"ai"` field and subpath exports point to these files:
+
+- `"ai": { "context": "./ai-guidelines/llms.txt", "fullContext": "./ai-guidelines/llms-full.txt", "agentsDir": "./ai-guidelines" }`
+- Subpath exports: `diagramkit/llms`, `diagramkit/llms-full`, `diagramkit/agents/usage`, `diagramkit/agents/diagram-authoring`, `diagramkit/ai-guidelines/*`
+
+### Root LLM files (backwards-compatible)
 
 - **llms.txt** — CLI-focused summary. Points to llms-full.txt for programmatic API.
 - **llms-quick.txt** — Ultra-short command-focused cheatsheet.
 - **llms-full.txt** — Comprehensive reference covering both CLI and programmatic API, types, config, architecture.
+
+### CLI commands
+
 - **`diagramkit --install-skill`** — CLI command that writes project skills for `.claude/skills/diagramkit/` and `.cursor/skills/diagramkit/`.
 - **`diagramkit --agent-help`** — CLI command that outputs `llms-full.txt` content, intended for LLM agents to consume within skills or tool pipelines.
-- When updating the codebase, keep these files in sync with actual behavior.
-- No prebuilt agent skill files ship with the npm package — generated project skills come from `diagramkit --install-skill`, and the llms files remain the canonical LLM reference.
+
+### Maintenance rules
+
+- When updating the codebase, keep ai-guidelines/, llms files, and docs in sync with actual behavior.
+- Keep ai-guidelines/llms.txt and ai-guidelines/llms-full.txt as copies of the root files.
+- The ai-guidelines/diagram-authoring.md is the canonical source for diagram authoring guidance across all repos.
 
 ## Documentation site
 

@@ -1,5 +1,7 @@
+// Diagram: Module Dependencies
 digraph Dependencies {
   rankdir=LR;
+  graph [bgcolor="transparent"];
 
   Client -> Api;
   Api -> Auth;

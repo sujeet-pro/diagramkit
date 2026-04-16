@@ -1,7 +1,9 @@
+%% Diagram: Mermaid Rendering Pipeline
+%% Type: flowchart
 flowchart LR
-    A[".mermaid Source"] --> B[Browser Pool]
-    B --> C["Light Page<br/>theme: default"]
-    B --> D["Dark Page<br/>theme: base +<br/>custom variables"]
-    C --> E[Light SVG]
-    D --> F[WCAG Contrast<br/>Post-Process]
-    F --> G[Dark SVG]
+    source[".mermaid Source"] --> browser_pool[Browser Pool]
+    browser_pool --> light_page["Light Page<br/>theme: default"]
+    browser_pool --> dark_page["Dark Page<br/>theme: base +<br/>custom variables"]
+    light_page --> light_svg[Light SVG]
+    dark_page --> contrast[WCAG Contrast<br/>Post-Process]
+    contrast --> dark_svg[Dark SVG]
