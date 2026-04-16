@@ -1,9 +1,3 @@
-/** Background color injected into light-mode Mermaid SVGs. */
-export const MERMAID_LIGHT_BG = '#ffffff'
-
-/** Background color injected into dark-mode Mermaid SVGs. */
-export const MERMAID_DARK_BG = '#111111'
-
 export const defaultMermaidDarkTheme: Record<string, string> = {
   background: '#111111',
   primaryColor: '#2d2d2d',
