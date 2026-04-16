@@ -123,6 +123,7 @@ jobs:
 
           function visit(value) {
             if (typeof value === 'string') {
+              if (value.includes('*')) return
               if (!existsSync(value)) missing.push(value)
               return
             }
