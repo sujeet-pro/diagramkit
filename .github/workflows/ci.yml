@@ -100,8 +100,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build library and docs
-        run: npm run build:all
+      - name: Build library
+        run: npm run lib:build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Render docs diagrams
+        run: npx diagramkit render docs/
+
+      - name: Build docs
+        run: npm run docs:build
 
       - name: Verify dist output exists
         run: |
