@@ -56,6 +56,7 @@ Configuration options:
   --strict-config                     Fail on config warnings/invalid values
   --max-type-lanes <1-4>              Max concurrent engine lanes (default: 4)
   --log-level <level>                 Logging verbosity: silent,error,warn,info,verbose
+  --strict                            Fail with non-zero exit if any diagram fails to render
 
 Output options:
   --quiet                             Suppress informational output, only show errors
@@ -327,6 +328,7 @@ export function warnUnknownFlags(argv: string[] = args) {
     'output-prefix',
     'output-suffix',
     'strict-config',
+    'strict',
     'max-type-lanes',
     'log-level',
     'help',
@@ -715,6 +717,7 @@ async function commandRender() {
   const quiet = args.includes('--quiet')
   const jsonOutput = args.includes('--json')
   const strictConfig = args.includes('--strict-config')
+  const strict = args.includes('--strict')
   const rawLogLevel = getFlagValue('log-level')
   const logLevel = rawLogLevel
     ? validateEnum(rawLogLevel, VALID_LOG_LEVELS, 'log-level')
@@ -800,6 +803,7 @@ async function commandRender() {
       configFile: resolvedConfigFile,
       maxTypeLanes,
       strictConfig,
+      strict,
       logLevel,
     })
   }
@@ -960,6 +964,7 @@ interface DirectoryOpts {
   configFile?: string
   maxTypeLanes?: number
   strictConfig?: boolean
+  strict?: boolean
   logLevel: import('../src/types').LogLevel
 }
 
@@ -1057,6 +1062,7 @@ async function renderDirectory(opts: DirectoryOpts) {
       progress: !quiet && !jsonOutput,
       maxConcurrentLanes: opts.maxTypeLanes,
       includeMetrics: true,
+      strict: opts.strict,
     })
   } finally {
     if (!opts.watchMode) {

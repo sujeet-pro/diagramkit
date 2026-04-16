@@ -187,5 +187,16 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
       countsByType,
     }
   }
+
+  if (opts.strict && result.failedDetails.length > 0) {
+    const summary = result.failedDetails
+      .map((d) => `  ${d.file}: ${d.message}`)
+      .join('\n')
+    throw new DiagramkitError(
+      'RENDER_FAILED',
+      `${result.failedDetails.length} diagram(s) failed to render:\n${summary}`,
+    )
+  }
+
   return result
 }

@@ -187,6 +187,41 @@ describe('renderAll', () => {
     expect(result.failedDetails[0]!.code).toBe('RENDER_FAILED')
   })
 
+  it('throws in strict mode when a diagram fails to render', async () => {
+    writeFileSync(join(dir, 'bad.mermaid'), 'invalid diagram')
+
+    const { DiagramkitError } = await import('./types')
+    const { renderDiagramFileToDisk } = await import('./renderer')
+    vi.mocked(renderDiagramFileToDisk).mockRejectedValueOnce(
+      new DiagramkitError('RENDER_FAILED', 'Parse error in diagram'),
+    )
+
+    const { renderAll } = await import('./render-all')
+    await expect(
+      renderAll({
+        dir,
+        logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        force: true,
+        strict: true,
+      }),
+    ).rejects.toThrow('1 diagram(s) failed to render')
+  })
+
+  it('does not throw in strict mode when all diagrams succeed', async () => {
+    writeFileSync(join(dir, 'ok.mermaid'), 'graph TD; A-->B')
+
+    const { renderAll } = await import('./render-all')
+    const result = await renderAll({
+      dir,
+      logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      force: true,
+      strict: true,
+    })
+
+    expect(result.rendered).toHaveLength(1)
+    expect(result.failed).toHaveLength(0)
+  })
+
   it('separates rendered from skipped files correctly', async () => {
     writeFileSync(join(dir, 'a.mermaid'), 'graph TD; A-->B')
     writeFileSync(join(dir, 'b.mermaid'), 'graph TD; C-->D')

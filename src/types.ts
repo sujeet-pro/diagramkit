@@ -177,6 +177,8 @@ export interface BatchOptions extends RenderOptions {
   maxConcurrentLanes?: number
   /** Include timing and lane metrics in result. */
   includeMetrics?: boolean
+  /** Throw a DiagramkitError after batch completes if any diagram failed. Default: false */
+  strict?: boolean
 }
 
 export interface RenderFailureDetail {
