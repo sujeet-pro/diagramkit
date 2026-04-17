@@ -133,6 +133,11 @@ jobs:
         with:
           name: dist
           path: dist
+      # actions/upload-artifact@v4 zips the payload and drops Unix exec bits,
+      # so restore it on the CLI entry before e2e tests spawn
+      # `./node_modules/.bin/diagramkit` (which symlinks to dist/cli/bin.mjs).
+      - name: Restore CLI exec bit
+        run: chmod +x dist/cli/bin.mjs
       - uses: ./.github/actions/setup-playwright
       - run: npm run test:e2e
 
@@ -176,6 +181,9 @@ jobs:
           path: docs/**/.diagramkit/**
           retention-days: 1
           if-no-files-found: error
+          # `.diagramkit/` is hidden (leading dot); default upload excludes
+          # hidden entries which would make this upload empty.
+          include-hidden-files: true
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
