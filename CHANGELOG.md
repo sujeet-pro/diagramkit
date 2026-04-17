@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-17
+
+### Changed
+
+- **CI (`.github/workflows/cicd.yml`) restructured into a real dependency graph.** `lint`, `typecheck`, and `build-lib` run in parallel; layer-1 jobs (`lib-pack-check`, `unit`, `e2e`, `docs-build`) consume the uploaded `dist/` artifact instead of re-running `npm run build:lib`; `validate-build` downloads `dist/` + `gh-pages/` + rendered SVG artifacts. Extracted reusable composite actions `.github/actions/setup` (Node + `npm ci` with lockfile-hashed `node_modules` cache) and `.github/actions/setup-playwright` (cached `~/.cache/ms-playwright`, refreshes apt deps on hit). `publish.yml` now reuses the same composites.
+- **`skills/diagramkit-setup/SKILL.md`** now documents the recommended in-package install flow (write thin pointer `SKILL.md` files at `.agents/skills/diagramkit-*` with mirrors in `.claude/`, `.cursor/`, `.codex/`, `.continue/`) that defer to `node_modules/diagramkit/skills/diagramkit-*/SKILL.md`, keeping skills version-pinned to the installed `diagramkit`. `npx skills add sujeet-pro/diagramkit` is documented as the alternative for repos that want skills that update independently of the installed package.
+- **`cli/bin.ts`** `--help` and the `--install-skill` removal message now describe both install mechanisms (local pointers into `node_modules` + the standalone `skills` CLI).
+
+### Fixed
+
+- **E2E job on CI lost the `dist/cli/bin.mjs` execute bit** after `actions/upload-artifact@v4` → `download-artifact@v4` (zip strips Unix perms), which broke `spawnSync ./node_modules/.bin/diagramkit` with `EACCES`. Restore `+x` after download.
+- **`docs-rendered-svgs` artifact** was empty because `.diagramkit/` (leading dot) is treated as hidden by `actions/upload-artifact@v4` by default. Upload now sets `include-hidden-files: true`, so `validate-build` receives the rendered SVGs it needs to run the WCAG 2.2 AA contrast scan.
+
+### Synced
+
+- `.agents/skills/prj-review-repo/references/contributor-workflow.md` and `project-context.md` describe the new CI graph and reusable composite actions per the AGENTS.md sync rule.
+
 ## [0.3.0] - 2026-04-17
 
 ### Added
