@@ -48,4 +48,4 @@ If `manifest.json` fails to parse, diagramkit treats it as an empty manifest (ev
 
 ## Disabling the manifest
 
-Pass `--no-manifest` or set `manifest: false` in config. Every render then rebuilds unconditionally. Useful for CI jobs that should ignore local state.
+Pass `--no-manifest` or set `useManifest: false` in `diagramkit.config.json5`. Every render then rebuilds unconditionally. Useful for CI jobs that should ignore local state.

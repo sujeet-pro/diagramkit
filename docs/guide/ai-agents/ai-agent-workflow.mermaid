@@ -9,10 +9,10 @@ flowchart TB
     install["1. Install diagramkit\nnpm add diagramkit"]:::action
     reference["2. Read REFERENCE.md\nnode_modules/diagramkit/REFERENCE.md"]:::read
     warmup["3. Warm up Playwright\nnpx diagramkit warmup"]:::action
-    skills["4. Install agent skills\nnpx skills add sujeet-pro/diagramkit"]:::action
+    skills["4. Install agent skills\n(local pointers via diagramkit-setup)"]:::action
     write["5. Author diagram source\nfoo.mermaid / .drawio / .dot / .excalidraw"]:::author
     render["6. Render to images\nnpx diagramkit render . --json"]:::action
-    validate["7. Validate output\nnpx diagramkit validate .diagramkit/ --recursive"]:::action
+    validate["7. Validate + WCAG 2.2 AA\nnpx diagramkit validate . --recursive"]:::action
     inspect["8. Read JSON result\nrendered / skipped / failed counts"]:::read
 
     install --> reference

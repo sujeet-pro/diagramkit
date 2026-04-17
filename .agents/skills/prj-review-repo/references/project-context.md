@@ -145,7 +145,7 @@ docs/                 Documentation site content (@pagesmith/docs convention)
     how-it-works/     "How this is built" series (pool, manifest, rendering-pipeline, color-processing)
 gh-pages/             Built docs output (gitignored). copy-llms.ts copies root llms*.txt into here after build:docs.
 .github/workflows/
-  cicd.yml            Parallelized CI: check, typecheck, unit, e2e, lib-build, docs-build, deploy-docs
+  cicd.yml            Parallelized CI: lint, typecheck, build-lib → {lib-pack-check, unit, e2e, docs-build → validate-build}, summary, deploy-docs
   publish.yml         Manual release (workflow_dispatch): release_type=patch|minor|major
 CLAUDE.md             Claude-client wrapper — non-negotiables + pointers to .agents/skills/ (+ pagesmith memory block)
 AGENTS.md             Codex / generic AGENTS-compatible wrapper — same shape as CLAUDE.md

@@ -28,42 +28,40 @@ Recommended setup when adding diagramkit to a repository:
 2. Add a render script to `package.json` (e.g. `"render:diagrams": "diagramkit render ."`).
 3. `npx diagramkit warmup` (skip if Graphviz-only).
 4. `npx diagramkit init` to create `diagramkit.config.json5` (only if non-default behavior is needed).
-5. Install diagramkit project skills with the standalone [`skills`](https://github.com/vercel-labs/skills) CLI (it works with Claude Code, Cursor, Codex, Continue, OpenCode, etc.):
-   `npx skills add sujeet-pro/diagramkit`
+5. Install diagramkit's agent skills. The recommended path is the `diagramkit-setup` skill, which writes **thin local pointers** under `.agents/skills/diagramkit-*/SKILL.md` (and harness mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`) that defer to the version-pinned originals at `node_modules/diagramkit/skills/`. Trigger it by following `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`. The standalone `[skills](https://github.com/vercel-labs/skills)` CLI (`npx skills add sujeet-pro/diagramkit`) is an alternative when you want skills that update independently of the installed `diagramkit` package.
 
 For a fully agent-driven bootstrap, trigger the `diagramkit-setup` skill (see below).
 
 ## Shipped skills
 
-Consumer skills are bundled into the npm package under `node_modules/diagramkit/skills/` and are also published in the diagramkit GitHub repo so the [`skills`](https://github.com/vercel-labs/skills) CLI can install them into any agent. Pick one of:
+Every skill below is **bundled in the npm package** at `node_modules/diagramkit/skills/<name>/SKILL.md`. They cover the full diagramkit lifecycle:
+
+| Capability                                                                  | Skill                   | SKILL.md path                                                   |
+| --------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------- |
+| Bootstrap (install + skill pointers)                                        | `diagramkit-setup`      | `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`      |
+| Engine routing for new diagram requests                                     | `diagramkit-auto`       | `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md`       |
+| Authoring + image generation (vector + raster)                              | `diagramkit-mermaid`    | `node_modules/diagramkit/skills/diagramkit-mermaid/SKILL.md`    |
+| Authoring + image generation (vector + raster)                              | `diagramkit-excalidraw` | `node_modules/diagramkit/skills/diagramkit-excalidraw/SKILL.md` |
+| Authoring + image generation (vector + raster)                              | `diagramkit-draw-io`    | `node_modules/diagramkit/skills/diagramkit-draw-io/SKILL.md`    |
+| Authoring + image generation (vector + raster)                              | `diagramkit-graphviz`   | `node_modules/diagramkit/skills/diagramkit-graphviz/SKILL.md`   |
+| Validation (SVG structure, `<img>`-embed safety) **+ WCAG 2.2 AA contrast** | `diagramkit-review`     | `node_modules/diagramkit/skills/diagramkit-review/SKILL.md`     |
+
+### Installing the skills into a repo
+
+Pick **one** mechanism per repo so skills don't drift against each other.
+
+**Default — local pointers (recommended).** Follow `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md` and let it write the pointer files. The pointers are tiny SKILL.md files with frontmatter and a single "follow `node_modules/diagramkit/skills/<name>/SKILL.md`" line. They are safe to commit. Each `npm install diagramkit` upgrade automatically refreshes the linked skill content.
+
+**Alternative — fetch from GitHub via the standalone `skills` CLI:**
 
 ```bash
-# All diagramkit-* skills
-npx skills add sujeet-pro/diagramkit
-
-# Specific agents only (any combination)
+npx skills add sujeet-pro/diagramkit                       # all diagramkit-* skills, all detected agents
 npx skills add sujeet-pro/diagramkit -a claude-code -a cursor -a codex
-
-# Specific skills only
-npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-mermaid
-
-# Refresh later (no diagramkit npm release required)
-npx skills update sujeet-pro/diagramkit
+npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-review
+npx skills update sujeet-pro/diagramkit                    # refresh later
 ```
 
-If `npx skills` is unavailable, copy the folders manually from `node_modules/diagramkit/skills/diagramkit-*/` into `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`, or `.agents/skills/`.
-
-| Skill                   | SKILL.md path                                                   | Use when                                                                                   |
-| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `diagramkit-setup`      | `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`      | First-time install and configuration in a repo. **Run first.**                             |
-| `diagramkit-auto`       | `node_modules/diagramkit/skills/diagramkit-auto/SKILL.md`       | Pick the best engine for a diagram request, then delegate.                                 |
-| `diagramkit-mermaid`    | `node_modules/diagramkit/skills/diagramkit-mermaid/SKILL.md`    | Author Mermaid diagrams + render to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.   |
-| `diagramkit-excalidraw` | `node_modules/diagramkit/skills/diagramkit-excalidraw/SKILL.md` | Author Excalidraw diagrams + render to SVG/PNG/JPEG/WebP/AVIF.                             |
-| `diagramkit-draw-io`    | `node_modules/diagramkit/skills/diagramkit-draw-io/SKILL.md`    | Author Draw.io diagrams (cloud icons, BPMN, swimlanes) + render to SVG/PNG/JPEG/WebP/AVIF. |
-| `diagramkit-graphviz`   | `node_modules/diagramkit/skills/diagramkit-graphviz/SKILL.md`   | Author Graphviz DOT diagrams + render to SVG/PNG/JPEG/WebP/AVIF.                           |
-| `diagramkit-review`     | `node_modules/diagramkit/skills/diagramkit-review/SKILL.md`     | Audit and repair existing diagrams (lint sources, force re-render, validate, fix loop).    |
-
-> The diagramkit-\* skills always prefer the locally installed CLI: they read `node_modules/diagramkit/REFERENCE.md` first and call `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`). They never assume a globally installed `diagramkit`.
+> The diagramkit- skills always prefer the locally installed CLI: they read `node_modules/diagramkit/REFERENCE.md` first and call `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`). They never assume a globally installed `diagramkit`.
 
 ## Agent prompts
 
@@ -73,30 +71,25 @@ If `npx skills` is unavailable, copy the folders manually from `node_modules/dia
 >
 > 1. `npm add diagramkit`.
 > 2. Read `node_modules/diagramkit/REFERENCE.md` so you anchor on the locally installed version (do NOT use a globally installed `diagramkit`).
-> 3. Run `npx diagramkit warmup` unless this repo is Graphviz-only.
-> 4. Create `diagramkit.config.json5` with `npx diagramkit init --yes` only if non-default behavior is needed.
-> 5. Add a `render:diagrams` script to `package.json` matching the repo's naming convention.
-> 6. Install diagramkit's agent skills with the standalone `skills` CLI (works for any agent): `npx skills add sujeet-pro/diagramkit`.
-> 7. Read `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md` and follow any remaining steps.
-> 8. Run `npx diagramkit render .`.
+> 3. Follow `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md` end to end. It will run `npx diagramkit warmup` (unless Graphviz-only), wire a `render:diagrams` script, optionally create `diagramkit.config.json5`, render existing diagrams, and write thin pointer skills under `.agents/skills/diagramkit-*` (and `.claude/skills/`, `.cursor/skills/`, `.codex/skills/` mirrors when those harnesses are in use) that defer to `node_modules/diagramkit/skills/<name>/SKILL.md`.
 
 ### Prompt: add diagrams to documentation
 
-> Add visual diagrams to the documentation in this project. If `diagramkit` is not installed, run `npm add diagramkit`. Then install the engine skills with `npx skills add sujeet-pro/diagramkit`. Read `node_modules/diagramkit/REFERENCE.md` first, then `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` for engine selection, syntax, color palettes, and embedding patterns. Create diagram source files in `diagrams/` folders next to the markdown they support. Render with `npx diagramkit render .` (uses the local install) and embed using the `<picture>` pattern.
+> Add visual diagrams to the documentation in this project. If `diagramkit` is not installed, run `npm add diagramkit` and follow `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md` to install the skills as local pointers. Read `node_modules/diagramkit/REFERENCE.md` first, then `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` for engine selection, syntax, color palettes, and embedding patterns. Create diagram source files in `diagrams/` folders next to the markdown they support. Render with `npx diagramkit render .` (uses the local install) and embed using the `<picture>` pattern.
 
 ### Prompt: create a specific diagram with multi-format export
 
-> Create a diagram for [TOPIC] using the diagramkit-\* skills installed in this repo. Read `node_modules/diagramkit/REFERENCE.md` first so you use the locally installed diagramkit version. Use `diagramkit-auto` to pick the engine, then follow the chosen engine's skill (mermaid / excalidraw / draw-io / graphviz). Use the mid-tone color palette for theme-safe rendering. Place the source in the `diagrams/` folder next to the relevant markdown. Render to multiple formats with the local CLI:
+> Create a diagram for [TOPIC] using the diagramkit- skills installed in this repo. Read `node_modules/diagramkit/REFERENCE.md` first so you use the locally installed diagramkit version. Follow `.agents/skills/diagramkit-auto/SKILL.md` (or its harness mirror) to pick the engine, then follow the chosen engine's skill (mermaid / excalidraw / draw-io / graphviz). Use the mid-tone color palette for theme-safe rendering. Place the source in the `diagrams/` folder next to the relevant markdown. Render to multiple formats with the local CLI:
 > `npx diagramkit render <file> --format svg,png,webp --scale 2`
 > Embed using the `<picture>` pattern.
 
-### Prompt: update existing diagrams
+### Prompt: validate every diagram (structure, embed-safety, WCAG 2.2 AA contrast)
 
-> Review and update the diagrams in this project. Read `node_modules/diagramkit/REFERENCE.md` and `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` for the current guidelines. Check each diagram source file against the quality checklist and color palette. Re-render with `npx diagramkit render . --force` after changes (uses the local install). Verify both light and dark variants look correct.
+> Run a full diagram health check on this repo. Read `node_modules/diagramkit/REFERENCE.md` first so you use the locally installed CLI, then follow `.agents/skills/diagramkit-review/SKILL.md` (or `node_modules/diagramkit/skills/diagramkit-review/SKILL.md` directly). It will force-render every diagram, run `diagramkit validate . --recursive --json`, classify issues into errors vs warnings, and delegate per-engine fixes (palette swaps for `LOW_CONTRAST_TEXT`, `htmlLabels: false` for foreignObject, etc.) back to the matching engine skill's "Review Mode". Cap fix loops at 8 iterations per source.
 
 ### Prompt: refresh the diagramkit agent skills
 
-> Refresh the diagramkit-\* skills installed in this repo so they match the latest upstream versions: `npx skills update sujeet-pro/diagramkit`. Then re-read `.claude/skills/diagramkit-setup/SKILL.md` (or the equivalent under `.cursor/skills/`, `.codex/skills/`, `.agents/skills/`) and confirm the local diagramkit install is current with `npx diagramkit --version`.
+> After upgrading diagramkit (`npm update diagramkit`), re-read `node_modules/diagramkit/REFERENCE.md` for any CLI/API changes. If the repo uses local pointer skills (default — under `.agents/skills/diagramkit-*`), they automatically pick up the new package — only re-run `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md` if the upgrade added new skills that need pointers. If the repo uses the standalone `skills` CLI instead, run `npx skills update sujeet-pro/diagramkit`. Confirm with `npx diagramkit --version`.
 
 ## Quick CLI reference
 
@@ -116,8 +109,7 @@ diagramkit init                          # Create config file
 diagramkit --agent-help                  # Full LLM reference
 ```
 
-> Skills are installed by the standalone `skills` CLI, not by `diagramkit`:
-> `npx skills add sujeet-pro/diagramkit`
+> Skills are installed by the `diagramkit-setup` skill as local pointers under `.agents/skills/diagramkit-*` (and harness mirrors). See [Installing the skills into a repo](#installing-the-skills-into-a-repo).
 
 ## Quick API reference
 
@@ -142,12 +134,12 @@ await dispose()
 
 ## Package files reference
 
-| File                                                            | Purpose                                                                                             |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `node_modules/diagramkit/REFERENCE.md`                          | Consumer landing page — read first.                                                                 |
-| `node_modules/diagramkit/ai-guidelines/usage.md`                | This file — primary agent instructions.                                                             |
-| `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`    | Exhaustive diagram authoring guide.                                                                 |
-| `node_modules/diagramkit/llms.txt`                              | Compact CLI reference.                                                                              |
-| `node_modules/diagramkit/llms-full.txt`                         | Full CLI + API reference.                                                                           |
-| `node_modules/diagramkit/skills/*/SKILL.md`                     | Task-specific consumer skills (install into your repo with `npx skills add sujeet-pro/diagramkit`). |
-| `node_modules/diagramkit/schemas/diagramkit-cli-render.v1.json` | JSON output schema for `--json` mode.                                                               |
+| File                                                            | Purpose                                                                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `node_modules/diagramkit/REFERENCE.md`                          | Consumer landing page — read first.                                                              |
+| `node_modules/diagramkit/ai-guidelines/usage.md`                | This file — primary agent instructions.                                                          |
+| `node_modules/diagramkit/ai-guidelines/diagram-authoring.md`    | Exhaustive diagram authoring guide.                                                              |
+| `node_modules/diagramkit/llms.txt`                              | Compact CLI reference.                                                                           |
+| `node_modules/diagramkit/llms-full.txt`                         | Full CLI + API reference.                                                                        |
+| `node_modules/diagramkit/skills/*/SKILL.md`                     | Task-specific consumer skills (install into your repo as local pointers via `diagramkit-setup`). |
+| `node_modules/diagramkit/schemas/diagramkit-cli-render.v1.json` | JSON output schema for `--json` mode.                                                            |

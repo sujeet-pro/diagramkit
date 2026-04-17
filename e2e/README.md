@@ -36,7 +36,7 @@ CLI tests run against the built `dist/cli/bin.mjs`.
 - `--force`, `--dry-run`, `--plan --json`, `--json`, `--quiet`
 - `--no-contrast`, `--scale`, `--quality`, `--strict-config`, `--max-type-lanes`
 - `init`, `doctor`, `--agent-help`, `warmup`
-- the removal/deprecation of `--install-skill` (now installed via `npx skills add sujeet-pro/diagramkit`)
+- the removal/deprecation of `--install-skill` (skills now ship in `node_modules/diagramkit/skills/` and are installed as local pointers by the `diagramkit-setup` skill, with `npx skills add sujeet-pro/diagramkit` as an alternative)
 - watch mode re-rendering on file changes
 
 ## Structure

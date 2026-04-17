@@ -19,16 +19,16 @@ Converts an SVG string to a raster `Buffer` via `sharp`. `sharp` is an optional 
 
 ### Options
 
-| Option    | Type                                          | Default | Description                                                |
-| --------- | --------------------------------------------- | ------- | ---------------------------------------------------------- |
-| `format`  | `'png' \| 'jpeg' \| 'webp' \| 'avif'`         | `'png'` | Target raster format.                                      |
-| `scale`   | `number`                                      | `2`     | Rasterization density. `3` yields retina-ready output.     |
-| `quality` | `number` (1-100)                              | `90`    | Quality for lossy formats (JPEG/WebP/AVIF). Ignored for PNG.|
+| Option    | Type                                          | Default    | Description                                                 |
+| --------- | --------------------------------------------- | ---------- | ----------------------------------------------------------- |
+| `format`  | `'png' \| 'jpeg' \| 'webp' \| 'avif'`         | (required) | Target raster format.                                       |
+| `scale`   | `number` (0 < scale ≤ 10)                     | `2`        | Rasterization density. `3` yields retina-ready output.      |
+| `quality` | `number` (1-100)                              | `90`       | Quality for lossy formats (JPEG/WebP/AVIF). Ignored for PNG.|
 
 ### Errors
 
-- `DiagramkitError` with code `SHARP_NOT_INSTALLED` when `sharp` cannot be resolved at runtime.
-- `DiagramkitError` with code `CONVERT_FAILED` for any sharp-level failure (invalid SVG, dimensions missing, etc.). The underlying error is attached as `cause`.
+- `DiagramkitError` with code `MISSING_DEPENDENCY` when `sharp` cannot be resolved at runtime.
+- `DiagramkitError` with code `CONFIG_INVALID` when `scale` is outside the `(0, 10]` range.
 
 ### When to use directly
 

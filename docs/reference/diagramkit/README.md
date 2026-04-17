@@ -10,14 +10,15 @@ description: API reference for the diagramkit npm package — CLI, programmatic 
   <img src=".diagramkit/module-map-light.svg" alt="diagramkit module map: main API, utils, color, and convert entry points">
 </picture>
 
-The `diagramkit` npm package exposes four entry points:
+The `diagramkit` npm package exposes five entry points:
 
-| Entry point          | What it covers                                             | Reference                              |
-| -------------------- | ---------------------------------------------------------- | -------------------------------------- |
-| `diagramkit`         | Core rendering APIs (`render`, `renderFile`, `renderAll`)  | [API](./api/README.md)                 |
-| `diagramkit/utils`   | Discovery, manifest, output helpers for custom pipelines   | [Utils](./utils/README.md)             |
-| `diagramkit/color`   | Dark SVG contrast utilities                                | [Color](./color/README.md)             |
-| `diagramkit/convert` | SVG-to-raster conversion via sharp                         | [Convert](./convert/README.md)         |
+| Entry point           | What it covers                                                      | Reference                              |
+| --------------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| `diagramkit`          | Core rendering APIs (`render`, `renderFile`, `renderAll`)           | [API](./api/README.md)                 |
+| `diagramkit/utils`    | Discovery, manifest, output, validation helpers for custom pipelines| [Utils](./utils/README.md)             |
+| `diagramkit/color`    | Dark SVG contrast utilities                                         | [Color](./color/README.md)             |
+| `diagramkit/convert`  | SVG-to-raster conversion via sharp                                  | [Convert](./convert/README.md)         |
+| `diagramkit/validate` | SVG structural + WCAG 2.2 AA contrast validation                    | [API → SVG Validation](./api/README.md#svg-validation) |
 
 And the CLI surface:
 

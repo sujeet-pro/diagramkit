@@ -1,8 +1,13 @@
 name: Publish
 
-# Manual release workflow. Runs the full cicd gate, bumps the version,
-# commits, tags, publishes to npm (with provenance), and creates a GitHub Release.
-# Use `dry_run: true` to exercise the pipeline without publishing.
+# Manual release workflow. Runs the full `npm run cicd` gate sequentially
+# (on one runner, so the version bump / tag / publish all see the same
+# dist output), bumps the version, commits, tags, publishes to npm with
+# provenance, and creates a GitHub Release. Use `dry_run: true` to
+# exercise the pipeline end-to-end without publishing or pushing.
+#
+# Caching and Playwright setup mirror the CI workflow via the reusable
+# composite actions under `.github/actions/`.
 
 on:
   workflow_dispatch:
@@ -38,24 +43,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+      - name: Setup Node + deps
+        uses: ./.github/actions/setup
         with:
-          node-version: '24'
-          cache: npm
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
 
       - name: Run full cicd gate
         run: npm run cicd

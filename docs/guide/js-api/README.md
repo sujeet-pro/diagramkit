@@ -234,9 +234,10 @@ Finds inline fill colors with high luminance and darkens them while preserving h
 | Import | Content |
 |:-------|:--------|
 | `diagramkit` | Core rendering functions, config, lifecycle, and `convertSvg` |
-| `diagramkit/utils` | Utility barrel (discovery, manifest, extensions, output, color) |
+| `diagramkit/utils` | Utility barrel (discovery, manifest, extensions, output, color, validation) |
 | `diagramkit/color` | Color utilities only |
 | `diagramkit/convert` | SVG-to-raster conversion |
+| `diagramkit/validate` | SVG structural + WCAG 2.2 AA contrast validation |
 
 > [!NOTE]
-> `convertSvg` is available from both `diagramkit` (main) and `diagramkit/convert` (subpath). Discovery, manifest, and color utilities are in the subpath exports (`diagramkit/utils`, `diagramkit/color`), not the main entry.
+> `convertSvg` is available from both `diagramkit` (main) and `diagramkit/convert` (subpath). Discovery, manifest, color, and validation utilities live in the subpath exports (`diagramkit/utils`, `diagramkit/color`, `diagramkit/validate`), not the main entry. The `diagramkit/validate` subpath re-exports the same `validateSvg*` functions available from `diagramkit/utils`.

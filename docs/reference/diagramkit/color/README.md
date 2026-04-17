@@ -22,4 +22,4 @@ Called by the main pipeline before writing dark outputs. You only need to call i
 - You are composing your own pipeline that bypasses `renderAll` / `renderFile`.
 - You received an SVG from another tool and want diagramkit's dark-mode correction applied.
 
-Pass `--no-contrast` to the CLI or `contrast: false` in render options to skip this step globally.
+Pass `--no-contrast` to the CLI or `contrastOptimize: false` in `RenderOptions` to skip this step. For per-file opt-outs, set `contrastOptimize: false` inside an `overrides` entry in `diagramkit.config.json5`.

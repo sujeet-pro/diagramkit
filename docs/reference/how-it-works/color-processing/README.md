@@ -50,7 +50,8 @@ Adjustment happens in HSL space. Only the L (lightness) channel is modified; H a
 ## Disabling
 
 - CLI: `--no-contrast`
-- API: pass `contrast: false` in render options or set `contrast: false` in `diagramkit.config.json5`.
+- API: pass `contrastOptimize: false` in `RenderOptions`.
+- Per-file: set `contrastOptimize: false` inside a matching `overrides` entry in `diagramkit.config.json5`.
 
 Light-theme SVGs are never post-processed — they are assumed to be authored with a white background in mind.
 

@@ -146,6 +146,10 @@ interface RenderableFile extends DiagramFile {
   _effectiveFormats?: OutputFormat[]
   /** Per-output metadata for manifest entries (internal) */
   _outputMeta?: OutputMetadata[]
+  /** Last-seen source mtime, used for fast no-op skips before re-hashing (internal) */
+  _mtimeMs?: number
+  /** Last-seen source size in bytes, paired with `_mtimeMs` (internal) */
+  _size?: number
 }
 ```
 
@@ -305,6 +309,8 @@ interface BatchOptions extends RenderOptions {
   maxConcurrentLanes?: number
   /** Include timing and lane metrics in result */
   includeMetrics?: boolean
+  /** Throw a DiagramkitError after batch completes if any diagram failed. Default: false */
+  strict?: boolean
 }
 ```
 

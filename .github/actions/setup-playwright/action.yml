@@ -1,0 +1,26 @@
+name: Setup Playwright (chromium)
+description: >-
+  Restore the Playwright browser cache keyed by lockfile hash and install
+  chromium + the matching system dependencies. On a cache hit the browser
+  binary is reused; we still refresh the OS-level deps because apt packages
+  are not cached between runs.
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+    - name: Install Playwright chromium + system deps
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+
+    - name: Install Playwright system deps (cache hit)
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps chromium

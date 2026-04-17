@@ -94,7 +94,15 @@ Examples:
   diagramkit validate . --recursive                    # Validate SVGs recursively
 
 Project skills (Claude/Cursor/Codex/Continue/...):
-  Use the standalone "skills" CLI to install diagramkit skills into a repo:
+  Skills ship inside the npm package at node_modules/diagramkit/skills/.
+  Recommended install: have your agent follow
+    node_modules/diagramkit/skills/diagramkit-setup/SKILL.md
+  It writes thin pointer SKILL.md files at .agents/skills/diagramkit-* (with
+  mirrors under .claude/skills/, .cursor/skills/, .codex/skills/ for the
+  harnesses you use) that defer to the bundled SKILL.md files. Skills:
+  setup, auto, mermaid, excalidraw, draw-io, graphviz, review (validation
+  + WCAG 2.2 AA contrast).
+  Alternative (GitHub-published skills via the standalone "skills" CLI):
     npx skills add sujeet-pro/diagramkit
   See https://github.com/vercel-labs/skills for agent targeting flags.
 `)
@@ -1638,9 +1646,14 @@ async function main() {
   if (getFlag('install-skill')) {
     console.error(
       'The --install-skill flag was removed in v0.3.\n' +
-        'Use the standalone "skills" CLI to install diagramkit project skills:\n' +
-        '  npx skills add sujeet-pro/diagramkit\n' +
-        'See https://github.com/vercel-labs/skills for agent targeting flags (-a claude-code, -a cursor, ...).',
+        'diagramkit skills now ship inside the npm package at node_modules/diagramkit/skills/.\n' +
+        'Have your agent follow node_modules/diagramkit/skills/diagramkit-setup/SKILL.md —\n' +
+        'it writes thin pointer SKILL.md files at .agents/skills/diagramkit-* (with mirrors\n' +
+        'under .claude/skills/, .cursor/skills/, .codex/skills/) that defer to the bundled\n' +
+        'SKILL.md files. Skills: setup, auto, mermaid, excalidraw, draw-io, graphviz, review\n' +
+        '(validation + WCAG 2.2 AA contrast).\n' +
+        'Alternative (GitHub-published skills): npx skills add sujeet-pro/diagramkit\n' +
+        'See https://github.com/vercel-labs/skills for agent targeting flags.',
     )
     process.exit(1)
   }

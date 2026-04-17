@@ -36,18 +36,36 @@ features:
 
 ## Quick Start with an AI Agent
 
-The fastest way to get started is to tell your AI coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, ...):
+The fastest way to get started is to paste the prompt below into your AI coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, Windsurf, GitHub Copilot, ...). It installs the latest diagramkit, reads the version-pinned reference, and configures agent skills as thin pointers that defer to the skills bundled inside the installed `diagramkit` package — so every agent reads guidance pinned to the exact CLI it is about to call.
 
-> Set up diagramkit in this repo:
->
-> 1. `npm add diagramkit`.
-> 2. Read `node_modules/diagramkit/REFERENCE.md` (anchor on the LOCAL install).
-> 3. `npx diagramkit warmup` (skip if Graphviz-only).
-> 4. Add `"render:diagrams": "diagramkit render ."` to `package.json`.
-> 5. Install diagramkit's agent skills with the standalone `skills` CLI: `npx skills add sujeet-pro/diagramkit`.
-> 6. Render all diagrams to SVG: `npx diagramkit render .`.
+```text
+Install the latest diagramkit in this repo and configure its agent skills:
 
-The agent will install diagramkit (locally, never globally), warm up the browser when needed, install diagramkit's engine + setup + auto-router skills via [`npx skills`](https://github.com/vercel-labs/skills), and render everything. diagramkit ships `REFERENCE.md`, `llms.txt`, `llms-full.txt`, and `ai-guidelines/` inside the npm package, so the agent always reads documentation pinned to the installed version.
+1. npm add diagramkit@latest
+   Confirm with: npx diagramkit --version
+
+2. Read node_modules/diagramkit/REFERENCE.md end to end. It is the
+   version-pinned CLI/API contract for the release you just installed.
+   Do NOT rely on a globally installed diagramkit or on training data.
+
+3. Follow node_modules/diagramkit/skills/diagramkit-setup/SKILL.md end to
+   end. It will run warmup if needed, wire a `render:diagrams` script,
+   render existing diagrams, and write thin pointer SKILL.md files at:
+     .agents/skills/diagramkit-<name>/SKILL.md    (always)
+     .claude/skills/diagramkit-<name>/SKILL.md    (if .claude/ exists)
+     .cursor/skills/diagramkit-<name>/SKILL.md    (if .cursor/ exists)
+     .codex/skills/diagramkit-<name>/SKILL.md     (if .codex/ exists)
+   Each pointer defers to
+   node_modules/diagramkit/skills/diagramkit-<name>/SKILL.md — so upgrading
+   diagramkit refreshes every skill automatically.
+   Skills installed: setup, auto, mermaid, excalidraw, draw-io, graphviz,
+   review (validation + WCAG 2.2 AA contrast).
+
+4. Commit the pointer SKILL.md files with any package.json / config
+   changes. Summarize what was created or skipped.
+```
+
+See [AI Agents](./guide/ai-agents/README.md) for more prompt recipes (generate a diagram, validate + WCAG 2.2 AA audit, refresh after an upgrade) and [Getting Started](./guide/getting-started/README.md) for the manual flow.
 
 Need a setup playbook? See [AI Agents](./guide/ai-agents/README.md) and [Getting Started](./guide/getting-started/README.md).
 

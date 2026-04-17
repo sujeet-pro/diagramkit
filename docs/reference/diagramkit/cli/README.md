@@ -35,7 +35,7 @@ node ./node_modules/diagramkit/dist/cli/bin.mjs --version
 Bare `diagramkit` on a TTY launches the top-level interactive picker; on non-TTY (CI, scripts) it prints help. Bare `diagramkit render` on a TTY launches the render wizard.
 
 > [!IMPORTANT]
-> **Project skills are installed by `npx skills`, not by the diagramkit CLI.** The previous `diagramkit --install-skill` flag was removed in v0.3. Use the standalone [`skills`](https://github.com/vercel-labs/skills) CLI from Vercel Labs — it works with Claude Code, Cursor, Codex, Continue, OpenCode, and 41+ other agents:
+> **The diagramkit CLI does not install agent skills.** The previous `diagramkit --install-skill` flag was removed in v0.3. Skills now ship inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The recommended install is the **local pointer pattern** written by `diagramkit-setup` — thin SKILL.md files at `.agents/skills/diagramkit-*` (with mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`) that defer to the bundled originals. The standalone [`skills`](https://github.com/vercel-labs/skills) CLI is supported as an alternative when you specifically want skills that update independently of the installed `diagramkit`:
 >
 > ```bash
 > npx skills add sujeet-pro/diagramkit                              # all skills
@@ -44,7 +44,7 @@ Bare `diagramkit` on a TTY launches the top-level interactive picker; on non-TTY
 > npx skills update sujeet-pro/diagramkit                           # refresh later
 > ```
 >
-> Running the legacy `diagramkit --install-skill` exits with code 1 and prints a message pointing at `npx skills`.
+> Running the legacy `diagramkit --install-skill` exits with code 1 and prints a message pointing at `diagramkit-setup` and `npx skills`.
 
 ## `render` Options
 

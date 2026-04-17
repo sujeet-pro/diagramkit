@@ -62,10 +62,20 @@ npm run build:all        # lib + docs
 
 ## GitHub Actions
 
-CI uses the same gates as `npm run cicd`, but parallelized:
+CI uses the same gates as `npm run cicd`, but parallelized with a real dependency graph so nothing rebuilds the library twice:
 
-- `.github/workflows/cicd.yml` — runs on push to `main`, on PRs, and via `workflow_dispatch`. Each gate (`check`, `typecheck`, `unit`, `e2e`, `lib-build`, `docs-build`, `validate-build`) runs as an independent job with a shared setup cache. A `summary` job gates branch protection. On pushes to `main`, `deploy-docs` publishes the built `gh-pages/` artifact.
-- `.github/workflows/publish.yml` — manual release. Inputs: `release_type` (choice: `patch`/`minor`/`major`) and `dry_run` (boolean). Runs `npm run cicd`, bumps version, commits, tags, publishes to npm (with provenance), creates a GitHub Release.
+- `.github/workflows/cicd.yml` — runs on every push, on PRs, and via `workflow_dispatch`. Jobs:
+  - **Layer 0 (parallel, no deps)**: `lint` (oxlint + oxfmt + `npm audit`), `typecheck` (`tsc --noEmit`), `build-lib` (`vp pack` → uploads `dist/` as an artifact).
+  - **Layer 1 (parallel, `needs: build-lib`)**: `lib-pack-check` (`npm pack --dry-run`), `unit` (`npm run test:unit`), `e2e` (`npm run test:e2e` with Playwright), `docs-build` (renders diagrams + builds the Pagesmith site, uploads `gh-pages/`, rendered SVGs, and the Pages artifact on `main`).
+  - **Layer 2 (`needs: build-lib, docs-build`)**: `validate-build` downloads the dist and gh-pages artifacts and runs `scripts/validate-build.ts`.
+  - `summary` runs `if: always()` over every gate and fails the workflow if any gate was not `success`. All layer-0 jobs always run even if a sibling fails, so a single CI run surfaces every broken gate at once.
+  - `deploy-docs` depends on `summary` and only runs on `main` via `push` or `workflow_dispatch`.
+- Reusable composite actions under `.github/actions/`:
+  - `setup` — `actions/setup-node` via `.node-version`, caches `node_modules` by lockfile hash, runs `npm ci` only on a cache miss, and accepts an optional `registry-url` input for the publish workflow.
+  - `setup-playwright` — caches `~/.cache/ms-playwright` by lockfile hash; on cache miss runs `npx playwright install --with-deps chromium`, on cache hit still refreshes the apt system deps.
+- `.github/workflows/publish.yml` — manual release. Inputs: `release_type` (choice: `patch`/`minor`/`major`) and `dry_run` (boolean). Runs the full `npm run cicd` gate sequentially on one runner (so the version bump, tag, and publish all see the same dist), bumps the version, commits, tags, publishes to npm (with provenance), creates a GitHub Release. Uses the same `setup` and `setup-playwright` composite actions.
+
+When you touch `.github/workflows/*.yml`, the `.github/actions/*/action.yml` composites, or the dependency graph described above, update this section in the same PR (see the sync rule).
 
 ### Cutting a release
 

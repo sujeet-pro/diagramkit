@@ -118,26 +118,31 @@ diagramkit render . --yes               # alias for --no-interactive (accept def
 
 `--interactive` falls back with a one-line warning when stdout is not a TTY (so CI logs stay clean).
 
-### Project skills (use `npx skills`, not the diagramkit CLI)
+### Project skills (the diagramkit CLI does not install them)
 
 > [!IMPORTANT]
-> The previous `diagramkit --install-skill` flag was removed in v0.3. Skill installation is delegated to the standalone [`skills`](https://github.com/vercel-labs/skills) CLI from Vercel Labs so the same diagramkit-* skills work across 41+ agents (Claude Code, Cursor, Codex, Continue, OpenCode, ...) and stay current via `npx skills update sujeet-pro/diagramkit` without bumping the diagramkit npm package.
+> The previous `diagramkit --install-skill` flag was removed in v0.3. Skills now ship inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The `diagramkit-setup` skill writes thin pointer SKILL.md files into your repo (`.agents/skills/diagramkit-*` plus harness mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`) that defer to those bundled originals — so every agent reads guidance pinned to the installed CLI version.
+
+Recommended (local pointers):
 
 ```bash
-# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz, review)
-npx skills add sujeet-pro/diagramkit
-
-# Target specific agents only (any combination)
-npx skills add sujeet-pro/diagramkit -a claude-code -a cursor -a codex
-
-# Install only specific skills
-npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-mermaid
-
-# Refresh later
-npx skills update sujeet-pro/diagramkit
+npm add diagramkit
+# Then have your agent follow:
+#   node_modules/diagramkit/skills/diagramkit-setup/SKILL.md
+# It writes pointer SKILL.md files for: setup, auto, mermaid, excalidraw,
+# draw-io, graphviz, review (validation + WCAG 2.2 AA contrast).
 ```
 
-If `npx skills` is unavailable (e.g. older toolchains), copy folders manually from `node_modules/diagramkit/skills/diagramkit-*/` into the agent skill directory the project uses (`.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`, or `.agents/skills/`).
+Alternative (GitHub-published skills via the standalone [`skills`](https://github.com/vercel-labs/skills) CLI), when you want skills that update independently of the installed `diagramkit`:
+
+```bash
+npx skills add sujeet-pro/diagramkit                               # all skills
+npx skills add sujeet-pro/diagramkit -a claude-code -a cursor -a codex
+npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-review
+npx skills update sujeet-pro/diagramkit                            # refresh later
+```
+
+Pick **one** mechanism per repo (local pointers OR `npx skills`) so they don't drift against each other.
 
 ## Render Options
 
@@ -269,11 +274,7 @@ diagramkit --yes               # alias for --no-interactive (accept defaults)
 diagramkit -y                  # short form
 ```
 
-> Project skills are installed by the standalone `skills` CLI (not by diagramkit):
->
-> ```bash
-> npx skills add sujeet-pro/diagramkit
-> ```
+> Project skills are installed by the `diagramkit-setup` skill as **local pointers** into `node_modules/diagramkit/skills/` (default), or by the standalone `skills` CLI (`npx skills add sujeet-pro/diagramkit`) when the repo prefers GitHub-published skills. See [Project skills](#project-skills-the-diagramkit-cli-does-not-install-them).
 
 ## Examples
 
