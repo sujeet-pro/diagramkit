@@ -3,9 +3,14 @@
 /**
  * Diagramkit docs validation orchestrator.
  *
- * Runs both content validation (markdown source under docs/) and
- * build-output validation (gh-pages/) using the published `@pagesmith/docs`
- * validator. Adds two diagramkit-specific cross-reference checks:
+ * Runs the diagramkit-specific docs checks and, when the installed
+ * `@pagesmith/docs` exposes its validator API, also delegates to the
+ * upstream content + build validators. The validator export is feature-
+ * detected so the script keeps working against published versions of
+ * `@pagesmith/docs` that do not yet ship `validateDocs` (e.g. 0.9.5,
+ * which only exports `validateConfig`).
+ *
+ * Diagramkit-specific checks (always run):
  *
  *   1. Every diagram referenced from `docs/**` via a `<picture>` element or
  *      `![]()` syntax should resolve to a `.diagramkit/` source so that
@@ -21,12 +26,12 @@
  *   npm run validate:pagesmith              full check
  *   npm run validate:pagesmith -- --content content only
  *   npm run validate:pagesmith -- --build   build output only
- *   npm run validate:pagesmith -- --full    enable opt-in strict checks
+ *   npm run validate:pagesmith -- --full    enable opt-in strict checks (when supported)
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
-import { validateDocs } from '@pagesmith/docs'
+import * as pagesmithDocs from '@pagesmith/docs'
 import { findDiagramAssetReferences, findLinkStyleViolations } from './lib/docs-rules.ts'
 
 const repoRoot = resolve(import.meta.dirname, '..')
@@ -36,22 +41,46 @@ const skipContent = slice === '--build'
 const skipBuild = slice === '--content'
 const fullPreset = args.includes('--full')
 
-const result = await validateDocs({
-  configPath: resolve(repoRoot, 'pagesmith.config.json5'),
-  skipContent,
-  skipBuild,
-  // Always enforce that internal links resolve to a real markdown file on disk.
-  // The `./path/README.md` rule is enforced by the project-level check below.
-  internalLinksMustBeMarkdown: true,
-  // The strict trailing-slash check (both forms must work) and the modern-raster
-  // requirement are still opt-in via `--full` because they only make sense for
-  // releases that opt into both URL forms.
-  requireBothTrailingSlashForms: fullPreset,
-  requireRasterModernFormats: fullPreset,
-})
+let totalErrors = 0
+let totalWarnings = 0
 
-let totalErrors = result.errors
-let totalWarnings = result.warnings
+interface ValidateDocsResult {
+  errors: number
+  warnings: number
+}
+type ValidateDocsFn = (options: Record<string, unknown>) => Promise<ValidateDocsResult>
+
+// Feature-detect the upstream `validateDocs` export. Older published
+// versions of @pagesmith/docs (e.g. 0.9.5) only ship `validateConfig`.
+// Skip the upstream pass cleanly in that case so the diagramkit-specific
+// checks still run.
+const validateDocs = (pagesmithDocs as unknown as Record<string, unknown>).validateDocs as
+  | ValidateDocsFn
+  | undefined
+
+if (typeof validateDocs === 'function') {
+  const result = await validateDocs({
+    configPath: resolve(repoRoot, 'pagesmith.config.json5'),
+    skipContent,
+    skipBuild,
+    // Always enforce that internal links resolve to a real markdown file on disk.
+    // The `./path/README.md` rule is enforced by the project-level check below.
+    internalLinksMustBeMarkdown: true,
+    // The strict trailing-slash check (both forms must work) and the modern-raster
+    // requirement are still opt-in via `--full` because they only make sense for
+    // releases that opt into both URL forms.
+    requireBothTrailingSlashForms: fullPreset,
+    requireRasterModernFormats: fullPreset,
+  })
+  totalErrors += result.errors
+  totalWarnings += result.warnings
+} else {
+  console.log(
+    '\n[pagesmith-docs] validateDocs is not exported by the installed ' +
+      '@pagesmith/docs (need a release that ships the validator API). ' +
+      'Skipping upstream content + build validation; running diagramkit-specific checks only.',
+  )
+}
 
 // ── diagramkit-specific cross-reference: every <picture>/img diagram source
 //    should live in a sibling `.diagramkit/` directory so render runs
