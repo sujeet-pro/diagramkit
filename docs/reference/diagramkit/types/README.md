@@ -452,3 +452,68 @@ type StaleReason =
 ```
 
 Discriminated union returned by `planStaleFiles()`. Each variant includes the reason code and relevant data for diagnostics.
+
+---
+
+## Validation Types
+
+Exported from both the main `diagramkit` entry (when using `validateSvg*` from `diagramkit/utils`) and the `diagramkit/validate` subpath.
+
+### `SvgIssueSeverity`
+
+```ts
+type SvgIssueSeverity = 'error' | 'warning'
+```
+
+### `SvgIssueCode`
+
+```ts
+type SvgIssueCode =
+  | 'EMPTY_FILE'
+  | 'MISSING_SVG_TAG'
+  | 'MISSING_SVG_CLOSE'
+  | 'MISSING_WIDTH'
+  | 'MISSING_HEIGHT'
+  | 'NO_VISUAL_ELEMENTS'
+  | 'CONTAINS_SCRIPT'
+  | 'CONTAINS_FOREIGN_OBJECT'
+  | 'MISSING_XMLNS'
+  | 'EXTERNAL_RESOURCE'
+  | 'INVALID_VIEWBOX'
+  | 'SVG_TOO_LARGE'
+  | 'LOW_CONTRAST_TEXT'
+```
+
+### `SvgIssue`
+
+```ts
+interface SvgIssue {
+  code: SvgIssueCode
+  severity: SvgIssueSeverity
+  message: string
+  suggestion?: string
+}
+```
+
+### `SvgValidationResult`
+
+```ts
+interface SvgValidationResult {
+  file?: string
+  valid: boolean
+  issues: SvgIssue[]
+}
+```
+
+`valid` is `true` when no issue has `severity: 'error'` (warnings do not fail validation).
+
+### `SvgValidateOptions`
+
+```ts
+interface SvgValidateOptions {
+  /** Run the WCAG 2.2 AA contrast scan against rendered text. Default: true. */
+  checkContrast?: boolean
+  /** Effective canvas/page background. Defaults inferred from the filename suffix. */
+  backgroundOverride?: string
+}
+```

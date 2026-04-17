@@ -7,6 +7,8 @@ description: Automatically select the best diagramkit engine (Mermaid, Excalidra
 
 Analyze diagram requirements, select the best engine, then delegate to the engine-specific skill.
 
+> **Reviewing existing diagrams instead of creating new ones?** Use [`diagramkit-review`](../diagramkit-review/SKILL.md). It owns the cross-engine audit / re-render / validate / contrast-fix workflow and delegates per-engine repairs back to each engine SKILL's "Review Mode" section. This skill (`diagramkit-auto`) is for routing **new** diagram requests.
+
 ## Engine selection table
 
 | Signal                                                                                                                                                                        | Engine     | Skill                   | Extension     |

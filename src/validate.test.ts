@@ -9,10 +9,12 @@ import {
   validateSvgFile,
 } from './validate'
 
+// White text on the primary-stroke blue (#2E5A88) — passes WCAG 2.2 AA against
+// the SVG's own rect ancestor, so the GOOD_SVG remains contrast-clean.
 const GOOD_SVG = `<?xml version="1.0"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
-  <rect x="10" y="10" width="80" height="80" fill="#4a90e2"/>
-  <text x="50" y="55" text-anchor="middle">Hi</text>
+  <rect x="10" y="10" width="80" height="80" fill="#2E5A88"/>
+  <text x="50" y="55" text-anchor="middle" fill="#ffffff">Hi</text>
 </svg>`
 
 describe('validateSvg', () => {
@@ -103,6 +105,89 @@ describe('formatValidationResult', () => {
     const out = formatValidationResult(r)
     // First line uses the missing path falling back to "SVG"
     expect(out.split('\n')[0]).toMatch(/\[FAIL\] SVG$/)
+  })
+})
+
+describe('validateSvg — WCAG contrast checks', () => {
+  function svgWithText(textColor: string, bgColor: string, fontSize = 16) {
+    return `<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g>
+    <rect x="0" y="0" width="100" height="100" fill="${bgColor}"/>
+    <text x="50" y="50" fill="${textColor}" style="font-size:${fontSize}px">Hello</text>
+  </g>
+</svg>`
+  }
+
+  it('flags black-on-near-black as low-contrast warning', () => {
+    const svg = svgWithText('#222222', '#111111')
+    const r = validateSvg(svg, 'flow-dark.svg')
+    const issue = r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')
+    expect(issue?.severity).toBe('warning')
+    expect(issue?.message).toMatch(/below WCAG 2\.2 AA/)
+  })
+
+  it('passes white text on dark mid-tone background (AA compliant)', () => {
+    const svg = svgWithText('#ffffff', '#4C78A8')
+    const r = validateSvg(svg, 'flow-light.svg')
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeUndefined()
+  })
+
+  it('flags dark grey text on white (Mermaid default text on light bg failure)', () => {
+    const svg = svgWithText('#bbbbbb', '#ffffff')
+    const r = validateSvg(svg, 'flow-light.svg')
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeDefined()
+  })
+
+  it('uses default light background when no rect ancestor and -light filename', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text fill="#dddddd">x</text></svg>`
+    const r = validateSvg(svg, 'flow-light.svg')
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeDefined()
+  })
+
+  it('uses default dark background when no rect ancestor and -dark filename', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text fill="#222222">x</text></svg>`
+    const r = validateSvg(svg, 'flow-dark.svg')
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeDefined()
+  })
+
+  it('groups identical color combos into one issue with sample count', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+      <rect width="10" height="10" fill="#ffffff"/>
+      <text fill="#dddddd">one</text>
+      <text fill="#dddddd">two</text>
+      <text fill="#dddddd">three</text>
+    </svg>`
+    const r = validateSvg(svg, 'flow-light.svg')
+    const issues = r.issues.filter((i) => i.code === 'LOW_CONTRAST_TEXT')
+    expect(issues.length).toBe(1)
+    expect(issues[0]?.message).toMatch(/3 text elements/)
+  })
+
+  it('respects checkContrast: false to skip the scan entirely', () => {
+    const svg = svgWithText('#cccccc', '#ffffff')
+    const r = validateSvg(svg, 'flow-light.svg', { checkContrast: false })
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeUndefined()
+  })
+
+  it('uses backgroundOverride when provided', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text fill="#222222">x</text></svg>`
+    const r = validateSvg(svg, 'unknown.svg', { backgroundOverride: '#222222' })
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeDefined()
+  })
+
+  it('uses the larger AA threshold (3:1) for large text', () => {
+    // #777 on #fff is contrast ~4.48 — passes large (3:1) but borderline normal (4.5:1)
+    const svg = svgWithText('#777777', '#ffffff', 24)
+    const r = validateSvg(svg, 'flow-light.svg')
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')).toBeUndefined()
+  })
+
+  it('LOW_CONTRAST_TEXT is a warning, not an error (does not fail validation)', () => {
+    const svg = svgWithText('#cccccc', '#ffffff')
+    const r = validateSvg(svg, 'flow-light.svg')
+    expect(r.valid).toBe(true)
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_TEXT')?.severity).toBe('warning')
   })
 })
 

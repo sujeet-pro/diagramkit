@@ -32,8 +32,12 @@ npm-debug.log*
 .temp/
 
 # diagramkit output
-.diagrams/
-.diagramkit/
+# NOTE: rendered diagrams are committed so the docs site, GitHub README, and
+# offline viewers always have an SVG to display without re-running the render
+# pipeline. Keep `.diagramkit/` and `.diagrams/` tracked in this repo.
+#
+# The manifest is per-machine cache, not source of truth — keep it out of git.
+**/.diagramkit/manifest.json
 
 # Pagesmith docs build output
 gh-pages/

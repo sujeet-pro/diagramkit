@@ -40,6 +40,21 @@ describe('adaptGraphvizSvgForDarkMode', () => {
     const result = adaptGraphvizSvgForDarkMode(svg)
     expect(result).toContain('fill="none"')
   })
+
+  it('promotes low-luminance hex text fills (e.g. #333333) to the dark text color', () => {
+    const svg = '<svg><text fill="#333333">label</text><text fill="#444">other</text></svg>'
+    const result = adaptGraphvizSvgForDarkMode(svg)
+    // Both dark-grey fills get promoted; #333 → #e5e7eb, #444 → #e5e7eb
+    expect(result).toContain('fill="#e5e7eb">label</text>')
+    expect(result).toContain('fill="#e5e7eb">other</text>')
+  })
+
+  it('preserves text fills with sufficient luminance for dark mode', () => {
+    // #ffffff already readable on dark; should stay untouched.
+    const svg = '<svg><text fill="#ffffff">already light</text></svg>'
+    const result = adaptGraphvizSvgForDarkMode(svg)
+    expect(result).toContain('fill="#ffffff">already light</text>')
+  })
 })
 
 describe('renderGraphviz', () => {

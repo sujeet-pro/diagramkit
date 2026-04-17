@@ -18,6 +18,9 @@
  * 5. gh-pages/ (if present) has no obvious broken internal links to removed
  *    reference paths (/reference/cli, /reference/api, etc.).
  * 6. Required published JSON schemas exist under schemas/ and parse cleanly.
+ * 7. Every SVG under docs/.../.diagramkit/ passes the validator's WCAG 2.2 AA
+ *    contrast scan — protects the docs site from regressing on hard-to-read
+ *    text/background combinations as authors edit diagram sources.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
@@ -222,6 +225,35 @@ function validateGhPagesLinks(): void {
   }
 }
 
+/* ── Docs SVGs: WCAG 2.2 AA contrast scan ── */
+
+async function validateDocsContrast(): Promise<void> {
+  const docsDir = resolve(root, 'docs')
+  if (!existsSync(docsDir)) {
+    info('docs/ not present — skipping docs contrast scan')
+    return
+  }
+  const distValidate = resolve(root, 'dist/validate.mjs')
+  if (!existsSync(distValidate)) {
+    info('dist/validate.mjs not present — skipping docs contrast scan (run build:lib first)')
+    return
+  }
+  const { validateSvgDirectory } = (await import(distValidate)) as typeof import('../src/validate')
+  const results = validateSvgDirectory(docsDir, { recursive: true })
+  let contrastFailures = 0
+  for (const r of results) {
+    const lowContrast = r.issues.filter((i) => i.code === 'LOW_CONTRAST_TEXT')
+    if (lowContrast.length === 0) continue
+    contrastFailures += lowContrast.length
+    for (const issue of lowContrast) {
+      fail(`${relative(root, r.file ?? '')}: ${issue.message}`)
+    }
+  }
+  if (contrastFailures === 0) {
+    info(`Docs contrast scan: ${results.length} SVG(s) checked, all pass WCAG 2.2 AA`)
+  }
+}
+
 /* ── Run ── */
 
 info('Validating SKILL.md frontmatter under .agents/skills/')
@@ -242,6 +274,9 @@ validateSchemas()
 
 info('Spot-checking gh-pages/ for old reference URLs')
 validateGhPagesLinks()
+
+info('Scanning docs/ SVGs for WCAG 2.2 AA contrast regressions')
+await validateDocsContrast()
 
 if (failures > 0) {
   console.error(`\n[validate-build] ${failures} check(s) failed`)

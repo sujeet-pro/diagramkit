@@ -9,7 +9,9 @@ flowchart TB
     cli_flags["CLI Flags / API Overrides<br/><i>--format --theme --scale<br/>programmatic options</i>"] --> final
     final["Final Merged Config"]
 
-    classDef layer fill:#4C78A8,stroke:#2E5A88,color:#fff
-    classDef result fill:#54A24B,stroke:#3D8B3D,color:#fff
+    %% NOTE: fills are picked from the AA-compliant darker-mid-tone palette.
+    %% White text on these fills passes WCAG 2.2 AA (>= 4.5:1).
+    classDef layer fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef result fill:#2D7A2D,stroke:#1E5A1E,color:#fff
     class defaults,global_config,env_vars,local_config,cli_flags layer
     class final result

@@ -27,6 +27,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 import { validateDocs } from '@pagesmith/docs'
+import { findDiagramAssetReferences, findLinkStyleViolations } from './lib/docs-rules.ts'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 const args = process.argv.slice(2)
@@ -74,23 +75,9 @@ if (!skipContent) {
   }
 
   const mdFiles = walk(docsDir)
-  // Strip fenced code blocks and inline-code spans before matching so
-  // documentation examples that *show* a `<picture>` snippet are not
-  // mistaken for real asset references.
-  const stripCode = (content: string): string =>
-    content.replace(/^```[^\n]*\n[\s\S]*?\n```\s*$/gm, '').replace(/`[^`\n]*`/g, '')
   for (const file of mdFiles) {
-    const content = stripCode(readFileSync(file, 'utf-8'))
-    // Find any image reference (in markdown ![]() or in <img>/<source>) that
-    // looks like a generated diagram and ensure the rendered SVG exists.
-    const candidatePattern =
-      /(?:src|srcset)=(["'])([^"']*\.diagramkit\/[^"']+)\1|\]\(([^)]*\.diagramkit\/[^)]+)\)/g
-    let match: RegExpExecArray | null
-    while ((match = candidatePattern.exec(content)) !== null) {
-      const ref = (match[2] ?? match[3] ?? '').split(/[?#]/)[0]
-      if (!ref) continue
-      // Only check local refs (skip external).
-      if (/^[a-z]+:\/\//i.test(ref) || ref.startsWith('//')) continue
+    const markdown = readFileSync(file, 'utf-8')
+    for (const { ref } of findDiagramAssetReferences(markdown)) {
       const absolute = ref.startsWith('/')
         ? join(repoRoot, 'docs', ref.replace(/^\/+/, ''))
         : resolve(file, '..', ref)
@@ -132,48 +119,9 @@ if (!skipContent) {
   //   `[Diagram](.diagramkit/foo-light.svg)` (image asset) — skipped
   console.log(`\n[diagramkit-link-style]`)
   const linkStyleErrors: string[] = []
-  // Markdown link regex covering inline links and references. Matches `[text](url)`
-  // but skips already-skipped patterns like images (`![]()`), code blocks, and
-  // inline code (which we strip via stripCode above).
-  const LINK_RE = /(?<!!)\[([^\]]*)\]\(([^)\s]+?)(?:\s+"[^"]*")?\)/g
-  // Recognized fenced-asset extensions that aren't markdown but are valid local refs.
-  const SKIP_EXTENSIONS = new Set([
-    '.svg',
-    '.png',
-    '.jpg',
-    '.jpeg',
-    '.webp',
-    '.avif',
-    '.gif',
-    '.ico',
-    '.pdf',
-    '.json',
-    '.json5',
-    '.txt',
-    '.mermaid',
-    '.dot',
-    '.gv',
-    '.drawio',
-  ])
   for (const file of mdFiles) {
-    const content = stripCode(readFileSync(file, 'utf-8'))
-    let match: RegExpExecArray | null
-    while ((match = LINK_RE.exec(content)) !== null) {
-      const url = match[2]!
-      if (!url) continue
-      // Skip external links (http://, https://, mailto:, tel:, etc.)
-      if (/^[a-z][a-z0-9+.-]*:/i.test(url)) continue
-      // Skip protocol-relative links and in-page anchors / queries only
-      if (url.startsWith('//')) continue
-      if (url.startsWith('#')) continue
-      // Strip fragment + query for extension analysis
-      const cleanPath = url.split(/[?#]/)[0] ?? ''
-      if (!cleanPath) continue
-      // Allow image / diagram-source / json / pdf etc. references
-      const ext = extname(cleanPath).toLowerCase()
-      if (SKIP_EXTENSIONS.has(ext)) continue
-      // Reject anything that isn't already a `.md`/`.mdx` link
-      if (ext === '.md' || ext === '.mdx') continue
+    const markdown = readFileSync(file, 'utf-8')
+    for (const { url } of findLinkStyleViolations(markdown)) {
       linkStyleErrors.push(
         `${relative(repoRoot, file)}: internal link "${url}" must use ./path/README.md form ` +
           `(or .md / .mdx). Pagesmith rewrites .md links to clean URLs at build time; ` +

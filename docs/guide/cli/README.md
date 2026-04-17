@@ -124,7 +124,7 @@ diagramkit render . --yes               # alias for --no-interactive (accept def
 > The previous `diagramkit --install-skill` flag was removed in v0.3. Skill installation is delegated to the standalone [`skills`](https://github.com/vercel-labs/skills) CLI from Vercel Labs so the same diagramkit-* skills work across 41+ agents (Claude Code, Cursor, Codex, Continue, OpenCode, ...) and stay current via `npx skills update sujeet-pro/diagramkit` without bumping the diagramkit npm package.
 
 ```bash
-# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz)
+# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz, review)
 npx skills add sujeet-pro/diagramkit
 
 # Target specific agents only (any combination)

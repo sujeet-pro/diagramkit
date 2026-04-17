@@ -186,7 +186,7 @@ See [Configuration](../configuration/README.md) for all options.
 diagramkit's agent skills are installed via the standalone [`skills`](https://github.com/vercel-labs/skills) CLI, not via the diagramkit CLI itself. This keeps diagramkit focused on rendering and lets the same skills work across 41+ agents.
 
 ```bash
-# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz)
+# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz, review)
 npx skills add sujeet-pro/diagramkit
 
 # Target specific agents only (any combination)
@@ -209,6 +209,7 @@ The shipped skills:
 | `diagramkit-excalidraw` | Authors Excalidraw diagrams + renders to SVG/PNG/JPEG/WebP/AVIF.                                 |
 | `diagramkit-draw-io`    | Authors Draw.io diagrams (cloud icons, BPMN, swimlanes) + renders to SVG/PNG/JPEG/WebP/AVIF.     |
 | `diagramkit-graphviz`   | Authors Graphviz DOT diagrams + renders to SVG/PNG/JPEG/WebP/AVIF.                               |
+| `diagramkit-review`     | Audits and repairs every diagram in a repo (pre-merge / pre-release health check).               |
 
 > [!IMPORTANT]
 > All `diagramkit-*` skills always prefer the **locally installed** CLI. They read `node_modules/diagramkit/REFERENCE.md` first and run `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`) so the agent uses the exact CLI/API surface for the version installed in this repo.

@@ -1,5 +1,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import {
+  WCAG_AA_LARGE,
+  WCAG_AA_NORMAL,
+  defaultBackgroundForFile,
+  findSvgContrastIssues,
+} from './color/wcag'
 
 /* ── Validation result types ── */
 
@@ -25,11 +31,27 @@ export type SvgIssueCode =
   | 'EXTERNAL_RESOURCE'
   | 'INVALID_VIEWBOX'
   | 'SVG_TOO_LARGE'
+  | 'LOW_CONTRAST_TEXT'
 
 export interface SvgValidationResult {
   file?: string
   valid: boolean
   issues: SvgIssue[]
+}
+
+export interface SvgValidateOptions {
+  /**
+   * Whether to run the WCAG 2.2 AA contrast scan against rendered text.
+   * Defaults to `true` for SVG outputs because the renderer can be told to skip
+   * via `--no-contrast`. Pass `false` for hand-authored sources that legitimately
+   * use translucent fills (e.g. annotation overlays).
+   */
+  checkContrast?: boolean
+  /**
+   * Effective canvas/page background. When omitted, the validator infers from the
+   * filename suffix (`-light.svg` → white, `-dark.svg` → near-black).
+   */
+  backgroundOverride?: string
 }
 
 const VISUAL_ELEMENT_RE =
@@ -49,8 +71,16 @@ const MAX_SVG_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB
 /**
  * Validate SVG content for correctness and img-tag renderability.
  * Returns structured issues with codes, messages, and suggestions.
+ *
+ * Includes a WCAG 2.2 AA contrast scan for text elements. The scan is skipped
+ * for raster validation paths because pixel-level OCR is unreliable; for SVGs
+ * we can resolve the actual fill/background of every text node.
  */
-export function validateSvg(svg: string, filePath?: string): SvgValidationResult {
+export function validateSvg(
+  svg: string,
+  filePath?: string,
+  options: SvgValidateOptions = {},
+): SvgValidationResult {
   const issues: SvgIssue[] = []
 
   if (!svg || svg.trim().length === 0) {
@@ -202,6 +232,64 @@ export function validateSvg(svg: string, filePath?: string): SvgValidationResult
     })
   }
 
+  if (options.checkContrast !== false) {
+    const background = options.backgroundOverride ?? defaultBackgroundForFile(filePath)
+    // Mermaid emits its primary text fill via a global CSS rule that our
+    // resolver doesn't always match (e.g. `#scope .label text`). Seed the
+    // walker with diagramkit's known defaults per variant so unset text fills
+    // don't fall back to plain black/white and produce false positives.
+    const defaultTextColor = background === '#111111' ? '#e5e5e5' : '#333333'
+    const contrastIssues = findSvgContrastIssues(svg, {
+      defaultBackground: background,
+      defaultTextColor,
+    })
+    if (contrastIssues.length > 0) {
+      // Group issues by (textColor, backgroundColor) so a thousand mermaid tspans
+      // with identical styling collapse into one actionable warning instead of
+      // flooding the report.
+      const grouped = new Map<
+        string,
+        { count: number; samples: string[]; ratio: number; required: number }
+      >()
+      for (const issue of contrastIssues) {
+        const key = `${issue.textColor}|${issue.backgroundColor}|${issue.required}`
+        const existing = grouped.get(key)
+        if (existing) {
+          existing.count++
+          if (existing.samples.length < 3) existing.samples.push(issue.textSample)
+        } else {
+          grouped.set(key, {
+            count: 1,
+            samples: [issue.textSample],
+            ratio: issue.ratio,
+            required: issue.required,
+          })
+        }
+      }
+
+      for (const [key, group] of grouped) {
+        const [textColor, bgColor] = key.split('|')
+        const samplesPreview = group.samples.map((s) => `"${s}"`).join(', ')
+        issues.push({
+          code: 'LOW_CONTRAST_TEXT',
+          severity: 'warning',
+          message:
+            `Text color ${textColor} on ${bgColor} has contrast ratio ${group.ratio.toFixed(2)}:1, ` +
+            `below WCAG 2.2 AA threshold of ${group.required}:1 ` +
+            `(${group.count} text element${group.count === 1 ? '' : 's'}: ${samplesPreview}` +
+            (group.count > group.samples.length ? ', ...' : '') +
+            ')',
+          suggestion:
+            'Use a higher-contrast color from the diagramkit mid-tone palette ' +
+            '(e.g. #4C78A8/#fff for primary, #2d2d2d/#e5e5e5 for dark mode actors). ' +
+            'Required ratios: ' +
+            `${WCAG_AA_NORMAL}:1 for normal text, ${WCAG_AA_LARGE}:1 for large text (>=18px / 14px bold). ` +
+            'Avoid white-on-pastel and grey-on-grey combinations.',
+        })
+      }
+    }
+  }
+
   const hasErrors = issues.some((i) => i.severity === 'error')
   return { file: filePath, valid: !hasErrors, issues }
 }
@@ -209,7 +297,10 @@ export function validateSvg(svg: string, filePath?: string): SvgValidationResult
 /**
  * Validate an SVG file on disk. Reads the file and delegates to validateSvg().
  */
-export function validateSvgFile(filePath: string): SvgValidationResult {
+export function validateSvgFile(
+  filePath: string,
+  options: SvgValidateOptions = {},
+): SvgValidationResult {
   if (!existsSync(filePath)) {
     return {
       file: filePath,
@@ -226,7 +317,7 @@ export function validateSvgFile(filePath: string): SvgValidationResult {
   }
 
   const content = readFileSync(filePath, 'utf-8')
-  return validateSvg(content, filePath)
+  return validateSvg(content, filePath, options)
 }
 
 /**
@@ -234,18 +325,19 @@ export function validateSvgFile(filePath: string): SvgValidationResult {
  */
 export function validateSvgDirectory(
   dir: string,
-  options: { recursive?: boolean } = {},
+  options: { recursive?: boolean } & SvgValidateOptions = {},
 ): SvgValidationResult[] {
+  const { recursive, ...validateOptions } = options
   const results: SvgValidationResult[] = []
 
   function walk(d: string) {
     if (!existsSync(d)) return
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = join(d, entry.name)
-      if (entry.isDirectory() && options.recursive) {
+      if (entry.isDirectory() && recursive) {
         walk(full)
       } else if (entry.name.endsWith('.svg')) {
-        results.push(validateSvgFile(full))
+        results.push(validateSvgFile(full, validateOptions))
       }
     }
   }

@@ -78,8 +78,10 @@ import {
 
 ## SVG validation
 
-- `validateSvg(svg, filePath?)` — structural validation of an SVG string (root element, viewBox/dimensions, visual content, no embedded scripts).
-- `validateSvgFile(filePath)` / `validateSvgDirectory(dir, options?)` — validate files on disk.
-- `formatValidationResult(result)` — human-readable formatting of a `ValidationResult` for CLI output.
+- `validateSvg(svg, filePath?, options?)` — structural validation of an SVG string (root element, viewBox/dimensions, visual content, no embedded scripts) plus optional WCAG 2.2 AA contrast scan.
+- `validateSvgFile(filePath, options?)` / `validateSvgDirectory(dir, options?)` — validate files on disk. The directory variant accepts `{ recursive?: boolean }` in addition to `SvgValidateOptions`.
+- `formatValidationResult(result)` — human-readable formatting of a `SvgValidationResult` for CLI output.
 
-See [Types](../types/README.md) for the full `DiagramkitConfig`, `RenderResult`, and `ValidationResult` shapes.
+Pass `{ checkContrast: false }` to skip the WCAG scan (useful for hand-authored sources that legitimately use translucent fills). Pass `{ backgroundOverride: '#000' }` when validating SVGs whose effective canvas background is not implied by the `-light` / `-dark` filename suffix.
+
+See [Types](../types/README.md) for the full `DiagramkitConfig`, `RenderResult`, and `SvgValidationResult` shapes.

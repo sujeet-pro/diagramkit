@@ -506,11 +506,64 @@ Get the output variants for a given theme. Returns `['light']`, `['dark']`, or `
 
 ---
 
+## SVG Validation
+
+> Import these functions from `diagramkit/utils` or `diagramkit/validate`. They are also surfaced through the CLI as `diagramkit validate` and run automatically after every `diagramkit render`.
+
+```ts
+import {
+  validateSvg,
+  validateSvgFile,
+  validateSvgDirectory,
+  formatValidationResult,
+} from 'diagramkit/utils'
+```
+
+### `validateSvg(svg, filePath?, options?)`
+
+```ts
+function validateSvg(
+  svg: string,
+  filePath?: string,
+  options?: SvgValidateOptions,
+): SvgValidationResult
+```
+
+Structural + WCAG 2.2 AA contrast validation of an SVG string. Returns issues with codes (`MISSING_SVG_TAG`, `LOW_CONTRAST_TEXT`, `EXTERNAL_RESOURCE`, …), severity, message, and a remediation suggestion.
+
+### `validateSvgFile(filePath, options?)`
+
+```ts
+function validateSvgFile(filePath: string, options?: SvgValidateOptions): SvgValidationResult
+```
+
+### `validateSvgDirectory(dir, options?)`
+
+```ts
+function validateSvgDirectory(
+  dir: string,
+  options?: { recursive?: boolean } & SvgValidateOptions,
+): SvgValidationResult[]
+```
+
+### `formatValidationResult(result)`
+
+```ts
+function formatValidationResult(result: SvgValidationResult): string
+```
+
+Format a `SvgValidationResult` into the human-readable lines used by `diagramkit validate`.
+
+See [Types](../types/README.md#validation-types) for `SvgIssue`, `SvgIssueCode`, `SvgValidationResult`, and `SvgValidateOptions` shapes.
+
+---
+
 ## Subpath Exports
 
 | Import | Content |
 |:-------|:--------|
 | `diagramkit` | Main API |
-| `diagramkit/utils` | Discovery, manifest, extensions, output, color |
-| `diagramkit/color` | Color utilities |
+| `diagramkit/utils` | Discovery, manifest, extensions, output, color, validation |
+| `diagramkit/color` | Color utilities (contrast, WCAG ratios) |
 | `diagramkit/convert` | SVG-to-raster conversion |
+| `diagramkit/validate` | SVG structural + WCAG contrast validation |

@@ -61,6 +61,7 @@ If `npx skills` is unavailable, copy the folders manually from `node_modules/dia
 | `diagramkit-excalidraw` | `node_modules/diagramkit/skills/diagramkit-excalidraw/SKILL.md` | Author Excalidraw diagrams + render to SVG/PNG/JPEG/WebP/AVIF.                             |
 | `diagramkit-draw-io`    | `node_modules/diagramkit/skills/diagramkit-draw-io/SKILL.md`    | Author Draw.io diagrams (cloud icons, BPMN, swimlanes) + render to SVG/PNG/JPEG/WebP/AVIF. |
 | `diagramkit-graphviz`   | `node_modules/diagramkit/skills/diagramkit-graphviz/SKILL.md`   | Author Graphviz DOT diagrams + render to SVG/PNG/JPEG/WebP/AVIF.                           |
+| `diagramkit-review`     | `node_modules/diagramkit/skills/diagramkit-review/SKILL.md`     | Audit and repair existing diagrams (lint sources, force re-render, validate, fix loop).    |
 
 > The diagramkit-\* skills always prefer the locally installed CLI: they read `node_modules/diagramkit/REFERENCE.md` first and call `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`). They never assume a globally installed `diagramkit`.
 

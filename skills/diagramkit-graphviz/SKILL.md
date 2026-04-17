@@ -92,7 +92,12 @@ Read `references/dot-reference.md` for complete DOT syntax, all node shapes, rec
 
 ## 4 — Color Palette
 
-### Pastel Palette
+### Pastel Palette (use with `fontcolor="#1a1a1a"`)
+
+These light fills work best with **dark text** in light mode. The dark
+adapter automatically lightens any low-luminance `fontcolor` (e.g.
+`#333333`) to `#e5e7eb` for dark mode, so you don't have to manage two
+sets of colors.
 
 | Purpose | Fill      | Stroke    |
 | ------- | --------- | --------- |
@@ -107,8 +112,27 @@ Read `references/dot-reference.md` for complete DOT syntax, all node shapes, rec
 In DOT, `fillcolor` is the fill and `color` is the stroke:
 
 ```dot
-node_a [fillcolor="#dae8fc", color="#6c8ebf"];
-node_b [fillcolor="#d5e8d4", color="#82b366"];
+node_a [fillcolor="#dae8fc", color="#6c8ebf", fontcolor="#1a1a1a"];
+node_b [fillcolor="#d5e8d4", color="#82b366", fontcolor="#1a1a1a"];
+```
+
+### AA-compliant Mid-Tone Palette (use with `fontcolor="#ffffff"`)
+
+When you want a darker fill that works with white text in both modes,
+pick from this WCAG 2.2 AA-verified palette. Each pair below clears
+4.5:1 contrast for normal text:
+
+| Purpose             | Fill      | Stroke    | Fontcolor | Contrast |
+| ------------------- | --------- | --------- | --------- | -------- |
+| Primary / API       | `#2E5A88` | `#1F4870` | `#ffffff` | 7.1:1    |
+| Secondary / Service | `#1F6E68` | `#155752` | `#ffffff` | 5.9:1    |
+| Accent / Alert      | `#B43A3A` | `#8E2828` | `#ffffff` | 5.5:1    |
+| Storage / Data      | `#8B5E15` | `#6E4810` | `#ffffff` | 5.4:1    |
+| Success             | `#2D7A2D` | `#1E5A1E` | `#ffffff` | 5.4:1    |
+| Neutral             | `#5A5A5A` | `#3D3D3D` | `#ffffff` | 7.0:1    |
+
+```dot
+node_a [fillcolor="#2E5A88", color="#1F4870", fontcolor="#ffffff"];
 ```
 
 ### Colors To Avoid
@@ -117,6 +141,16 @@ node_b [fillcolor="#d5e8d4", color="#82b366"];
 - `#000000` or near-black fills — disappear on dark backgrounds
 - Named colors (`red`, `blue`) — behavior varies; always use hex
 - Very saturated neon colors — poor contrast in both modes
+- White text on the lighter pastel palette — fails WCAG 2.2 AA
+
+After rendering, validate the SVGs to catch any contrast regressions:
+
+```bash
+npx diagramkit validate ./.diagramkit --recursive --json
+```
+
+Look for `LOW_CONTRAST_TEXT` warnings; they list each (text color,
+background color) pair and the measured ratio.
 
 Read `references/color-and-theming.md` for the full color reference including dark mode behavior.
 
@@ -216,14 +250,58 @@ diagramkit renders both light and dark variants by default. Graphviz dark mode u
 After WCAG processing, dark-specific adaptations are applied:
 
 - Black strokes (`#000000`) → `#94a3b8`
-- Black text (`#000000`) → `#e5e7eb`
 - Black fills (`#000000`) → `#94a3b8`
+- Black text (`#000000`) → `#e5e7eb`
+- Any text whose hex `fill` has WCAG luminance below 0.5 (e.g.
+  `#333333`, `#444`, dark greys/colors) → `#e5e7eb`. This last rule
+  exists because authors commonly set `fontcolor="#333333"` for
+  light-mode legibility — without auto-promotion that text vanishes
+  on the dark surface.
 
 Note the order: WCAG contrast runs **before** dark adaptation. This ensures fills are properly darkened before black elements are lightened.
 
-This means you never need to manage dark mode colors in your DOT source. Use `bgcolor="transparent"` and `fontcolor="#333333"` and let diagramkit handle the rest.
+This means you never need to manage dark mode colors in your DOT source. Use `bgcolor="transparent"` and `fontcolor="#1a1a1a"` (or `#333333`) and let diagramkit handle the rest.
 
-## 7 — References
+## 7 — Review Mode
+
+Use this section when invoked from [`diagramkit-review`](../diagramkit-review/SKILL.md) (or whenever the user asks to audit/fix existing `.dot` / `.gv` / `.graphviz` sources rather than create new ones).
+
+### Source-file audit (per `.dot`)
+
+For each source, verify in order — apply the minimum textual fix for each rule that fails:
+
+1. **Correct graph type** — `digraph` for directed (`->` edges), `graph` for undirected (`--` edges). Mismatched edges cause parse errors.
+2. **Default attribute blocks at the top** — `graph [...]`, `node [...]`, `edge [...]`. Per-node attrs should be the exception, not the rule.
+3. **`bgcolor="transparent"`** on the graph — never an opaque background. Let diagramkit inject the theme background.
+4. **Cluster prefix** — `subgraph cluster_*` for any subgraph that should render a bounding box. `subgraph backend { ... }` silently renders without a box.
+5. **No reserved keywords as IDs** — `node`, `edge`, `graph`, `digraph`, `subgraph`, `strict`. Quote (`"node"`) or rename (`node_service`).
+6. **Statement terminators** — every node and edge statement ends in `;`. Without them DOT parsing is ambiguous in edge cases.
+7. **Quoted strings for special chars** — labels with spaces, `\n`, `:`, parens, or HTML must be quoted.
+8. **Hex colours only** — no named colours (`lightblue`, `red`, …); use `fillcolor` / `color` / `fontcolor` with hex values.
+9. **Palette / fontcolor coupling** — pastel fills (`#dae8fc`, `#d5e8d4`, …) pair with `fontcolor="#1a1a1a"` (or `#333333`); AA-compliant darker fills (`#2E5A88`, `#1F6E68`, …) pair with `fontcolor="#ffffff"`. Never pair white text with the pastel palette.
+10. **Record nodes** — `|` separates fields, `<port>` declares a port; mismatched braces in record labels cause parse failures.
+
+### Validation issue → fix mapping
+
+| Code                 | Fix                                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOW_CONTRAST_TEXT`  | Update the offending node's `fillcolor=` to the AA-compliant hex and ensure `fontcolor="#ffffff"`. If the design intent is dark text, switch `fillcolor` to a pastel and `fontcolor="#1a1a1a"`. Re-render with `--force`. |
+| `NO_VISUAL_ELEMENTS` | Almost always a syntax error — check for unclosed braces, missing semicolons, reserved-keyword IDs, or wrong arrow operator for the graph type.                                                                           |
+| `MISSING_SVG_CLOSE`  | Same as `NO_VISUAL_ELEMENTS` — read `failedDetails[]` from the render JSON for the parse error line.                                                                                                                      |
+| `EXTERNAL_RESOURCE`  | Rare; usually an `image=` attribute pointing at an external URL or HTML label with `<IMG SRC="https://…">`. Replace with an inlined element or remove.                                                                    |
+
+### Single-file repair loop
+
+Graphviz uses WASM, so renders are fast — no `warmup` needed:
+
+```bash
+npx diagramkit render <file>.dot --force --json
+npx diagramkit validate <file's .diagramkit dir> --json
+```
+
+Stop on first clean run, or mark as residual after 8 iterations.
+
+## 8 — References
 
 - `references/dot-reference.md` — full DOT syntax, node shapes, record nodes, clusters, layout engines, edge styles, HTML labels
 - `references/color-and-theming.md` — complete color palettes, dark mode behavior, WCAG contrast rules

@@ -1,27 +1,44 @@
 %% Diagram: Design Principles Overview
-%% Type: mindmap
+%% Type: flowchart
+%% Note: kept as a flowchart (not a mindmap) so we can pin AA-compliant colors —
+%% Mermaid mindmaps auto-pick pastel HSL section fills that fail WCAG 2.2 AA
+%% with white labels.
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-mindmap
-  root((diagramkit<br/>Principles))
-    One Chromium
-      Shared BrowserPool
-      Graphviz is WASM only
-    Engine Registry
-      Extension mapping
-      Engine profiles
-      Renderer dispatch
-    SVG-First
-      Vector is canonical
-      Raster via sharp
-    Light + Dark
-      Both themes default
-      Theme suffix naming
-    Incremental Builds
-      SHA-256 manifest
-      Skip unchanged
-    Layered Config
-      Defaults → Global → Env → Local → CLI
-    Atomic Writes
-      .tmp + rename
-    Extension Detection
-      Longest match first
+flowchart LR
+    root_node(["diagramkit\nPrinciples"]):::rootNode
+
+    subgraph runtime ["Runtime"]
+        direction TB
+        chromium["One Chromium\nShared BrowserPool\nGraphviz is WASM only"]:::primary
+        registry["Engine Registry\nExtension mapping\nEngine profiles\nRenderer dispatch"]:::primary
+    end
+
+    subgraph output ["Output"]
+        direction TB
+        svgFirst["SVG-First\nVector is canonical\nRaster via sharp"]:::primary
+        themes["Light + Dark\nBoth themes default\nTheme suffix naming"]:::primary
+    end
+
+    subgraph build ["Build"]
+        direction TB
+        incremental["Incremental Builds\nSHA-256 manifest\nSkip unchanged"]:::primary
+        atomic["Atomic Writes\n.tmp + rename"]:::primary
+    end
+
+    subgraph config ["Config"]
+        direction TB
+        layered["Layered Config\nDefaults to Global to Env\nto Local to CLI"]:::primary
+        ext["Extension Detection\nLongest match first"]:::primary
+    end
+
+    root_node --> runtime
+    root_node --> output
+    root_node --> build
+    root_node --> config
+
+    %% AA-compliant darker-mid-tone palette: #ffffff on each of these passes 4.5:1.
+    %% NOTE: avoid using `root` or `default` as classDef names — Mermaid emits
+    %% internal `g class="root"` / `g class="default"` wrappers, and a custom
+    %% classDef with the same name leaks `tspan` color CSS to every label.
+    classDef rootNode fill:#1F4870,stroke:#0E2C4A,color:#ffffff,stroke-width:2px
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#ffffff

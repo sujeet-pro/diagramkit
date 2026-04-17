@@ -4,29 +4,51 @@ Comprehensive reference for colors, dark mode, contrast optimization, and stylin
 
 ---
 
-## Primary Mid-Tone Palette
+## Primary AA-Compliant Palette
 
-These colors work in both light and dark mode. The WCAG contrast optimizer preserves them because they are mid-tone (luminance ≤ 0.4).
+These darker mid-tone fills are verified to meet **WCAG 2.2 AA** (>= 4.5:1)
+when paired with `#ffffff` text. Their luminance also stays below the dark-
+mode contrast post-processor's 0.4 threshold, so they survive both light
+and dark rendering unchanged.
 
-| Purpose             | Fill      | Stroke    | Text      |
-| ------------------- | --------- | --------- | --------- |
-| Primary / API       | `#4C78A8` | `#2E5A88` | `#ffffff` |
-| Secondary / Service | `#72B7B2` | `#4A9A95` | `#ffffff` |
-| Accent / Alert      | `#E45756` | `#C23B3A` | `#ffffff` |
-| Storage / Data      | `#E4A847` | `#C08C35` | `#ffffff` |
-| Success             | `#54A24B` | `#3D8B3D` | `#ffffff` |
-| Neutral             | `#9B9B9B` | `#7B7B7B` | `#ffffff` |
+| Purpose             | Fill      | Stroke    | Text      | Contrast vs `#fff` |
+| ------------------- | --------- | --------- | --------- | ------------------ |
+| Primary / API       | `#2E5A88` | `#1F4870` | `#ffffff` | 7.1:1              |
+| Secondary / Service | `#1F6E68` | `#155752` | `#ffffff` | 5.9:1              |
+| Accent / Alert      | `#B43A3A` | `#8E2828` | `#ffffff` | 5.5:1              |
+| Storage / Data      | `#8B5E15` | `#6E4810` | `#ffffff` | 5.4:1              |
+| Success             | `#2D7A2D` | `#1E5A1E` | `#ffffff` | 5.4:1              |
+| Neutral             | `#5A5A5A` | `#3D3D3D` | `#ffffff` | 7.0:1              |
 
 Use these with `classDef`:
 
 ```
-classDef primary fill:#4C78A8,stroke:#2E5A88,color:#fff
-classDef secondary fill:#72B7B2,stroke:#4A9A95,color:#fff
-classDef accent fill:#E45756,stroke:#C23B3A,color:#fff
-classDef storage fill:#E4A847,stroke:#C08C35,color:#fff
-classDef success fill:#54A24B,stroke:#3D8B3D,color:#fff
-classDef neutral fill:#9B9B9B,stroke:#7B7B7B,color:#fff
+classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff
 ```
+
+### Legacy Mid-Tone Palette (LARGE TEXT ONLY)
+
+The earlier palette below has higher luminance and **fails WCAG 2.2 AA for
+normal-size text** when paired with white labels. Reserve it for headlines
+or labels at >= 18px (>= 14px when bold), where the looser 3:1 threshold
+applies.
+
+| Purpose             | Fill      | Stroke    | White text contrast | AA verdict (normal) |
+| ------------------- | --------- | --------- | ------------------- | ------------------- |
+| Primary / API       | `#4C78A8` | `#2E5A88` | 4.65:1              | passes              |
+| Secondary / Service | `#72B7B2` | `#4A9A95` | 2.29:1              | FAILS               |
+| Accent / Alert      | `#E45756` | `#C23B3A` | 3.61:1              | FAILS               |
+| Storage / Data      | `#E4A847` | `#C08C35` | 2.10:1              | FAILS               |
+| Success             | `#54A24B` | `#3D8B3D` | 3.16:1              | FAILS               |
+| Neutral             | `#9B9B9B` | `#7B7B7B` | 2.85:1              | FAILS               |
+
+If you must use these for visual continuity, switch to dark text
+(`color:#1a1a1a`) instead of white — most pass AA against `#1a1a1a`.
 
 ## Pastel Palette
 
@@ -142,13 +164,31 @@ For light mode, diagramkit uses the default Mermaid theme with a `#ffffff` backg
 
 | Original Fill | Luminance | Action    | Result                    |
 | ------------- | --------- | --------- | ------------------------- |
-| `#4C78A8`     | ~0.17     | Unchanged | `#4C78A8`                 |
-| `#E45756`     | ~0.19     | Unchanged | `#E45756`                 |
+| `#2E5A88`     | ~0.10     | Unchanged | `#2E5A88`                 |
+| `#4C78A8`     | ~0.18     | Unchanged | `#4C78A8`                 |
+| `#E45756`     | ~0.24     | Unchanged | `#E45756`                 |
 | `#dae8fc`     | ~0.79     | Darkened  | Darker blue with same hue |
 | `#ffffff`     | 1.0       | Darkened  | Dark gray                 |
 | `#f5f5f5`     | ~0.91     | Darkened  | Dark gray                 |
 
 This is why mid-tone fills are preferred: they look the same in both light and dark renders.
+
+### Validating contrast after rendering
+
+Every render automatically runs the SVG-level contrast scan from
+`diagramkit/color`. Failing combinations surface as `LOW_CONTRAST_TEXT`
+warnings during validation:
+
+```bash
+npx diagramkit validate ./.diagramkit --recursive --json
+```
+
+The walker resolves the text fill (inline style, `fill` attribute, own
+class CSS, then `.ancestor tag` CSS rules) and the effective background
+(parent rect/path explicit fill, falling back to `#ffffff` for `*-light.svg`
+and `#111111` for `*-dark.svg`). A combination is reported when its
+contrast falls below 4.5:1 for normal text or 3:1 for large text
+(>= 18px or >= 14px bold).
 
 ### Disabling
 
@@ -211,16 +251,23 @@ node1:::class1:::class2
 ### Common Definitions
 
 ```
-classDef primary fill:#4C78A8,stroke:#2E5A88,color:#fff
-classDef secondary fill:#72B7B2,stroke:#4A9A95,color:#fff
-classDef accent fill:#E45756,stroke:#C23B3A,color:#fff
-classDef storage fill:#E4A847,stroke:#C08C35,color:#fff
-classDef success fill:#54A24B,stroke:#3D8B3D,color:#fff
-classDef neutral fill:#9B9B9B,stroke:#7B7B7B,color:#fff
-classDef highlight fill:#4C78A8,stroke:#2E5A88,color:#fff,stroke-width:3px
-classDef dashed fill:#4C78A8,stroke:#2E5A88,color:#fff,stroke-dasharray:5
-classDef transparent fill:transparent,stroke:#9B9B9B,color:#333
+classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+classDef success fill:#2D7A2D,stroke:#1E5A1E,color:#fff
+classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff
+classDef highlight fill:#2E5A88,stroke:#1F4870,color:#fff,stroke-width:3px
+classDef dashed fill:#2E5A88,stroke:#1F4870,color:#fff,stroke-dasharray:5
+classDef transparent fill:transparent,stroke:#5A5A5A,color:#333
 ```
+
+> [!IMPORTANT]
+> Do NOT name a `classDef` `root`, `default`, `node`, `cluster`, or any
+> other class Mermaid uses internally. Mermaid wraps groups in
+> `<g class="root">` / `<g class="default">` etc., and a custom `classDef`
+> with the same name leaks `tspan` color CSS to every label in the diagram.
+> Use unique names like `root_node`, `primary_action`, etc.
 
 ### Complete Styling Example
 
@@ -242,11 +289,11 @@ flowchart TD
     auth --> cache
     orders --> monitor
 
-    classDef primary fill:#4C78A8,stroke:#2E5A88,color:#fff
-    classDef secondary fill:#72B7B2,stroke:#4A9A95,color:#fff
-    classDef accent fill:#E45756,stroke:#C23B3A,color:#fff
-    classDef storage fill:#E4A847,stroke:#C08C35,color:#fff
-    classDef neutral fill:#9B9B9B,stroke:#7B7B7B,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef accent fill:#B43A3A,stroke:#8E2828,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
+    classDef neutral fill:#5A5A5A,stroke:#3D3D3D,color:#fff
 ```
 
 ---

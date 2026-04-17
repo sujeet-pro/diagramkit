@@ -71,4 +71,10 @@ export {
   validateSvgDirectory,
   formatValidationResult,
 } from './validate'
-export type { SvgIssue, SvgIssueCode, SvgIssueSeverity, SvgValidationResult } from './validate'
+export type {
+  SvgIssue,
+  SvgIssueCode,
+  SvgIssueSeverity,
+  SvgValidateOptions,
+  SvgValidationResult,
+} from './validate'

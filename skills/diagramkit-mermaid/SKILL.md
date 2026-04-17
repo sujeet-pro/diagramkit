@@ -110,26 +110,58 @@ flowchart LR
     compile --> staging
     prod --> monitor[Monitor Health]
 
-    classDef stage fill:#4C78A8,stroke:#2E5A88,color:#fff
+    classDef stage fill:#2E5A88,stroke:#1F4870,color:#fff
     class checkout,lint,test,compile stage
 ```
 
-## Color Palette
+## Color Palette (WCAG 2.2 AA-compliant)
 
-Use these mid-tone fills. They survive both light and dark rendering with WCAG contrast optimization.
+Use these darker mid-tone fills with white text. Every (fill, `#ffffff`) pair
+is verified to meet WCAG 2.2 AA contrast (>= 4.5:1 for normal text, >= 3:1
+for large text). They survive both light and dark rendering because their
+luminance is below the dark-mode contrast post-processor's 0.4 threshold.
 
-| Purpose             | Fill      | Stroke    | Text      |
-| ------------------- | --------- | --------- | --------- |
-| Primary / API       | `#4C78A8` | `#2E5A88` | `#ffffff` |
-| Secondary / Service | `#72B7B2` | `#4A9A95` | `#ffffff` |
-| Accent / Alert      | `#E45756` | `#C23B3A` | `#ffffff` |
-| Storage / Data      | `#E4A847` | `#C08C35` | `#ffffff` |
-| Success             | `#54A24B` | `#3D8B3D` | `#ffffff` |
-| Neutral             | `#9B9B9B` | `#7B7B7B` | `#ffffff` |
+| Purpose             | Fill      | Stroke    | Text      | White-text contrast |
+| ------------------- | --------- | --------- | --------- | ------------------- |
+| Primary / API       | `#2E5A88` | `#1F4870` | `#ffffff` | 7.1:1               |
+| Secondary / Service | `#1F6E68` | `#155752` | `#ffffff` | 5.9:1               |
+| Accent / Alert      | `#B43A3A` | `#8E2828` | `#ffffff` | 5.5:1               |
+| Storage / Data      | `#8B5E15` | `#6E4810` | `#ffffff` | 5.4:1               |
+| Success             | `#2D7A2D` | `#1E5A1E` | `#ffffff` | 5.4:1               |
+| Neutral             | `#5A5A5A` | `#3D3D3D` | `#ffffff` | 7.0:1               |
 
-**Avoid:** `#ffffff` or near-white fills (disappear on light backgrounds), `#000000` or near-black fills (disappear on dark backgrounds), named colors (`red`, `blue`), very saturated neon colors.
+> [!IMPORTANT]
+> The earlier "mid-tone palette" (`#4C78A8`, `#72B7B2`, `#54A24B`, …) does
+> NOT pass WCAG 2.2 AA with white text — `#54A24B`/`#fff` measures only
+> 3.16:1, and `#72B7B2`/`#fff` measures 2.29:1. Use the darker variants
+> above when you need readable labels at body-text sizes. The lighter
+> tones are only safe for large text (>= 18px or 14px bold) which has the
+> looser 3:1 threshold.
 
-See `references/color-and-theming.md` for pastel palette, dark mode details, and full styling reference.
+**Avoid:**
+
+- `#ffffff` or near-white fills (disappear on light backgrounds)
+- `#000000` or near-black fills (disappear on dark backgrounds)
+- Named colors (`red`, `blue`) — behavior varies by renderer
+- Very saturated neon colors
+- White text on the lighter "pastel" palette below (fails AA)
+
+**Reserved Mermaid class names** — do NOT name a `classDef` `root`,
+`default`, `node`, `cluster`, or any other class Mermaid uses internally.
+Mermaid emits `<g class="root">` / `<g class="default">` wrappers around
+groups in the output, so a same-named `classDef` will leak its `color` /
+`fill` rules to every label in the diagram.
+
+After authoring, ALWAYS verify with the validator (it runs the WCAG check
+automatically and emits `LOW_CONTRAST_TEXT` warnings for failing
+foreground/background combinations):
+
+```bash
+npx diagramkit validate path/to/.diagramkit/ --recursive --json
+```
+
+See `references/color-and-theming.md` for the legacy pastel palette, dark
+mode details, and the full styling reference.
 
 ## Render
 
@@ -255,16 +287,17 @@ diagramkit uses **separate browser pages** for light and dark Mermaid rendering 
 
 ### classDef
 
-Define reusable styles and apply with `:::` or `class`:
+Define reusable styles and apply with `:::` or `class`. Use the AA-compliant
+palette above so labels stay readable in both light and dark renders.
 
 ```
 flowchart TD
     A[API Gateway]:::primary --> B[Auth]:::secondary
     B --> C[(Database)]:::storage
 
-    classDef primary fill:#4C78A8,stroke:#2E5A88,color:#fff
-    classDef secondary fill:#72B7B2,stroke:#4A9A95,color:#fff
-    classDef storage fill:#E4A847,stroke:#C08C35,color:#fff
+    classDef primary fill:#2E5A88,stroke:#1F4870,color:#fff
+    classDef secondary fill:#1F6E68,stroke:#155752,color:#fff
+    classDef storage fill:#8B5E15,stroke:#6E4810,color:#fff
 ```
 
 ### linkStyle
@@ -275,8 +308,8 @@ Style individual edges by zero-based index:
 flowchart TD
     A --> B
     A -.-> C
-    linkStyle 0 stroke:#4C78A8,stroke-width:2px
-    linkStyle 1 stroke:#E45756,stroke-width:1px,stroke-dasharray:5
+    linkStyle 0 stroke:#2E5A88,stroke-width:2px
+    linkStyle 1 stroke:#B43A3A,stroke-width:1px,stroke-dasharray:5
 ```
 
 ## Quality Rules
@@ -289,6 +322,47 @@ flowchart TD
 - One story per diagram — keep each diagram focused on a single concept.
 - **Start every flowchart / class / state / ER diagram with `%%{init: {'htmlLabels': false}}%%`** and use `\n` (not `<br/>`) for multi-line labels. This keeps SVGs safe for `<img>` embedding across Markdown, GitHub, and most static-site generators.
 - **Re-render with `--force` after edits** — the manifest caches on source hash, so an unchanged-file reformat will be skipped without `--force`.
+
+## Review Mode
+
+Use this section when invoked from [`diagramkit-review`](../diagramkit-review/SKILL.md) (or whenever the user asks to audit/fix existing `.mermaid` sources rather than create new ones).
+
+### Source-file audit (per `.mermaid` / `.mmd` / `.mmdc`)
+
+For each source, verify in order — apply the minimum textual fix for each rule that fails:
+
+1. **Header comments present** — `%% Diagram: …` and `%% Type: …` lines at the top.
+2. **Init directive (img-embed safety)** — `%%{init: {'htmlLabels': false}}%%` is present **before** the diagram keyword (`flowchart`, `classDiagram`, `stateDiagram-v2`, `erDiagram`). Use the **flat** form. The nested `{'flowchart': {'htmlLabels': false}}` form is silently ignored on Mermaid 11 and produces `<foreignObject>` in the SVG.
+3. **No hardcoded theme** — strip any `%%{init: {'theme': '…'}}%%`. diagramkit injects light/dark themes itself.
+4. **Multi-line labels** — every `<br/>` in a label becomes `\n`, and the label is **quoted** so the escape survives parsing: `PHYSICAL["Physical Clocks\nNTP, PTP, TrueTime"]`.
+5. **No inline HTML in labels** — `<b>`, `<i>`, `<code>` render as literal text when `htmlLabels` is off; strip them or replace with Markdown-style emphasis (lowercase letters only — Mermaid does not interpret).
+6. **Reserved `classDef` names** — none of `root`, `default`, `node`, `cluster`. Rename if found; otherwise the rule leaks to every label in the SVG.
+7. **Hex colours only** — replace any named colour (`red`, `blue`, …) with the AA-compliant hex from the palette below.
+8. **WCAG palette** — for white-text labels, use only the AA-compliant darker palette (`#2E5A88`, `#1F6E68`, `#B43A3A`, `#8B5E15`, `#2D7A2D`, `#5A5A5A`). The legacy mid-tones (`#54A24B`, `#72B7B2`, …) fail AA with white text — swap them when fixing `LOW_CONTRAST_TEXT` warnings.
+9. **Quote ambiguous labels** — labels containing `()`, `|`, `:`, `<`, `>` must be quoted to avoid `NO_VISUAL_ELEMENTS`.
+
+### Validation issue → fix mapping
+
+When the orchestrator surfaces a validate issue tied to a `.mermaid` source, apply:
+
+| Code                      | Fix                                                                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONTAINS_FOREIGN_OBJECT` | Add the **flat** `%%{init: {'htmlLabels': false}}%%` before the diagram keyword; convert `<br/>` → `\n` and quote those labels; re-render with `--force`.             |
+| `LOW_CONTRAST_TEXT`       | Swap legacy palette → AA palette (see "Color Palette" above). Update both `fill` and `stroke` in the matching `classDef`. Re-render with `--force`, then re-validate. |
+| `NO_VISUAL_ELEMENTS`      | Quote labels containing punctuation; verify the diagram keyword is present on its own line; re-render with `--force`.                                                 |
+| `MISSING_SVG_CLOSE`       | Same as above; check `failedDetails[]` from the render JSON for the underlying parse error.                                                                           |
+| `EXTERNAL_RESOURCE`       | Strip any `themeCSS` directive or external icon URLs from the source.                                                                                                 |
+
+### Single-file repair loop
+
+For each source touched:
+
+```bash
+npx diagramkit render <file>.mermaid --force --json
+npx diagramkit validate <file's .diagramkit dir> --json
+```
+
+Stop when both report zero targeted findings, or after 8 iterations (mark as residual).
 
 ## References
 

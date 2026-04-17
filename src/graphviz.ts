@@ -1,8 +1,19 @@
 import { instance, type Viz } from '@viz-js/viz'
 import { postProcessDarkSvg } from './color/contrast'
+import { hexToRgb } from './color/convert'
+import { relativeLuminance } from './color/luminance'
 
 const GRAPHVIZ_DARK_STROKE = '#94a3b8'
 const GRAPHVIZ_DARK_TEXT = '#e5e7eb'
+
+/**
+ * Treat anything with WCAG relative luminance below this threshold as
+ * "dark text intended for a light background". The graphviz dark adapter
+ * promotes such text fills to GRAPHVIZ_DARK_TEXT so they remain readable on
+ * dark surfaces. 0.5 is intentionally generous: it catches `#333`, `#444`,
+ * and similar mid-greys that would otherwise vanish on `#111111`.
+ */
+const DARK_TEXT_LUM_THRESHOLD = 0.5
 
 let vizPromise: Promise<Viz> | null = null
 let graphvizRenderQueue: Promise<void> = Promise.resolve()
@@ -47,19 +58,37 @@ export function injectGraphvizDefaults(source: string): string {
 /**
  * Convert Graphviz's default black strokes/text into dark-surface-friendly colors.
  * This keeps explicitly colored elements intact while making unstyled DOT output readable.
+ *
+ * Beyond literal `black` / `#000`, any `<text>` whose `fill` resolves to a hex
+ * color with WCAG luminance below `DARK_TEXT_LUM_THRESHOLD` is also promoted
+ * to `GRAPHVIZ_DARK_TEXT`. This catches the common authoring mistake of
+ * `fontcolor="#333333"` (great on light, invisible on dark) without forcing
+ * authors to manage two color sets in their `.dot` source.
  */
 export function adaptGraphvizSvgForDarkMode(svg: string): string {
-  return svg
+  let result = svg
     .replace(/<text\b([^>]*?)\bfill="black"([^>]*)>/g, `<text$1 fill="${GRAPHVIZ_DARK_TEXT}"$2>`)
-    .replace(
-      /<text\b([^>]*?)\bfill="#(?:000|000000)"([^>]*)>/gi,
-      `<text$1 fill="${GRAPHVIZ_DARK_TEXT}"$2>`,
-    )
     .replace(/<text\b(?![^>]*\bfill=)([^>]*)>/g, `<text$1 fill="${GRAPHVIZ_DARK_TEXT}">`)
     .replace(/stroke="black"/g, `stroke="${GRAPHVIZ_DARK_STROKE}"`)
     .replace(/stroke="#(?:000|000000)"/gi, `stroke="${GRAPHVIZ_DARK_STROKE}"`)
     .replace(/fill="black"/g, `fill="${GRAPHVIZ_DARK_STROKE}"`)
     .replace(/fill="#(?:000|000000)"/gi, `fill="${GRAPHVIZ_DARK_STROKE}"`)
+
+  // Promote any low-luminance hex text fill to the dark-friendly text color.
+  result = result.replace(
+    /(<text\b[^>]*?\bfill=")(#(?:[0-9a-fA-F]{3}){1,2})("[^>]*>)/g,
+    (match, before: string, hex: string, after: string) => {
+      const rgb = hexToRgb(hex)
+      if (!rgb) return match
+      const lum = relativeLuminance(rgb[0], rgb[1], rgb[2])
+      if (lum < DARK_TEXT_LUM_THRESHOLD) {
+        return `${before}${GRAPHVIZ_DARK_TEXT}${after}`
+      }
+      return match
+    },
+  )
+
+  return result
 }
 
 export async function renderGraphviz(

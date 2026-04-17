@@ -93,8 +93,8 @@ diagramkit --yes / -y                                Alias for --no-interactive
 diagramkit validate <file-or-dir> [--recursive] [--json]
 ```
 
-Validates generated SVG files for structural correctness and `<img>`-tag
-renderability. Checks every `.svg` in scope for:
+Validates generated SVG files for structural correctness, `<img>`-tag
+renderability, and WCAG 2.2 AA text contrast. Checks every `.svg` in scope for:
 
 - empty file or missing `<svg>` root
 - missing `xmlns="http://www.w3.org/2000/svg"`
@@ -103,6 +103,7 @@ renderability. Checks every `.svg` in scope for:
 - `<foreignObject>` warnings (does not render in all contexts; for Mermaid, set `htmlLabels: false`)
 - external `href`/`xlink:href` resources (blocked under `<img>`)
 - 50 MB size warning (likely renders slowly)
+- low-contrast text (`LOW_CONTRAST_TEXT`, warning) — text/background pairs that fall below the WCAG 2.2 AA threshold of 4.5:1 (normal) or 3:1 (large text)
 
 Without `--recursive`, only files in the top level of the target directory are
 scanned. With `--json`, the command emits `{ files, valid, invalid, results: [...] }`
@@ -314,6 +315,27 @@ import { postProcessDarkSvg, hexToRgb, rgbToHsl, hslToHex, relativeLuminance } f
 
   postProcessDarkSvg(svg: string): string
     Fix dark SVG contrast by darkening high-luminance fills while preserving hue.
+
+### SVG Validation (diagramkit/utils + diagramkit/validate)
+
+```ts
+import {
+  validateSvg, validateSvgFile, validateSvgDirectory, formatValidationResult,
+} from 'diagramkit/utils'
+```
+
+  validateSvg(svg: string, filePath?: string, options?: SvgValidateOptions): SvgValidationResult
+    Structural + WCAG 2.2 AA contrast validation of an SVG string.
+
+  validateSvgFile(filePath: string, options?: SvgValidateOptions): SvgValidationResult
+  validateSvgDirectory(dir: string, options?: { recursive?: boolean } & SvgValidateOptions): SvgValidationResult[]
+
+  formatValidationResult(result: SvgValidationResult): string
+    Human-readable formatter used by `diagramkit validate`.
+
+  SvgValidateOptions:
+    checkContrast?: boolean       // Default: true. Set false for hand-authored sources with translucent fills.
+    backgroundOverride?: string   // Default: inferred from `-light` / `-dark` filename suffix.
 
 ## TypeScript Interfaces
 

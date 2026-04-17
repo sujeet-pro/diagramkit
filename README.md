@@ -141,6 +141,7 @@ diagramkit intentionally does not ship its own "install skills" command. The sta
 | `diagramkit-excalidraw` | Authors Excalidraw diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.   |
 | `diagramkit-draw-io`    | Authors Draw.io diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.      |
 | `diagramkit-graphviz`   | Authors Graphviz DOT diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI. |
+| `diagramkit-review`     | Audits and repairs existing diagrams in a repo (pre-merge / pre-release health check).               |
 
 All `diagramkit-*` skills always prefer the locally installed CLI: they read `node_modules/diagramkit/REFERENCE.md` first and run `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`) so the agent never accidentally uses a different globally installed version.
 

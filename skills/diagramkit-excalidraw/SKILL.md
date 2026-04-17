@@ -197,7 +197,11 @@ For full element property specifications and arrow binding patterns, read `refer
 
 ## Step 4 — Color palette
 
-Use these Excalidraw-specific colors. They survive both light and dark mode rendering.
+Excalidraw text defaults to dark grey (`#1e1e1e`). Pair its labels with
+the **light pastel palette** below for light-mode legibility — the dark
+mode contrast post-processor will darken these fills automatically.
+
+### Pastel palette (use with `strokeColor=#1e1e1e` text)
 
 | Component          | Background | Stroke    |
 | ------------------ | ---------- | --------- |
@@ -210,12 +214,37 @@ Use these Excalidraw-specific colors. They survive both light and dark mode rend
 | Orchestration      | `#ffa8a8`  | `#c92a2a` |
 | Network / Security | `#dee2e6`  | `#495057` |
 
+### AA-compliant darker palette (use with white text)
+
+When you need shapes that work with white labels in both modes, prefer
+this WCAG 2.2 AA-verified palette (each pair clears 4.5:1 vs `#ffffff`
+text):
+
+| Purpose             | Background | Stroke    | Contrast |
+| ------------------- | ---------- | --------- | -------- |
+| Primary / API       | `#2E5A88`  | `#1F4870` | 7.1:1    |
+| Secondary / Service | `#1F6E68`  | `#155752` | 5.9:1    |
+| Accent / Alert      | `#B43A3A`  | `#8E2828` | 5.5:1    |
+| Storage / Data      | `#8B5E15`  | `#6E4810` | 5.4:1    |
+| Success             | `#2D7A2D`  | `#1E5A1E` | 5.4:1    |
+| Neutral             | `#5A5A5A`  | `#3D3D3D` | 7.0:1    |
+
 **Colors to avoid:**
 
 - `#ffffff` or near-white fills — disappear on light backgrounds
 - `#000000` or near-black fills — disappear on dark backgrounds
 - Named colors (`red`, `blue`) — behavior varies across renderers
 - Saturated neon colors — poor contrast in both modes
+- White text on the lighter pastel palette — fails WCAG 2.2 AA
+
+After rendering, validate the SVGs:
+
+```bash
+npx diagramkit validate ./.diagramkit --recursive --json
+```
+
+`LOW_CONTRAST_TEXT` warnings list each (text color, background color)
+pair with its measured ratio so you know exactly what to change.
 
 For the full universal palette, dark mode details, and WCAG contrast rules, read `references/color-and-theming.md`.
 
@@ -334,6 +363,44 @@ Light image first, dark image immediately after, identical alt text on both.
 ### Dark mode
 
 Excalidraw uses the native `exportWithDarkMode` flag — diagramkit handles this automatically. Background is `#111111` (dark) and `#ffffff` (light). The WCAG contrast post-processor (`postProcessDarkSvg`) runs on dark output to ensure fills remain readable.
+
+## Review Mode
+
+Use this section when invoked from [`diagramkit-review`](../diagramkit-review/SKILL.md) (or whenever the user asks to audit/fix existing `.excalidraw` sources rather than create new ones).
+
+### Source-file audit (per `.excalidraw`)
+
+Every check is fast and mechanical. Apply the minimum textual fix for each rule that fails:
+
+1. **Valid JSON** — no trailing commas, all strings quoted. Parse with a JSON tool before any other check.
+2. **Top-level shape** — `type: "excalidraw"`, `version: 2`, `source: "diagramkit"`, plus `elements`, `appState`, and `files`.
+3. **No diamond shapes used as labelled elements** — arrows attach poorly. Replace with styled rectangles.
+4. **Label bindings are bidirectional** — every labelled shape has `boundElements: [{ "type": "text", "id": "<text-id>" }]` AND the matching text element has `containerId: "<shape-id>"`. Missing either side drops the label.
+5. **Text positioning** — `text.x = shape.x + 5`, `text.y = shape.y + (shape.height - text.height) / 2`, `text.width = shape.width - 10`, `textAlign: "center"`, `verticalAlign: "middle"`.
+6. **Elbow arrows have all three flags** — `roughness: 0`, `roundness: null`, `elbowed: true`. Missing any one causes rendering artifacts.
+7. **Arrow geometry** — `width` and `height` equal the bounding box of `points[]`. Start/end coordinates land on shape edges (top/bottom/left/right formulas in Step 3).
+8. **Unique IDs across the file** — duplicate `id` silently overwrites the earlier element.
+9. **Hex colours only** — no named colours.
+10. **Palette / text-colour coupling** — pastel fills (`#a5d8ff`, `#b2f2bb`, `#ffec99`, `#ffc9c9`, …) pair with default dark text (`#1e1e1e`); AA-compliant darker fills (`#2E5A88`, `#1F6E68`, …) pair with `#ffffff` text. Never mix pastel + white text (fails AA).
+11. **No hardcoded background override** — `appState.viewBackgroundColor` should be `#ffffff` (or omitted). Let diagramkit's dark-mode pipeline (`exportWithDarkMode`) handle theming.
+
+### Validation issue → fix mapping
+
+| Code                 | Fix                                                                                                                                                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOW_CONTRAST_TEXT`  | Inspect each shape's fill + the matching text element's `strokeColor`. If shape uses pastel palette, set text `strokeColor: "#1e1e1e"`. If shape uses AA-compliant darker palette, set text `strokeColor: "#ffffff"`. Re-render with `--force`. |
+| `NO_VISUAL_ELEMENTS` | Check for empty `elements[]`, malformed JSON, or every element marked `isDeleted: true`. Restore at least one visible shape.                                                                                                                    |
+| `MISSING_SVG_CLOSE`  | Almost always invalid JSON or a missing required property. Validate the file and add the missing properties listed in `references/element-reference.md`.                                                                                        |
+| `EXTERNAL_RESOURCE`  | Rare in Excalidraw; usually a manually-inserted `image` element with an external URL. Replace with an inlined element or remove.                                                                                                                |
+
+### Single-file repair loop
+
+```bash
+npx diagramkit render <file>.excalidraw --force --json
+npx diagramkit validate <file's .diagramkit dir> --json
+```
+
+Stop on first clean run, or mark as residual after 8 iterations.
 
 ## References
 
