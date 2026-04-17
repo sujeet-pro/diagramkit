@@ -1,6 +1,6 @@
 {
   "name": "diagramkit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Diagram rendering CLI & library — convert .mermaid, .excalidraw, .drawio, and .dot/.gv Graphviz diagrams to SVG/PNG/JPEG/WebP/AVIF with light/dark mode support",
   "keywords": [
     "avif",
