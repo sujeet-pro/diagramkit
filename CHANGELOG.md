@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-17
+
 ### Added
 
+- **WCAG 2.2 AA contrast scanner** (`src/color/wcag.ts`) wired into both the SVG validator (`diagramkit validate`, `validateSvg*` API) and the docs build gate (`scripts/validate-build.ts` now fails the build when any docs SVG drops below AA). Exports `contrastRatio`, `contrastRatioHex`, `findSvgContrastIssues`, `WCAG_AA_NORMAL`, `WCAG_AA_LARGE`, `WCAG_AA_NON_TEXT`, and `defaultBackgroundForFile` from `diagramkit/color`.
+- **`diagramkit-review` skill** for audit + repair of every diagram in a repository. Lints sources against the engine authoring rules, force-renders, validates the generated SVGs, and iteratively repairs failures by delegating to each engine's new `Review Mode` section.
+- **`Review Mode` sections** in `diagramkit-mermaid`, `diagramkit-excalidraw`, `diagramkit-draw-io`, and `diagramkit-graphviz` skills documenting the per-engine repair tactics consumed by `diagramkit-review`.
+- **Validation API surface** (`validateSvg`, `validateSvgFile`, `validateSvgDirectory`, `formatValidationResult`, plus the `SvgValidateOptions`, `SvgValidationResult`, `SvgIssue`, `SvgIssueCode`, `SvgIssueSeverity` types) documented across `docs/reference/diagramkit/api/`, `docs/reference/diagramkit/utils/`, `docs/reference/diagramkit/types/`, and `llms-full.txt`. `SvgValidateOptions` is now also re-exported from `diagramkit/utils`.
+- **`scripts/lib/docs-rules.ts`** — pure (no-IO) link-style and diagram-asset rule helpers, with 39 unit tests in `scripts/lib/docs-rules.test.ts` covering clean `./path/README.md` links, anchors, fragments, `.mdx`, top-level `.md` siblings, asset extensions, external schemes, `mailto:`/`tel:`/protocol-relative, fenced + inline code stripping, rejected forms (absolute / relative / trailing-slash / bare token), upper-case extensions, and `<picture>` / `<img>` / markdown image asset references. Wired into `npm run test:unit` via the `scripts/` discovery pattern.
 - **Bundled Assets guide** at `docs/guide/bundled-assets/README.md` — an explicit map of every file the npm package ships beyond the JS bundles (REFERENCE.md, llms.txt/llms-full.txt, ai-guidelines/, schemas/, skills/, dist/), with five copy-paste agent prompts that reference each asset by its `node_modules/diagramkit/` path so agents stay anchored on the locally installed version.
 - **CLI `validate` documentation** in `docs/guide/cli/README.md`, `docs/reference/diagramkit/cli/README.md`, `llms.txt`, `llms-full.txt`, and `REFERENCE.md`. The command was already implemented and shipped — this release brings the docs back in sync with the code.
 - **CLI `--strict` flag** documented across the same surfaces. `--strict` (render-failure strictness) is independent of `--strict-config` (config-validation strictness) and exits non-zero if any single render fails inside a batch.
@@ -20,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - All internal links inside `docs/**` rewritten from `[text](/section/path)` to relative `[text](./path/README.md)` form so the source-of-truth check (`internalLinksMustBeMarkdown`) and the new project-level link-style check both pass. Frontmatter `actions[].link` URLs in `docs/README.md` keep the URL form because pagesmith handles them as nav buttons.
+- **Graphviz dark-mode adapter** now promotes any `<text fill="#xxxxxx">` whose WCAG luminance falls below 0.5 (e.g. `fontcolor="#333333"`, `#444`) to the dark-friendly `#e5e7eb`, so DOT sources authored for light backgrounds remain readable on dark surfaces without dual-color authoring.
+- **All consumer engine skills** re-anchored on a measured WCAG 2.2 AA mid-tone palette (Primary `#2E5A88`, Secondary `#1F6E68`, Accent `#B43A3A`, Storage `#8B5E15`, Success `#2D7A2D`, Neutral `#5A5A5A`) with documented contrast ratios. The previous lighter "pastel + white text" combinations measured 2.29:1–3.16:1 against `#ffffff` and now ship with explicit guidance to pair them with dark text or upgrade to the AA palette.
+- **`diagramkit/color` and `diagramkit/utils` exports** widened to surface the new contrast utilities and validate-options type so consumers can build their own contrast checks without re-implementing them.
+
+### Fixed
+
+- **`skills/diagramkit-draw-io/SKILL.md` frontmatter** — the YAML block had been corrupted into a Markdown heading (`## name: …` with no closing `---`), which made `validate-build` reject the consumer skill on every CI run. Restored the correct YAML, restored in-list code-block indentation, and re-escaped the XML entity examples (`&amp;`/`&lt;`/`&gt;`/`&quot;`) that an autoformat pass had silently unescaped.
+- **`scripts/validate-pagesmith.ts`** is now resilient to `@pagesmith/docs` versions that do not yet ship the `validateDocs` export. Feature-detect the function and gracefully degrade to the diagramkit-specific cross-reference + link-style checks; this unblocks `npm run check` in CI against `@pagesmith/docs@0.9.5`.
 
 ### Removed
 
@@ -113,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration layering (defaults, global, local, overrides)
 - LLM reference files (`llms.txt`, `llms-full.txt`) and `--agent-help` CLI command
 
-[Unreleased]: https://github.com/sujeet-pro/diagramkit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sujeet-pro/diagramkit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sujeet-pro/diagramkit/compare/v0.2.5...v0.3.0
 [0.1.0]: https://github.com/sujeet-pro/diagramkit/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/sujeet-pro/diagramkit/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/sujeet-pro/diagramkit/releases/tag/v0.0.1
