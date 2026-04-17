@@ -1,0 +1,32 @@
+%% Diagram: Module Map
+%% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
+flowchart TB
+    subgraph main ["diagramkit (main)"]
+        render["render / renderFile / renderAll"]
+        lifecycle["warmup / dispose"]
+        config["loadConfig / defineConfig"]
+        runtime["createRendererRuntime"]
+        profiles["ENGINE_PROFILES"]
+    end
+
+    subgraph utils ["diagramkit/utils"]
+        discovery["findDiagramFiles / filterByType"]
+        manifestMod["readManifest / writeManifest / filterStaleFiles"]
+        extensions["getDiagramType / getExtensionMap"]
+        output["atomicWrite / writeRenderResult"]
+        colorUtil["postProcessDarkSvg"]
+    end
+
+    subgraph color ["diagramkit/color"]
+        colorOnly["postProcessDarkSvg"]
+    end
+
+    subgraph convert ["diagramkit/convert"]
+        convertSvg["convertSvg"]
+    end
+
+    render --> discovery
+    render --> manifestMod
+    render --> colorUtil
+    render --> convertSvg

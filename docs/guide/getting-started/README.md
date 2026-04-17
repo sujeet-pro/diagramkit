@@ -12,15 +12,53 @@ description: Install diagramkit and render your first diagram in under a minute.
 
 ## Using an AI Agent (Recommended)
 
-If you use an AI coding agent (Claude Code, Cursor, Windsurf, GitHub Copilot, etc.), the fastest path is to give it one bootstrap prompt and let it set up the repo:
+If you use an AI coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, Windsurf, GitHub Copilot, etc.), the fastest path is to give it one bootstrap prompt and let it set up the repo. diagramkit's agent skills are installed via the standalone [`skills`](https://github.com/vercel-labs/skills) CLI from Vercel Labs — diagramkit itself only handles rendering.
 
-### Copy-Paste Project Setup Prompt
+### Copy-Paste Bootstrap Prompt (install diagramkit + all skills)
 
 ```text
-Set up diagramkit in this repository. Install the package, then read `node_modules/diagramkit/llms.txt` before making changes. Add a `package.json` script named `render:diagrams` that runs `diagramkit render .`. If this repo needs non-default behavior, create `diagramkit.config.json5`. Run `npx diagramkit --install-skill` to install project skills for Claude and Cursor under `.claude/skills/diagramkit/` and `.cursor/skills/diagramkit/`. Run `npx diagramkit warmup` unless the repo is Graphviz-only, then render the current repo and summarize what changed.
+Set up diagramkit in this repository:
+
+1. npm add diagramkit
+2. Read node_modules/diagramkit/REFERENCE.md so you anchor on the LOCALLY
+   installed version (do NOT use a globally installed `diagramkit`).
+3. npx diagramkit warmup        # skip if Graphviz-only
+4. If non-default behavior is needed, run: npx diagramkit init --yes
+   (this writes diagramkit.config.json5 with the JSON Schema wired up).
+5. Add to package.json:
+     "render:diagrams": "diagramkit render ."
+6. Install diagramkit's agent skills with the standalone `skills` CLI so any
+   agent (Claude/Cursor/Codex/Continue/OpenCode/...) gets the engine, setup,
+   and auto-router skills:
+     npx skills add sujeet-pro/diagramkit
+7. Render every diagram once: npx diagramkit render .
+8. Summarize what changed.
 ```
 
-After installation, `node_modules/diagramkit/llms.txt` is the best single file for day-to-day setup guidance. Use `node_modules/diagramkit/llms-full.txt` or `diagramkit --agent-help` when the agent needs the full CLI and API reference.
+### Copy-Paste Prompt (generate a diagram + multiple image formats)
+
+```text
+Use the diagramkit-* skills installed in this repo to create a [TOPIC]
+diagram. Read node_modules/diagramkit/REFERENCE.md first so you use the
+LOCAL diagramkit install. Use diagramkit-auto to pick the engine, then
+follow the matching engine skill (mermaid / excalidraw / draw-io / graphviz).
+Save the source under `diagrams/`, render both light + dark variants, and
+also export PNG + WebP for docs:
+  npx diagramkit render diagrams/<file> --format svg,png,webp --scale 2
+Embed using the <picture> pattern.
+```
+
+### Copy-Paste Prompt (refresh skills only)
+
+```text
+Refresh the diagramkit-* skills installed in this repo so they match the
+latest upstream versions: `npx skills update sujeet-pro/diagramkit`.
+Then re-read .claude/skills/diagramkit-setup/SKILL.md (or the equivalent
+under .cursor/skills/, .codex/skills/, .agents/skills/) and confirm the
+local diagramkit install is current with `npx diagramkit --version`.
+```
+
+After installation, `node_modules/diagramkit/REFERENCE.md` is the best single landing page for both humans and agents. `node_modules/diagramkit/llms.txt` is the compact CLI reference; `node_modules/diagramkit/llms-full.txt` (or `diagramkit --agent-help`) has the full CLI + API reference.
 
 For programmatic agent pipelines, use the JavaScript API:
 
@@ -141,34 +179,52 @@ npx diagramkit init            # JSON5 config (comments, trailing commas)
 npx diagramkit init --ts       # TypeScript config with defineConfig()
 ```
 
-See [Configuration](/guide/configuration) for all options.
+See [Configuration](../configuration/README.md) for all options.
 
-## Install Project Skills
+## Install Project Skills (any agent — Claude, Cursor, Codex, Continue, ...)
 
-Use the CLI to install project-level skills for both Claude and Cursor:
+diagramkit's agent skills are installed via the standalone [`skills`](https://github.com/vercel-labs/skills) CLI, not via the diagramkit CLI itself. This keeps diagramkit focused on rendering and lets the same skills work across 41+ agents.
 
 ```bash
-npx diagramkit --install-skill
+# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz)
+npx skills add sujeet-pro/diagramkit
+
+# Target specific agents only (any combination)
+npx skills add sujeet-pro/diagramkit -a claude-code -a cursor -a codex
+
+# Install only specific skills
+npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-mermaid
+
+# Refresh skills later (no diagramkit npm release required)
+npx skills update sujeet-pro/diagramkit
 ```
 
-This creates:
+The shipped skills:
 
-- `.claude/skills/diagramkit/SKILL.md`
-- `.cursor/skills/diagramkit/SKILL.md`
+| Skill                   | Purpose                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `diagramkit-setup`      | First-time install + config in a repo. **Run first.**                                            |
+| `diagramkit-auto`       | Routes a diagram request to the best engine.                                                     |
+| `diagramkit-mermaid`    | Authors Mermaid diagrams + renders to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.       |
+| `diagramkit-excalidraw` | Authors Excalidraw diagrams + renders to SVG/PNG/JPEG/WebP/AVIF.                                 |
+| `diagramkit-draw-io`    | Authors Draw.io diagrams (cloud icons, BPMN, swimlanes) + renders to SVG/PNG/JPEG/WebP/AVIF.     |
+| `diagramkit-graphviz`   | Authors Graphviz DOT diagrams + renders to SVG/PNG/JPEG/WebP/AVIF.                               |
 
-The generated skill tells agents to read `node_modules/diagramkit/llms.txt`, prefer `diagramkit render <file-or-dir>`, add a `render:diagrams` script in `package.json`, and only create `diagramkit.config.json5` when the repo needs non-default behavior.
+> [!IMPORTANT]
+> All `diagramkit-*` skills always prefer the **locally installed** CLI. They read `node_modules/diagramkit/REFERENCE.md` first and run `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`) so the agent uses the exact CLI/API surface for the version installed in this repo.
 
-Existing skill files are left untouched, so it is safe to rerun after upgrading `diagramkit`.
+If `npx skills` is unavailable (older toolchains), copy the folders manually from `node_modules/diagramkit/skills/diagramkit-*/` into `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`, or `.agents/skills/`.
 
-For a deeper setup flow and more prompt recipes, see [AI Agents](/guide/ai-agents).
+For a deeper setup flow and more prompt recipes, see [AI Agents](../ai-agents/README.md).
 
 ## Next Steps
 
-- [CLI](/guide/cli) -- all commands and flags
-- [Configuration](/guide/configuration) -- customize output, formats, per-file overrides
-- [Image Formats](/guide/image-formats) -- SVG vs PNG vs JPEG vs WebP
-- [Watch Mode](/guide/watch-mode) -- live re-rendering during development
-- [JavaScript API](/guide/js-api) -- programmatic usage in build scripts
-- [Architecture](/guide/architecture) -- how diagramkit works under the hood
-- [CI/CD Integration](/guide/ci-cd) -- use diagramkit in GitHub Actions, GitLab CI, Docker
-- [Troubleshooting](/guide/troubleshooting) -- common issues and solutions
+- [CLI](../cli/README.md) -- all commands and flags
+- [Configuration](../configuration/README.md) -- customize output, formats, per-file overrides
+- [Image Formats](../image-formats/README.md) -- SVG vs PNG vs JPEG vs WebP
+- [Watch Mode](../watch-mode/README.md) -- live re-rendering during development
+- [JavaScript API](../js-api/README.md) -- programmatic usage in build scripts
+- [Architecture](../architecture/README.md) -- how diagramkit works under the hood
+- [CI/CD Integration](../ci-cd/README.md) -- use diagramkit in GitHub Actions, GitLab CI, Docker
+- [Troubleshooting](../troubleshooting/README.md) -- common issues and solutions
+- [Bundled Assets](../bundled-assets/README.md) -- schemas, llms.txt, ai-guidelines, skills the npm package ships

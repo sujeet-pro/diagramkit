@@ -10,6 +10,12 @@ description: Practical JavaScript API workflows for common diagramkit automation
   <img src=".diagramkit/api-decision-light.svg" alt="API decision flowchart: choosing the right API for your use case">
 </picture>
 
+## Do it with an agent
+
+> Pick the right diagramkit API for [USE CASE]. Read `node_modules/diagramkit/llms-full.txt` for signatures. Decision rules: one-off render from a string → `render(source, type, options)`; single file off-disk → `renderFile(filePath, options)`; bulk directory → `renderAll({ dir })`; live updates during dev → `watchDiagrams({ dir })`; isolated worker or long-running service → `createRendererRuntime()`. Always `await dispose()` (or `runtime.dispose()`) when finished.
+
+## Do it manually
+
 ## 1) Batch Render in CI
 
 Use this when you want rendered outputs committed or published from a docs repo.

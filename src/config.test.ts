@@ -130,6 +130,26 @@ describe('config loading', () => {
     expect(config.defaultFormats).toEqual(['png'])
   })
 
+  it('strips the editor-only $schema property from the loaded config', () => {
+    // The init command writes $schema into generated json5 configs so
+    // editors offer autocomplete. The loaded config should ignore it
+    // rather than carry it through into the runtime config object.
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-config-schema-'))
+    tempDirs.push(root)
+
+    writeFileSync(
+      join(root, 'diagramkit.config.json5'),
+      `{
+        $schema: './node_modules/diagramkit/schemas/diagramkit-config.v1.json',
+        outputDir: 'with-schema',
+      }`,
+    )
+
+    const config = loadConfig(undefined, root)
+    expect(config.outputDir).toBe('with-schema')
+    expect((config as unknown as Record<string, unknown>).$schema).toBeUndefined()
+  })
+
   it('reads env var overrides', () => {
     process.env.DIAGRAMKIT_FORMAT = 'png,webp'
     process.env.DIAGRAMKIT_THEME = 'dark'

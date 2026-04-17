@@ -12,6 +12,12 @@ description: Render Graphviz DOT files to SVG with automatic dark mode adaptatio
 
 [Graphviz](https://graphviz.org/) is a graph layout system built around the DOT language. diagramkit renders `.dot`, `.gv`, and `.graphviz` files to SVG using bundled Viz.js/WASM -- no browser needed.
 
+## Do it with an agent
+
+> Author a Graphviz DOT diagram for [TOPIC]. Load the `diagramkit-graphviz` skill from `node_modules/diagramkit/skills/diagramkit-graphviz/` (or its `references/`). Create `<name>.dot`, render with `npx diagramkit render <name>.dot` — warmup is NOT needed (WASM). Validate with `npx diagramkit validate .diagramkit/ --recursive`.
+
+## Do it manually
+
 ## File Extensions
 
 `.dot`, `.gv`, `.graphviz`

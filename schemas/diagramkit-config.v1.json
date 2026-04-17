@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://diagramkit.dev/schemas/diagramkit-config.v1.json",
+  "title": "diagramkit configuration",
+  "description": "Schema for diagramkit.config.json5 / .json / .diagramkitrc.json. Mirrors the DiagramkitConfig TypeScript interface shipped with the npm package.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference. Used by editors for autocomplete; ignored at runtime."
+    },
+    "outputDir": {
+      "type": "string",
+      "description": "Output folder name created next to source files (or used directly when sameFolder=false). Default: '.diagramkit'.",
+      "default": ".diagramkit",
+      "minLength": 1
+    },
+    "manifestFile": {
+      "type": "string",
+      "description": "Manifest filename inside the output folder. Must not contain path separators. Default: 'manifest.json'.",
+      "default": "manifest.json",
+      "pattern": "^[^/\\\\]+$"
+    },
+    "useManifest": {
+      "type": "boolean",
+      "description": "Whether to use the manifest for incremental builds. When false, every render re-renders all files. Default: true.",
+      "default": true
+    },
+    "sameFolder": {
+      "type": "boolean",
+      "description": "When true, write outputs in the same folder as the source file (no subfolder). Default: false.",
+      "default": false
+    },
+    "defaultFormats": {
+      "type": "array",
+      "description": "Default output formats. Used when --format is not specified. Default: ['svg'].",
+      "default": ["svg"],
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/outputFormat"
+      }
+    },
+    "defaultTheme": {
+      "$ref": "#/$defs/theme",
+      "description": "Default theme variant(s) to render. Default: 'both'.",
+      "default": "both"
+    },
+    "outputPrefix": {
+      "type": "string",
+      "description": "Prefix prepended to output filenames (before the diagram name). Must not contain path separators. Default: ''.",
+      "default": "",
+      "pattern": "^[^/\\\\]*$"
+    },
+    "outputSuffix": {
+      "type": "string",
+      "description": "Suffix appended to output filenames (after the diagram name, before the theme suffix). Must not contain path separators. Default: ''.",
+      "default": "",
+      "pattern": "^[^/\\\\]*$"
+    },
+    "extensionMap": {
+      "type": "object",
+      "description": "Custom extension-to-DiagramType mapping. Merged on top of the built-in map. Keys must be lowercase extensions including the leading dot (e.g. '.puml').",
+      "propertyNames": {
+        "pattern": "^\\.[A-Za-z0-9.]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/diagramType"
+      }
+    },
+    "inputDirs": {
+      "type": "array",
+      "description": "Restrict scanning to these directories (relative to project root). Default: scan the entire tree.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "overrides": {
+      "type": "object",
+      "description": "Per-file render overrides keyed by exact filename, relative path, or glob pattern (e.g. 'docs/*.mermaid', '**/*.excalidraw').",
+      "additionalProperties": {
+        "$ref": "#/$defs/fileOverride"
+      }
+    }
+  },
+  "$defs": {
+    "outputFormat": {
+      "type": "string",
+      "enum": ["svg", "png", "jpeg", "webp", "avif"]
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["light", "dark", "both"]
+    },
+    "diagramType": {
+      "type": "string",
+      "enum": ["mermaid", "excalidraw", "drawio", "graphviz"]
+    },
+    "fileOverride": {
+      "type": "object",
+      "description": "Per-file render overrides. All fields are optional and override the resolved defaults for matching files.",
+      "additionalProperties": false,
+      "properties": {
+        "formats": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/outputFormat" }
+        },
+        "theme": { "$ref": "#/$defs/theme" },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "JPEG/WebP/AVIF quality (1-100)."
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "description": "Scale factor for raster output (0 < scale <= 10)."
+        },
+        "contrastOptimize": {
+          "type": "boolean",
+          "description": "Disable dark SVG contrast optimization for matching files when set to false."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "$schema": "./node_modules/diagramkit/schemas/diagramkit-config.v1.json",
+      "outputDir": ".diagramkit",
+      "defaultFormats": ["svg"],
+      "defaultTheme": "both"
+    },
+    {
+      "$schema": "./node_modules/diagramkit/schemas/diagramkit-config.v1.json",
+      "outputDir": "build/images",
+      "sameFolder": false,
+      "defaultFormats": ["svg", "png"],
+      "defaultTheme": "both",
+      "overrides": {
+        "hero.mermaid": { "formats": ["svg", "png"], "scale": 3 },
+        "docs/*.excalidraw": { "theme": "light" }
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 %% Diagram: Troubleshooting Decision Tree
 %% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 flowchart TB
     problem{What's wrong?} -->|Empty render| syntax_fix[Check source syntax<br/>Validate at mermaid.live]
     problem -->|Chromium not found| warmup_fix[Run npx diagramkit warmup]

@@ -1,19 +1,19 @@
 {
   $schema: './node_modules/@pagesmith/docs/schemas/docs-section-meta.schema.json',
   displayName: 'Reference',
-  description: 'CLI, configuration, API, and type reference',
+  description: 'Per-package API reference and how-it-works internals',
   orderBy: 'manual',
-  items: ['overview', 'cli', 'config', 'api', 'types'],
+  items: ['diagramkit', 'how-it-works'],
   series: [
     {
-      slug: 'cli-config',
-      displayName: 'CLI & configuration',
-      articles: ['cli', 'config'],
+      slug: 'packages',
+      displayName: 'Packages',
+      articles: ['diagramkit'],
     },
     {
-      slug: 'api-types',
-      displayName: 'API & types',
-      articles: ['api', 'types'],
+      slug: 'internals',
+      displayName: 'How it works',
+      articles: ['how-it-works'],
     },
   ],
 }

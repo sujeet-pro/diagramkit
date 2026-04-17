@@ -1,5 +1,6 @@
 %% Diagram: Browser Pool Lifecycle
 %% Type: stateDiagram-v2
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 stateDiagram-v2
     [*] --> Idle : getPool()
     Idle --> Launching : acquire()

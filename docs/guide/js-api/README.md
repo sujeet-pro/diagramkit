@@ -10,6 +10,12 @@ description: Programmatic rendering for build scripts, custom tooling, and Node.
   <img src=".diagramkit/api-overview-light.svg" alt="JavaScript API overview: core rendering, utilities, and subpath exports">
 </picture>
 
+## Do it with an agent
+
+> Write a Node.js script at `scripts/render-diagrams.ts` that uses `diagramkit`'s programmatic API. Read `node_modules/diagramkit/llms-full.txt` first. The script should call `renderAll({ dir: '.' })`, log `rendered`/`skipped`/`failed` counts, exit non-zero if any render failed, and always call `await dispose()` in a `finally` block.
+
+## Do it manually
+
 For programmatic control, diagramkit exports an async API. All rendering functions return promises. Mermaid, Excalidraw, and Draw.io use Playwright internally; Graphviz uses bundled Viz.js/WASM.
 
 ```bash
@@ -17,7 +23,7 @@ npm add diagramkit
 ```
 
 > [!NOTE]
-> The [CLI](/guide/cli) is the recommended way to use diagramkit. Use the API when you need programmatic control in build scripts, custom tooling, or Node.js applications.
+> The [CLI](../cli/README.md) is the recommended way to use diagramkit. Use the API when you need programmatic control in build scripts, custom tooling, or Node.js applications.
 
 ## `render(source, type, options?)`
 

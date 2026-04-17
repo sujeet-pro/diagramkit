@@ -1,5 +1,6 @@
 %% Diagram: API Decision Tree
 %% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 flowchart TB
     need{What do you need?} -->|Source string → buffer| render["render()"]
     need -->|File → buffer| renderFile["renderFile()"]

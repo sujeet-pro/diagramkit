@@ -85,25 +85,79 @@ Output files are placed in a `.diagramkit/` folder next to each source file. Fil
 
 ## AI Agent Usage
 
-diagramkit is designed for AI agent workflows. Ask your AI coding agent:
+diagramkit is designed for AI agent workflows. The fastest setup uses the standalone [`skills`](https://github.com/vercel-labs/skills) CLI to install diagramkit's agent skills (engine + setup + auto-router) into any agent (Claude Code, Cursor, Codex, Continue, OpenCode, ...).
+
+### Copy-paste agent prompt: bootstrap diagramkit + skills
 
 ```text
-Set up diagramkit in this repository. Install the package, then read `node_modules/diagramkit/llms.txt` before making changes. Add a `package.json` script named `render:diagrams` that runs `diagramkit render .`. If this repo needs non-default behavior, create `diagramkit.config.json5`. Run `npx diagramkit --install-skill` to install project skills for Claude and Cursor, warm up Chromium unless the repo is Graphviz-only, and render all diagrams to SVG.
+Set up diagramkit in this repository:
+
+1. Install the latest diagramkit: `npm add diagramkit`.
+2. Read `node_modules/diagramkit/REFERENCE.md` for the canonical CLI + API
+   surface for the installed version (do NOT use a globally installed CLI).
+3. Run `npx diagramkit warmup` unless the repo is Graphviz-only.
+4. If this repo needs non-default behavior, create `diagramkit.config.json5`
+   with `npx diagramkit init --yes` (it wires up the JSON Schema for editor
+   autocomplete).
+5. Add a `render:diagrams` script to `package.json`:
+     "render:diagrams": "diagramkit render ."
+6. Install diagramkit's agent skills using the standalone `skills` CLI so any
+   agent (Claude/Cursor/Codex/Continue/...) gets engine + setup + auto-router
+   skills:
+     npx skills add sujeet-pro/diagramkit
+7. Render all diagrams to SVG (and optionally PNG/JPEG/WebP/AVIF):
+     npx diagramkit render .
 ```
 
-diagramkit ships three agent docs with every npm install:
+### Copy-paste agent prompt: generate a diagram and its image variants
 
-| File             | Use when                                     |
-| ---------------- | -------------------------------------------- |
-| `llms-quick.txt` | You want short command-oriented guidance     |
-| `llms.txt`       | You want practical CLI defaults and examples |
-| `llms-full.txt`  | You need complete CLI + API reference        |
+```text
+Create a [TOPIC] diagram in this repo using the locally installed diagramkit
+and the diagramkit-* skills. Read `node_modules/diagramkit/REFERENCE.md` first
+so you use the version installed under `node_modules/`. Use the
+`diagramkit-auto` skill to pick the best engine, then the matching engine
+skill (mermaid / excalidraw / draw-io / graphviz). Save the source under
+`diagrams/`, render both light and dark variants, and also export
+PNG + WebP for docs:
+  npx diagramkit render diagrams/<file> --format svg,png,webp --scale 2
+Embed it in the relevant markdown using the `<picture>` pattern.
+```
 
-After installation, `node_modules/diagramkit/llms.txt` is the best single day-to-day setup reference. Use `node_modules/diagramkit/llms-full.txt` or `diagramkit --agent-help` when the agent needs the full reference.
+### Why skills live outside the diagramkit CLI
 
-`npx diagramkit --install-skill` writes project skills to `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md` without overwriting existing files.
+diagramkit intentionally does not ship its own "install skills" command. The standalone [`skills`](https://github.com/vercel-labs/skills) CLI already supports 41+ agents, handles symlinking vs copying, and is the canonical install path. Keeping skill installation out of diagramkit means:
 
-See the [Getting Started guide](https://projects.sujeet.pro/diagramkit/guide/getting-started/) for the full agent bootstrap flow.
+- diagramkit only does what it is best at: rendering diagrams.
+- Skills are versioned in this repo's `skills/` folder and updated independently with `npx skills update sujeet-pro/diagramkit` — no diagramkit npm release required.
+- The same skills work for Claude Code, Cursor, Codex, Continue, OpenCode, etc.
+
+### Shipped agent skills
+
+| Skill                   | What it does                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `diagramkit-setup`      | Bootstraps diagramkit in a repo (install, warmup, config, scripts). **Run first.**                   |
+| `diagramkit-auto`       | Routes a diagram request to the best engine.                                                         |
+| `diagramkit-mermaid`    | Authors Mermaid diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.      |
+| `diagramkit-excalidraw` | Authors Excalidraw diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.   |
+| `diagramkit-draw-io`    | Authors Draw.io diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI.      |
+| `diagramkit-graphviz`   | Authors Graphviz DOT diagrams + renders them to SVG/PNG/JPEG/WebP/AVIF via the local diagramkit CLI. |
+
+All `diagramkit-*` skills always prefer the locally installed CLI: they read `node_modules/diagramkit/REFERENCE.md` first and run `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`) so the agent never accidentally uses a different globally installed version.
+
+### Agent-facing files shipped in the package
+
+| File                                 | Use when                                                           |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `REFERENCE.md`                       | Single landing page — read first.                                  |
+| `llms.txt`                           | You want practical CLI defaults and examples                       |
+| `llms-full.txt`                      | You need complete CLI + API reference                              |
+| `ai-guidelines/usage.md`             | Primary agent setup instructions                                   |
+| `ai-guidelines/diagram-authoring.md` | Per-engine authoring reference                                     |
+| `skills/diagramkit-*/SKILL.md`       | Skill source — installed by `npx skills add sujeet-pro/diagramkit` |
+
+After installation, the agent's first read should be `node_modules/diagramkit/REFERENCE.md`. Use `diagramkit --agent-help` when the agent needs the full reference in one stream.
+
+See the [Getting Started guide](https://projects.sujeet.pro/diagramkit/guide/getting-started/) and the [AI Agents guide](https://projects.sujeet.pro/diagramkit/guide/ai-agents/) for more prompt recipes.
 
 ## Embedding light/dark SVGs in Markdown
 
@@ -142,9 +196,10 @@ For isolated workers or long-running services, use `createRendererRuntime()` and
 Import paths:
 
 - `diagramkit` - core rendering APIs
-- `diagramkit/utils` - discovery/manifest/output helpers for custom pipelines
+- `diagramkit/utils` - discovery/manifest/output/validation helpers for custom pipelines
 - `diagramkit/color` - dark SVG contrast utilities
 - `diagramkit/convert` - SVG-to-raster conversion only
+- `diagramkit/validate` - SVG structural + img-tag-compatibility checks
 
 ## Configuration
 
@@ -208,16 +263,19 @@ diagramkit uses [vite-plus](https://viteplus.dev/) as its unified development to
 
 All scripts use the `vp` CLI provided by vite-plus:
 
-| Script              | Command                | Description                                  |
-| ------------------- | ---------------------- | -------------------------------------------- |
-| `npm run build`     | `vp pack`              | Build the library with Rolldown              |
-| `npm run test`      | `vp test run`          | Run all tests                                |
-| `npm run test:unit` | `vp test run src/`     | Unit tests (fast, no browser)                |
-| `npm run test:e2e`  | `vp test run e2e/`     | E2E tests (requires Playwright + built dist) |
-| `npm run check`     | `vp check`             | Lint (Oxlint) + format (Oxfmt) check         |
-| `npm run check:fix` | `vp check --fix`       | Auto-fix lint and format issues              |
-| `npm run typecheck` | `tsc --noEmit`         | TypeScript type checking                     |
-| `npm run validate`  | check+type+build+tests | Full validation pipeline                     |
+| Script              | Command                                     | Description                                      |
+| ------------------- | ------------------------------------------- | ------------------------------------------------ |
+| `npm run build`     | `vp pack`                                   | Build the library with Rolldown                  |
+| `npm run build:all` | `build:lib && build:docs`                   | Build the library and the docs site              |
+| `npm run test`      | `vp test run`                               | Run all tests                                    |
+| `npm run test:unit` | `vp test run src/`                          | Unit tests (fast, no browser)                    |
+| `npm run test:e2e`  | `vp test run e2e/`                          | E2E tests (requires Playwright + built dist)     |
+| `npm run check`     | `vp check`                                  | Lint (Oxlint) + format (Oxfmt) check             |
+| `npm run check:fix` | `vp check --fix`                            | Auto-fix lint and format issues                  |
+| `npm run typecheck` | `tsc --noEmit`                              | TypeScript type checking                         |
+| `npm run preview`   | `build:all && preview:docs`                 | Build everything then preview the docs site      |
+| `npm run cicd`      | check + typecheck + build:all + tests + val | **Canonical** pre-merge gate (also what CI runs) |
+| `npm run validate`  | alias for `cicd`                            | Back-compat alias                                |
 
 ### npm overrides
 

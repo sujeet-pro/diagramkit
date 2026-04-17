@@ -29,7 +29,7 @@ npm-debug.log*
 
 # Temp files
 *.temp.md
-.temp
+.temp/
 
 # diagramkit output
 .diagrams/
@@ -38,10 +38,6 @@ npm-debug.log*
 # Pagesmith docs build output
 gh-pages/
 docs-dist/
-
-# Auto-generated agentic files (managed by Pagesmith AI)
-AGENTS.md
-GEMINI.md
 
 # IDE files
 .vscode-test

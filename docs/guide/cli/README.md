@@ -12,6 +12,16 @@ description: Complete guide to the diagramkit command-line interface -- the reco
 
 The CLI is the recommended way to use diagramkit. It handles file discovery, incremental builds, watch mode, and output naming automatically.
 
+## Do it with an agent
+
+Paste into your AI coding agent:
+
+> Render every diagram in this repo. If diagramkit is not installed yet, install it with `npm add diagramkit` and run `npx diagramkit warmup` unless the repo is Graphviz-only. Read `node_modules/diagramkit/llms.txt` for defaults. Run `npx diagramkit render .` and report any failures with their file path.
+
+For a repeatable script, ask the agent to add `"render:diagrams": "diagramkit render ."` to `package.json`.
+
+## Do it manually
+
 ## Invocation Paths
 
 After installation, these entrypoints all invoke the same CLI:
@@ -71,17 +81,63 @@ Create a config file in the current directory.
 ```bash
 diagramkit init          # diagramkit.config.json5
 diagramkit init --ts     # diagramkit.config.ts with defineConfig()
+diagramkit init --yes    # accept defaults, non-interactive
 ```
 
-### `--install-skill`
+The generated `diagramkit.config.json5` includes a `$schema` reference so editors (VSCode, JetBrains, etc.) offer autocomplete out of the box. The schema ships in the npm package at `diagramkit/schemas/diagramkit-config.v1.json`.
 
-Install project-level skills for Claude and Cursor in the current repository.
+### `validate`
+
+Validate generated SVG file(s) for structural correctness and `<img>`-tag renderability. Use after `render` (especially in CI) to catch SVGs with missing `xmlns`, missing dimensions, embedded `<script>`, broken `<foreignObject>`, or external resource references that silently fail in `<img>` embeds.
 
 ```bash
-diagramkit --install-skill
+diagramkit validate <file-or-dir> [--recursive] [--json]
 ```
 
-This writes `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md` if they do not already exist. The generated skill tells agents to read `node_modules/diagramkit/llms.txt`, add a `render:diagrams` script, and create `diagramkit.config.json5` only when the repo needs non-default behavior.
+Examples:
+
+```bash
+diagramkit validate .diagramkit/                # all SVGs in a folder (top level)
+diagramkit validate .diagramkit/ --recursive    # recurse into subfolders
+diagramkit validate output.svg                  # single file
+diagramkit validate . --recursive --json        # CI-friendly machine-readable output
+```
+
+Exits non-zero when any SVG fails. The directory render and single-file render commands also run this check automatically and surface results inline.
+
+### Interactive wizards
+
+When run on a TTY without enough arguments, the CLI launches a top-level interactive picker (render / validate / init / doctor / warmup). Inside `render` and `validate` it then walks you through targets, formats, and theme — seeded from the effective `diagramkit.config.*` it auto-discovers from the cwd.
+
+```bash
+diagramkit                              # top-level picker (TTY)
+diagramkit render --interactive         # force the render wizard, even with args
+diagramkit render . --no-interactive    # disable the wizard for CI/agents
+diagramkit render . --yes               # alias for --no-interactive (accept defaults)
+```
+
+`--interactive` falls back with a one-line warning when stdout is not a TTY (so CI logs stay clean).
+
+### Project skills (use `npx skills`, not the diagramkit CLI)
+
+> [!IMPORTANT]
+> The previous `diagramkit --install-skill` flag was removed in v0.3. Skill installation is delegated to the standalone [`skills`](https://github.com/vercel-labs/skills) CLI from Vercel Labs so the same diagramkit-* skills work across 41+ agents (Claude Code, Cursor, Codex, Continue, OpenCode, ...) and stay current via `npx skills update sujeet-pro/diagramkit` without bumping the diagramkit npm package.
+
+```bash
+# Install every diagramkit-* skill (setup, auto-router, mermaid, excalidraw, draw-io, graphviz)
+npx skills add sujeet-pro/diagramkit
+
+# Target specific agents only (any combination)
+npx skills add sujeet-pro/diagramkit -a claude-code -a cursor -a codex
+
+# Install only specific skills
+npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-mermaid
+
+# Refresh later
+npx skills update sujeet-pro/diagramkit
+```
+
+If `npx skills` is unavailable (e.g. older toolchains), copy folders manually from `node_modules/diagramkit/skills/diagramkit-*/` into the agent skill directory the project uses (`.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`, or `.agents/skills/`).
 
 ## Render Options
 
@@ -129,7 +185,7 @@ diagramkit render . --watch      # watch for changes, re-render on save
 diagramkit render . -w           # short form
 ```
 
-See [Watch Mode](/guide/watch-mode) for details.
+See [Watch Mode](../watch-mode/README.md) for details.
 
 ### Dark Mode Contrast
 
@@ -191,20 +247,33 @@ diagramkit render . --quiet      # suppress info output, errors only
 diagramkit render . --log-level warn
 diagramkit render . --log-level verbose
 diagramkit render . --json       # machine-readable JSON output
+diagramkit render . --strict     # exit non-zero if any single render fails
 diagramkit render . --strict-config
 diagramkit render . --max-type-lanes 2
 ```
 
+`--strict` (render-failure strictness) is independent of `--strict-config` (config-validation strictness). Use `--strict` when you want CI to fail loudly on a single broken diagram rather than just printing it to the failure list.
+
 ## Global Flags
 
 ```bash
-diagramkit --help       # show help
+diagramkit --help              # show help
 diagramkit -h
-diagramkit --version    # show version
+diagramkit --version           # show version
 diagramkit -v
-diagramkit --agent-help # output full reference for LLM agents
-diagramkit --install-skill # install project skills
+diagramkit --agent-help        # output full reference for LLM agents
+diagramkit --interactive       # force interactive wizard even when args are present (TTY required)
+diagramkit -i                  # short form
+diagramkit --no-interactive    # disable interactive wizard (useful for CI / agents)
+diagramkit --yes               # alias for --no-interactive (accept defaults)
+diagramkit -y                  # short form
 ```
+
+> Project skills are installed by the standalone `skills` CLI (not by diagramkit):
+>
+> ```bash
+> npx skills add sujeet-pro/diagramkit
+> ```
 
 ## Examples
 

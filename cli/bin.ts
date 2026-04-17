@@ -14,18 +14,21 @@ function printHelp() {
 diagramkit — Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv files to SVG/PNG/JPEG/WebP/AVIF
 
 Usage:
+  diagramkit                                Interactive picker (TTY) — choose render/validate/init/...
   diagramkit render <file-or-dir> [options]
+  diagramkit render [--interactive]         Interactive render wizard (seeded from diagramkit.config.*)
   diagramkit <file-or-dir> [options]        Alias for "diagramkit render"
+  diagramkit validate <file-or-dir> [--recursive] [--json]
   diagramkit warmup
   diagramkit doctor
   diagramkit init [--ts] [--yes]
-  diagramkit --install-skill
   diagramkit --version
   diagramkit --help
   diagramkit --agent-help
 
 Commands:
   render <file-or-dir>     Render diagram file(s) to images
+  validate <file-or-dir>   Validate generated SVG file(s) for correctness and img-tag compatibility
   warmup                   Pre-install Playwright chromium browser
   doctor                   Validate runtime dependencies and environment
   init [--ts] [--yes]      Create config file (interactive by default, --yes for defaults)
@@ -65,11 +68,15 @@ Output options:
 General:
   -h, --help                          Show this help
   -v, --version                       Show version
-  -y, --yes                           Accept defaults for interactive commands
+  -i, --interactive                   Force the interactive wizard (prompts even if args are given)
+  -y, --yes                           Accept defaults — non-interactive mode
+  --no-interactive                    Disable the interactive wizard (useful for CI / agents)
   --agent-help                        Output full reference for LLM agents
-  --install-skill                     Install project skills for Claude and Cursor
 
 Examples:
+  diagramkit                                           # Interactive wizard (TTY)
+  diagramkit render --interactive                      # Force the interactive render wizard
+  diagramkit render . --yes                            # Force non-interactive even on a TTY
   diagramkit render .                                  # Render all in cwd
   diagramkit render flow.mermaid                       # Single file
   diagramkit render arch.drawio --format png           # Draw.io to PNG
@@ -82,7 +89,14 @@ Examples:
   diagramkit render . --config ./custom.config.json5   # Explicit config file
   diagramkit render . --dry-run                        # Preview what would render
   diagramkit render . --quiet                          # Minimal output
-  diagramkit --install-skill                           # Install project skills
+  diagramkit validate .diagramkit/                     # Validate all SVGs in dir
+  diagramkit validate output.svg                       # Validate a single SVG
+  diagramkit validate . --recursive                    # Validate SVGs recursively
+
+Project skills (Claude/Cursor/Codex/Continue/...):
+  Use the standalone "skills" CLI to install diagramkit skills into a repo:
+    npx skills add sujeet-pro/diagramkit
+  See https://github.com/vercel-labs/skills for agent targeting flags.
 `)
 }
 
@@ -109,7 +123,8 @@ function printVersion() {
 /* ── Agent help ── */
 
 function printAgentHelp() {
-  // Resolve llms-full.txt from the package root (works from both source and dist)
+  // Resolve llms-full.txt from the package root (source of truth).
+  // Works when run from source (../llms-full.txt) and from dist (../../llms-full.txt).
   const candidates = [
     new URL('../llms-full.txt', import.meta.url),
     new URL('../../llms-full.txt', import.meta.url),
@@ -136,6 +151,7 @@ const SHORT_FLAGS: Record<string, string> = {
   y: 'yes',
   f: 'force',
   w: 'watch',
+  i: 'interactive',
 }
 
 export function getFlag(name: string, argv: string[] = args): boolean {
@@ -334,9 +350,11 @@ export function warnUnknownFlags(argv: string[] = args) {
     'help',
     'version',
     'yes',
+    'interactive',
+    'no-interactive',
     'agent-help',
-    'install-skill',
     'ts',
+    'recursive',
   ])
   const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
 
@@ -357,6 +375,72 @@ export function warnUnknownFlags(argv: string[] = args) {
       }
     }
   }
+}
+
+/* ── Interactive mode ── */
+
+/** Resolved interactive preference based on explicit user flags. */
+export type InteractiveMode = 'force' | 'force-off' | 'auto'
+
+/**
+ * Inspect argv and decide the user's explicit interactivity preference.
+ *
+ * - `--no-interactive` or `--yes`/`-y` → `force-off`
+ * - `--interactive`/`-i` → `force`
+ * - otherwise → `auto`
+ */
+export function resolveInteractiveMode(argv: string[] = args): InteractiveMode {
+  if (argv.includes('--no-interactive') || getFlag('yes', argv)) return 'force-off'
+  if (getFlag('interactive', argv)) return 'force'
+  return 'auto'
+}
+
+interface PromptEligibilityOptions {
+  /** True when enough positional args or flags were supplied to run non-interactively. */
+  hasArgs: boolean
+  /** Override for TTY detection (tests). */
+  isTty?: boolean
+  /** Called with a warning when `--interactive` is requested but no TTY is attached. */
+  onNoTty?: (message: string) => void
+}
+
+/**
+ * Decide whether to show an interactive prompt for the current invocation.
+ *
+ * Precedence:
+ * 1. Explicit `--no-interactive` / `--yes` always disables prompts.
+ * 2. Explicit `--interactive` forces prompts when a TTY is attached; otherwise warns and falls back.
+ * 3. In `auto` mode, prompt only when no usable args were given AND a TTY is attached.
+ */
+export function shouldPromptInteractive(
+  options: PromptEligibilityOptions,
+  argv: string[] = args,
+): boolean {
+  const mode = resolveInteractiveMode(argv)
+  const isTty = options.isTty ?? Boolean(process.stdin.isTTY && process.stdout.isTTY)
+  if (mode === 'force-off') return false
+  if (mode === 'force') {
+    if (!isTty) {
+      const message =
+        'Warning: --interactive requested but no TTY is attached. Falling back to non-interactive mode.'
+      ;(options.onNoTty ?? console.warn)(message)
+      return false
+    }
+    return true
+  }
+  return !options.hasArgs && isTty
+}
+
+/** True when `argv` after index 0 (command) contains any positional target or meaningful flag. */
+function hasRenderIntent(argv: string[]): boolean {
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i]!
+    if (arg === '--interactive' || arg === '-i' || arg === '--no-interactive') continue
+    if (arg.startsWith('--')) return true
+    if (arg.startsWith('-')) return true
+    return true
+  }
+  return false
 }
 
 /* ── Commands ── */
@@ -436,14 +520,21 @@ async function commandInit() {
 export default defineConfig(${JSON.stringify(cfg, null, 2)})
 `
 
-  const toJson5Config = (cfg: Partial<DiagramkitConfig>): string => `{
+  // JSON5 configs get a $schema reference so editors (VSCode, JetBrains, etc.)
+  // can offer autocomplete and validation. The schema ships in the npm package.
+  const CONFIG_SCHEMA_REF = './node_modules/diagramkit/schemas/diagramkit-config.v1.json'
+
+  const toJson5Config = (cfg: Partial<DiagramkitConfig>): string => {
+    const fields = Object.entries(cfg)
+      .map(([key, value]) => `  ${key}: ${JSON.stringify(value)},`)
+      .join('\n')
+    return `{
   // diagramkit configuration
   // Docs: https://projects.sujeet.pro/diagramkit/guide/configuration
-${Object.entries(cfg)
-  .map(([key, value]) => `  ${key}: ${JSON.stringify(value)},`)
-  .join('\n')}
+  $schema: '${CONFIG_SCHEMA_REF}',${fields ? '\n' + fields : ''}
 }
 `
+  }
 
   const writeConfig = (cfg: DiagramkitConfig): void => {
     if (existsSync(defaultConfigPath)) {
@@ -588,50 +679,6 @@ ${Object.entries(cfg)
   outro(`Created ${basename(finalPath)}`)
 }
 
-async function commandInstallSkill() {
-  const { mkdirSync } = await import('node:fs')
-  const { DIAGRAMKIT_PROJECT_SKILL_FILES, getDiagramkitSkillContent } =
-    await import('../src/agent-skill')
-  const { atomicWrite } = await import('../src/output')
-
-  const created: string[] = []
-  const skipped: string[] = []
-  const content = Buffer.from(getDiagramkitSkillContent(), 'utf-8')
-
-  for (const relativePath of DIAGRAMKIT_PROJECT_SKILL_FILES) {
-    const targetPath = resolve(relativePath)
-    if (existsSync(targetPath)) {
-      skipped.push(relativePath)
-      continue
-    }
-
-    mkdirSync(dirname(targetPath), { recursive: true })
-    atomicWrite(targetPath, content)
-    created.push(relativePath)
-  }
-
-  if (created.length > 0) {
-    console.log('Installed diagramkit project skills:')
-    for (const file of created) {
-      console.log(`  - ${file}`)
-    }
-  } else {
-    console.log('No new diagramkit project skills were installed.')
-  }
-
-  if (skipped.length > 0) {
-    console.log('Skipped existing files:')
-    for (const file of skipped) {
-      console.log(`  - ${file}`)
-    }
-  }
-
-  console.log('Next steps:')
-  console.log('  - Read node_modules/diagramkit/llms.txt for repo setup guidance')
-  console.log('  - Add "render:diagrams": "diagramkit render ." to package.json')
-  console.log('  - Run "npx diagramkit warmup" unless the repo is Graphviz-only')
-}
-
 function emitJson(payload: unknown): void {
   console.log(JSON.stringify(payload))
 }
@@ -656,6 +703,69 @@ function buildRenderJsonEnvelope(input: {
     options: input.options,
     ...(input.result ? { result: input.result } : {}),
     ...(input.summary ? { summary: input.summary } : {}),
+  }
+}
+
+async function commandValidate() {
+  let target = '.'
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i]!
+    if (arg.startsWith('-')) continue
+    target = arg
+    break
+  }
+
+  const resolvedTarget = resolve(target)
+  if (!existsSync(resolvedTarget)) {
+    console.error(`Path does not exist: ${resolvedTarget}`)
+    process.exit(1)
+  }
+
+  const jsonOutput = getFlag('json')
+  const recursive = getFlag('recursive')
+  const { validateSvgFile, validateSvgDirectory, formatValidationResult } =
+    await import('../src/validate')
+
+  const stat = statSync(resolvedTarget)
+  const results = stat.isFile()
+    ? [validateSvgFile(resolvedTarget)]
+    : validateSvgDirectory(resolvedTarget, { recursive })
+
+  if (results.length === 0) {
+    if (jsonOutput) {
+      emitJson({ files: 0, valid: 0, invalid: 0, results: [] })
+    } else {
+      console.log('No SVG files found.')
+    }
+    return
+  }
+
+  const valid = results.filter((r) => r.valid)
+  const invalid = results.filter((r) => !r.valid)
+
+  if (jsonOutput) {
+    emitJson({
+      files: results.length,
+      valid: valid.length,
+      invalid: invalid.length,
+      results: results.map((r) => ({
+        file: r.file,
+        valid: r.valid,
+        issues: r.issues,
+      })),
+    })
+  } else {
+    for (const result of results) {
+      console.log(formatValidationResult(result))
+    }
+    console.log()
+    console.log(
+      `Validated ${results.length} SVG file(s): ${valid.length} passed, ${invalid.length} failed`,
+    )
+  }
+
+  if (invalid.length > 0) {
+    process.exitCode = 1
   }
 }
 
@@ -911,6 +1021,23 @@ async function renderSingleFile(opts: SingleFileOpts) {
       )
     }
 
+    // Post-render SVG validation
+    const svgOutputs = written.filter((f) => f.endsWith('.svg'))
+    const { validateSvgFile: doValidateSvg } = await import('../src/validate')
+    const svgValidationFailures: { file: string; message: string }[] = []
+    for (const svgFile of svgOutputs) {
+      const svgPath = path.join(outDir, svgFile)
+      const vResult = doValidateSvg(svgPath)
+      if (!vResult.valid) {
+        const errors = vResult.issues
+          .filter((i) => i.severity === 'error')
+          .map((i) => i.message)
+          .join('; ')
+        svgValidationFailures.push({ file: svgFile, message: errors })
+        cliLogger.warn(`  Validation failed: ${svgFile} — ${errors}`)
+      }
+    }
+
     if (jsonOutput) {
       emitJson(
         buildRenderJsonEnvelope({
@@ -929,6 +1056,7 @@ async function renderSingleFile(opts: SingleFileOpts) {
             skipped: [],
             failed: [],
             failedDetails: [],
+            validationFailures: svgValidationFailures,
           },
         }),
       )
@@ -936,6 +1064,10 @@ async function renderSingleFile(opts: SingleFileOpts) {
       for (const fileName of written) {
         cliLogger.info(`  Written: ${path.join(outDir, fileName)}`)
       }
+    }
+
+    if (svgValidationFailures.length > 0) {
+      process.exitCode = 1
     }
   } finally {
     await dispose()
@@ -1070,6 +1202,40 @@ async function renderDirectory(opts: DirectoryOpts) {
     }
   }
 
+  // Post-render SVG validation for directory renders
+  const dirValidationFailures: { file: string; message: string }[] = []
+  if (renderResult && renderResult.rendered.length > 0 && formats.includes('svg')) {
+    const { validateSvgFile: doValidateSvg } = await import('../src/validate')
+    const { getDiagramsDir } = await import('../src/manifest')
+    const { stripDiagramExtension, getOutputVariants, getOutputFileName } =
+      await import('../src/output')
+    const pathMod = await import('node:path')
+    const variants = getOutputVariants(opts.theme)
+    const naming = { prefix: dirConfig.outputPrefix ?? '', suffix: dirConfig.outputSuffix ?? '' }
+
+    for (const renderedPath of renderResult.rendered) {
+      const fileDir = pathMod.dirname(renderedPath)
+      const outDir = customOutput ? resolve(customOutput) : getDiagramsDir(fileDir, dirConfig)
+      const name = stripDiagramExtension(pathMod.basename(renderedPath), dirConfig.extensionMap)
+
+      for (const variant of variants) {
+        const svgFile = getOutputFileName(name, variant, 'svg', naming)
+        const svgPath = pathMod.join(outDir, svgFile)
+        const vResult = doValidateSvg(svgPath)
+        if (!vResult.valid) {
+          const errors = vResult.issues
+            .filter((i) => i.severity === 'error')
+            .map((i) => i.message)
+            .join('; ')
+          dirValidationFailures.push({ file: svgPath, message: errors })
+          if (!quiet && !jsonOutput) {
+            console.warn(`  Validation failed: ${svgFile} — ${errors}`)
+          }
+        }
+      }
+    }
+  }
+
   if (jsonOutput && renderResult) {
     emitJson(
       buildRenderJsonEnvelope({
@@ -1086,12 +1252,19 @@ async function renderDirectory(opts: DirectoryOpts) {
           type: opts.type,
           maxTypeLanes: opts.maxTypeLanes ?? 4,
         },
-        result: renderResult,
+        result: {
+          ...renderResult,
+          validationFailures: dirValidationFailures.length > 0 ? dirValidationFailures : undefined,
+        },
       }),
     )
   }
 
   if (renderResult && renderResult.failed.length > 0 && !opts.watchMode) {
+    process.exitCode = 1
+  }
+
+  if (dirValidationFailures.length > 0 && !opts.watchMode) {
     process.exitCode = 1
   }
 
@@ -1145,8 +1318,309 @@ export function isCliEntrypoint(argv1 = process.argv[1], metaUrl = import.meta.u
   }
 }
 
+/* ── Interactive wizards ── */
+
+/** Replace the module-level `args` array in place so the existing command handlers see the new argv. */
+function replaceArgs(next: string[]): void {
+  args.length = 0
+  for (const a of next) args.push(a)
+}
+
+/** Load the effective config for interactive seeding. Never throws — falls back to defaults. */
+async function loadInteractiveConfig(): Promise<
+  import('../src/types').DiagramkitConfig & { _sourcePath?: string }
+> {
+  const { loadConfig, getDefaultConfig } = await import('../src/config')
+  try {
+    // Walk up from cwd to find diagramkit.config.* — same behavior as `render`.
+    return loadConfig({}, process.cwd()) as import('../src/types').DiagramkitConfig & {
+      _sourcePath?: string
+    }
+  } catch {
+    return getDefaultConfig() as import('../src/types').DiagramkitConfig & { _sourcePath?: string }
+  }
+}
+
+/** Find the first existing config file walking up from cwd — for a user-visible "seeded from" hint. */
+function findLocalConfigPath(): string | undefined {
+  const candidates = ['diagramkit.config.ts', 'diagramkit.config.json5', '.diagramkitrc.json']
+  let current = process.cwd()
+  while (true) {
+    for (const name of candidates) {
+      const p = resolve(current, name)
+      if (existsSync(p)) return p
+    }
+    const parent = dirname(current)
+    if (parent === current) return undefined
+    current = parent
+  }
+}
+
+/** Top-level picker when the user invokes `diagramkit` bare on a TTY. */
+async function runInteractiveTopLevel(): Promise<void> {
+  const { intro, select, cancel, isCancel, note } = await import('@clack/prompts')
+  intro('diagramkit')
+  const configPath = findLocalConfigPath()
+  if (configPath) {
+    note(`Using config from ${configPath}`, 'Config')
+  } else {
+    note('No diagramkit.config.* found — using built-in defaults.', 'Config')
+  }
+
+  const choice = await select({
+    message: 'What do you want to do?',
+    options: [
+      { value: 'render', label: 'Render diagrams', hint: 'default command' },
+      { value: 'validate', label: 'Validate rendered SVGs' },
+      { value: 'init', label: 'Create a diagramkit config file' },
+      { value: 'doctor', label: 'Check environment & dependencies' },
+      { value: 'warmup', label: 'Install Playwright chromium' },
+    ],
+    initialValue: 'render',
+  })
+  if (isCancel(choice)) {
+    cancel('Aborted.')
+    return
+  }
+
+  replaceArgs([String(choice)])
+
+  if (choice === 'render') {
+    await runInteractiveRender()
+    return
+  }
+  if (choice === 'validate') {
+    await runInteractiveValidate()
+    return
+  }
+  if (choice === 'init') {
+    await commandInit()
+    return
+  }
+  if (choice === 'doctor') {
+    await commandDoctor(false)
+    return
+  }
+  if (choice === 'warmup') {
+    await commandWarmup()
+    return
+  }
+}
+
+/**
+ * Interactive render wizard — seeds every prompt from the effective diagramkit config
+ * (walks up from cwd just like `render`) and any flags already present in argv.
+ *
+ * At the end it synthesizes a plain argv and delegates to the existing `commandRender`
+ * so validation, config layering, and JSON envelope behavior stay identical to the
+ * non-interactive path.
+ */
+async function runInteractiveRender(): Promise<void> {
+  const clack = await import('@clack/prompts')
+  const { intro, outro, multiselect, select, text, confirm, cancel, isCancel, note } = clack
+
+  const resolvedConfig = await loadInteractiveConfig()
+  const configPath = findLocalConfigPath()
+
+  intro('diagramkit render')
+  if (configPath) {
+    note(`Seeded from ${configPath}`, 'Config')
+  } else {
+    note('No diagramkit.config.* found — using built-in defaults.', 'Config')
+  }
+
+  // Pre-populate from any flags already on the argv (enables `--interactive` with partial flags).
+  const preTarget = args.slice(1).find((a) => !a.startsWith('-') && a !== 'render') ?? '.'
+  const preFormat = getFlagValue('format', args, false)
+  const preTheme = getFlagValue('theme', args, false)
+  const preScale = getFlagValue('scale', args, false)
+  const preOutput = getFlagValue('output', args, false)
+
+  const target = await text({
+    message: 'Target file or directory',
+    placeholder: '.',
+    defaultValue: preTarget,
+    validate: (value) => {
+      const raw = (value ?? '').trim() || '.'
+      if (!existsSync(resolve(raw))) return `Path does not exist: ${resolve(raw)}`
+      return undefined
+    },
+  })
+  if (isCancel(target)) {
+    cancel('Aborted.')
+    return
+  }
+  const targetStr = String(target).trim() || '.'
+
+  const initialFormats = preFormat ? parseFormats(preFormat, false) : resolvedConfig.defaultFormats
+  const selectedFormats = await multiselect({
+    message: 'Output formats',
+    options: [
+      { value: 'svg', label: 'SVG', hint: 'vector, recommended' },
+      { value: 'png', label: 'PNG' },
+      { value: 'jpeg', label: 'JPEG' },
+      { value: 'webp', label: 'WebP' },
+      { value: 'avif', label: 'AVIF' },
+    ],
+    initialValues: initialFormats,
+    required: true,
+  })
+  if (isCancel(selectedFormats)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const initialTheme = preTheme ?? resolvedConfig.defaultTheme
+  const theme = await select({
+    message: 'Theme',
+    options: [
+      { value: 'both', label: 'Both (light + dark)' },
+      { value: 'light', label: 'Light only' },
+      { value: 'dark', label: 'Dark only' },
+    ],
+    initialValue: initialTheme,
+  })
+  if (isCancel(theme)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const advanced = await confirm({
+    message: 'Configure advanced options (scale, output, watch, force)?',
+    initialValue: false,
+  })
+  if (isCancel(advanced)) {
+    cancel('Aborted.')
+    return
+  }
+
+  let scale: string | undefined = preScale
+  let outputOverride: string | undefined = preOutput
+  let force = getFlag('force', args)
+  let watch = getFlag('watch', args)
+
+  if (advanced) {
+    const scaleAnswer = await text({
+      message: 'Scale factor for raster output',
+      placeholder: '2',
+      defaultValue: preScale ?? '2',
+      validate: (value) => {
+        const raw = (value ?? '').trim() || '2'
+        const n = Number(raw)
+        if (!Number.isFinite(n) || n <= 0 || n > 10)
+          return 'Scale must be a positive number between 0 and 10.'
+        return undefined
+      },
+    })
+    if (isCancel(scaleAnswer)) {
+      cancel('Aborted.')
+      return
+    }
+    scale = String(scaleAnswer).trim() || '2'
+
+    const customOutput = await text({
+      message: 'Custom output directory (leave blank to use config)',
+      placeholder: preOutput ?? '',
+      defaultValue: preOutput ?? '',
+    })
+    if (isCancel(customOutput)) {
+      cancel('Aborted.')
+      return
+    }
+    const customOutputStr = String(customOutput).trim()
+    outputOverride = customOutputStr ? customOutputStr : undefined
+
+    const forceAnswer = await confirm({
+      message: 'Force re-render (ignore manifest)?',
+      initialValue: force,
+    })
+    if (isCancel(forceAnswer)) {
+      cancel('Aborted.')
+      return
+    }
+    force = Boolean(forceAnswer)
+
+    const watchAnswer = await confirm({
+      message: 'Watch for changes and re-render?',
+      initialValue: watch,
+    })
+    if (isCancel(watchAnswer)) {
+      cancel('Aborted.')
+      return
+    }
+    watch = Boolean(watchAnswer)
+  }
+
+  const formatsCsv = (selectedFormats as string[]).join(',')
+  const summary = [
+    `target: ${targetStr}`,
+    `formats: ${formatsCsv}`,
+    `theme: ${String(theme)}`,
+    scale ? `scale: ${scale}` : null,
+    outputOverride ? `output: ${outputOverride}` : null,
+    force ? 'force: true' : null,
+    watch ? 'watch: true' : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+  note(summary, 'Render plan')
+
+  const proceed = await confirm({ message: 'Run render now?', initialValue: true })
+  if (isCancel(proceed) || !proceed) {
+    cancel('Aborted.')
+    return
+  }
+
+  const next: string[] = ['render', targetStr, '--format', formatsCsv, '--theme', String(theme)]
+  if (scale) next.push('--scale', scale)
+  if (outputOverride) next.push('--output', outputOverride)
+  if (force) next.push('--force')
+  if (watch) next.push('--watch')
+  replaceArgs(next)
+
+  outro('Running render…')
+  await commandRender()
+}
+
+/** Interactive validate wizard — target path + recursive toggle. */
+async function runInteractiveValidate(): Promise<void> {
+  const { intro, outro, text, confirm, cancel, isCancel } = await import('@clack/prompts')
+
+  intro('diagramkit validate')
+  const target = await text({
+    message: 'Path to validate (file or directory)',
+    placeholder: '.',
+    defaultValue: '.',
+    validate: (value) => {
+      const raw = (value ?? '').trim() || '.'
+      if (!existsSync(resolve(raw))) return `Path does not exist: ${resolve(raw)}`
+      return undefined
+    },
+  })
+  if (isCancel(target)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const recursive = await confirm({
+    message: 'Recurse into subdirectories?',
+    initialValue: true,
+  })
+  if (isCancel(recursive)) {
+    cancel('Aborted.')
+    return
+  }
+
+  const next: string[] = ['validate', String(target).trim() || '.']
+  if (recursive) next.push('--recursive')
+  replaceArgs(next)
+
+  outro('Running validate…')
+  await commandValidate()
+}
+
 async function main() {
-  if (args.length === 0 || getFlag('help')) {
+  if (getFlag('help')) {
     printHelp()
     return
   }
@@ -1162,14 +1636,30 @@ async function main() {
   }
 
   if (getFlag('install-skill')) {
-    await commandInstallSkill()
+    console.error(
+      'The --install-skill flag was removed in v0.3.\n' +
+        'Use the standalone "skills" CLI to install diagramkit project skills:\n' +
+        '  npx skills add sujeet-pro/diagramkit\n' +
+        'See https://github.com/vercel-labs/skills for agent targeting flags (-a claude-code, -a cursor, ...).',
+    )
+    process.exit(1)
+  }
+
+  // Bare invocation: no args at all → interactive top-level picker (when TTY), else help.
+  if (args.length === 0) {
+    const promptTopLevel = shouldPromptInteractive({ hasArgs: false })
+    if (promptTopLevel) {
+      await runInteractiveTopLevel()
+      return
+    }
+    printHelp()
     return
   }
 
   if (
     args.length > 0 &&
     !args[0]!.startsWith('-') &&
-    !['render', 'warmup', 'doctor', 'init'].includes(args[0]!)
+    !['render', 'validate', 'warmup', 'doctor', 'init'].includes(args[0]!)
   ) {
     const maybePath = resolve(args[0]!)
     if (existsSync(maybePath)) {
@@ -1194,7 +1684,20 @@ async function main() {
     return
   }
 
+  if (command === 'validate') {
+    if (shouldPromptInteractive({ hasArgs: hasRenderIntent(args) })) {
+      await runInteractiveValidate()
+      return
+    }
+    await commandValidate()
+    return
+  }
+
   if (command === 'render') {
+    if (shouldPromptInteractive({ hasArgs: hasRenderIntent(args) })) {
+      await runInteractiveRender()
+      return
+    }
     await commandRender()
     return
   }

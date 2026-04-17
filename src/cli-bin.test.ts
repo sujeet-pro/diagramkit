@@ -8,6 +8,8 @@ import {
   getFlagValue,
   isCliEntrypoint,
   parseFormats,
+  resolveInteractiveMode,
+  shouldPromptInteractive,
   validateEnum,
   validatePositiveNumber,
   warnUnknownFlags,
@@ -103,7 +105,6 @@ describe('cli/bin helpers', () => {
     it('detects long boolean flags', () => {
       expect(getFlag('watch', ['render', '.', '--watch'])).toBe(true)
       expect(getFlag('force', ['render', '.'])).toBe(false)
-      expect(getFlag('install-skill', ['--install-skill'])).toBe(true)
     })
 
     it('detects mapped short flags', () => {
@@ -191,7 +192,17 @@ describe('cli/bin helpers', () => {
 
     it('does not warn for known flags', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      warnUnknownFlags(['render', '.', '--watch', '--format', 'svg', '-w', '--install-skill'])
+      warnUnknownFlags([
+        'render',
+        '.',
+        '--watch',
+        '--format',
+        'svg',
+        '-w',
+        '-i',
+        '--interactive',
+        '--no-interactive',
+      ])
       expect(warnSpy).not.toHaveBeenCalled()
     })
   })
@@ -208,6 +219,71 @@ describe('cli/bin helpers', () => {
 
     it('handles formats with whitespace in comma list', () => {
       expect(parseFormats('svg, png', false)).toEqual(['svg', 'png'])
+    })
+  })
+
+  describe('resolveInteractiveMode', () => {
+    it('returns "force-off" for --yes', () => {
+      expect(resolveInteractiveMode(['render', '.', '--yes'])).toBe('force-off')
+      expect(resolveInteractiveMode(['render', '.', '-y'])).toBe('force-off')
+    })
+
+    it('returns "force-off" for --no-interactive', () => {
+      expect(resolveInteractiveMode(['render', '.', '--no-interactive'])).toBe('force-off')
+    })
+
+    it('returns "force" for --interactive / -i', () => {
+      expect(resolveInteractiveMode(['render', '.', '--interactive'])).toBe('force')
+      expect(resolveInteractiveMode(['render', '.', '-i'])).toBe('force')
+    })
+
+    it('returns "auto" when neither flag is present', () => {
+      expect(resolveInteractiveMode(['render', '.'])).toBe('auto')
+    })
+
+    it('prefers force-off when both --yes and --interactive are set', () => {
+      expect(resolveInteractiveMode(['render', '--interactive', '--yes'])).toBe('force-off')
+    })
+  })
+
+  describe('shouldPromptInteractive', () => {
+    it('returns false on non-TTY regardless of args (auto mode)', () => {
+      expect(shouldPromptInteractive({ hasArgs: false, isTty: false }, ['render'])).toBe(false)
+      expect(shouldPromptInteractive({ hasArgs: true, isTty: false }, ['render', '.'])).toBe(false)
+    })
+
+    it('prompts in auto mode when no args and TTY is attached', () => {
+      expect(shouldPromptInteractive({ hasArgs: false, isTty: true }, ['render'])).toBe(true)
+    })
+
+    it('skips auto prompt when args are supplied even on a TTY', () => {
+      expect(shouldPromptInteractive({ hasArgs: true, isTty: true }, ['render', '.'])).toBe(false)
+    })
+
+    it('honors --interactive on a TTY even when args are supplied', () => {
+      expect(
+        shouldPromptInteractive({ hasArgs: true, isTty: true }, ['render', '.', '--interactive']),
+      ).toBe(true)
+    })
+
+    it('falls back to non-interactive and warns when --interactive is set but no TTY', () => {
+      const warn = vi.fn()
+      const result = shouldPromptInteractive({ hasArgs: false, isTty: false, onNoTty: warn }, [
+        'render',
+        '--interactive',
+      ])
+      expect(result).toBe(false)
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls[0]![0]).toMatch(/TTY/)
+    })
+
+    it('--yes / --no-interactive always disable prompting', () => {
+      expect(shouldPromptInteractive({ hasArgs: false, isTty: true }, ['render', '--yes'])).toBe(
+        false,
+      )
+      expect(
+        shouldPromptInteractive({ hasArgs: false, isTty: true }, ['render', '--no-interactive']),
+      ).toBe(false)
     })
   })
 

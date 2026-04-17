@@ -12,6 +12,14 @@ description: Choose between SVG, PNG, JPEG, and WebP output based on your use ca
 
 diagramkit supports five output formats. SVG is the default and recommended format.
 
+## Do it with an agent
+
+> Render all diagrams in this repo in the format best suited for [TARGET: README / docs / email / Confluence / slides]. If raster output is needed, install sharp with `npm add sharp`. Run `npx diagramkit render . --format <svg|png|webp> --theme both` and verify outputs under each `.diagramkit/` folder.
+
+Format selection rules the agent should follow: SVG for web/docs/version control; PNG for README thumbnails and wiki embeds; WebP or AVIF for size-sensitive web; JPEG only when PNG is rejected by the destination.
+
+## Do it manually
+
 ## Format Comparison
 
 | Format | Type | Transparency | File Size | Best For |

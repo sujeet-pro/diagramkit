@@ -7,7 +7,7 @@ description: How diagramkit works internally -- render pipeline, browser pool, m
 
 This page explains how diagramkit works under the hood. Understanding the architecture helps when debugging issues, extending the tool, or integrating it into custom pipelines.
 
-For the stable implementation philosophy behind these mechanics, see [Design Principles](/guide/design-principles).
+For the stable implementation philosophy behind these mechanics, see [Design Principles](../design-principles/README.md).
 
 ## Render Pipeline
 
@@ -99,4 +99,4 @@ Applied to all four engines' dark SVGs:
 
 Configuration merges from five sources, each overriding the previous.
 
-See [Configuration](/guide/configuration) for all options and examples.
+See [Configuration](../configuration/README.md) for all options and examples.

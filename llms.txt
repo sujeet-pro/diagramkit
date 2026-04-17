@@ -20,13 +20,27 @@ Prefer SVG unless the destination explicitly needs raster (email, Confluence).
 ## CLI
 
 ```
-diagramkit render <file-or-dir> [options]    Render diagram file(s) to images
-diagramkit <file-or-dir> [options]           Alias for "diagramkit render"
-diagramkit warmup                            Pre-install Playwright chromium
-diagramkit doctor                            Validate runtime dependencies
-diagramkit init [--ts]                       Create config file
-diagramkit --install-skill                   Install project skills for Claude and Cursor
+diagramkit render <file-or-dir> [options]            Render diagram file(s) to images
+diagramkit <file-or-dir> [options]                   Alias for "diagramkit render"
+diagramkit validate <file-or-dir> [--recursive]      Validate generated SVGs (img-tag compatibility)
+                                  [--json]
+diagramkit warmup                                    Pre-install Playwright chromium
+diagramkit doctor [--json]                           Validate runtime dependencies
+diagramkit init [--ts] [--yes]                       Create config file
+diagramkit                                           Interactive picker (TTY only)
+diagramkit --interactive / -i                        Force interactive wizard (TTY)
+diagramkit --no-interactive / --yes / -y             Disable interactive wizard (CI / agents)
 diagramkit --version / --help / --agent-help
+
+Project skills are NOT installed by the diagramkit CLI. Use the standalone
+"skills" CLI (https://github.com/vercel-labs/skills) so any agent
+(Claude/Cursor/Codex/Continue/OpenCode/...) gets diagramkit-* skills:
+
+  npx skills add sujeet-pro/diagramkit              # all skills
+  npx skills add sujeet-pro/diagramkit -a cursor    # target specific agent
+  npx skills add sujeet-pro/diagramkit \
+    -s diagramkit-setup -s diagramkit-mermaid       # specific skills only
+  npx skills update sujeet-pro/diagramkit           # refresh later
 ```
 
 ### Render Options
@@ -54,8 +68,25 @@ diagramkit --version / --help / --agent-help
 --json                   Machine-readable JSON output
 --log-level <level>      Logging verbosity (silent/error/warn/info/verbose)
 --strict-config          Fail on config warnings/invalid values
+--strict                 Exit non-zero on any single render failure
 --max-type-lanes <1-4>   Limit concurrent engine lanes
+--interactive / -i       Force the interactive wizard (TTY only)
+--no-interactive         Disable the interactive wizard (CI / agents)
+--yes / -y               Alias for --no-interactive (accept defaults)
 ```
+
+### Validate
+
+```bash
+diagramkit validate .diagramkit/                # all SVGs in a folder
+diagramkit validate .diagramkit/ --recursive    # recurse into subfolders
+diagramkit validate output.svg                  # single file
+diagramkit validate . --recursive --json        # JSON output for CI
+```
+
+The `validate` command checks each `.svg` for missing `xmlns`, missing dimensions,
+embedded `<script>`, broken `<foreignObject>`, and external resource references —
+issues that silently degrade in `<img>`-based markdown embeds.
 
 ### Examples
 
@@ -91,6 +122,19 @@ Merge order: defaults → global → env vars (DIAGRAMKIT_*) → local → CLI f
 
 Key options: outputDir, manifestFile, useManifest, sameFolder, defaultFormats, defaultTheme, outputPrefix, outputSuffix, extensionMap, overrides (per-file settings).
 
+JSON Schema (for IDE autocomplete in `diagramkit.config.json5` / `.json`):
+
+```json5
+{
+  $schema: './node_modules/diagramkit/schemas/diagramkit-config.v1.json',
+  defaultFormats: ['svg'],
+  defaultTheme: 'both',
+}
+```
+
+`diagramkit init` writes the `$schema` reference for you. The schema also ships at
+`diagramkit/schemas/diagramkit-config.v1.json` as a package export.
+
 Per-file overrides example:
 ```json5
 {
@@ -114,12 +158,11 @@ The `ai-guidelines/` folder in the npm package provides structured agent guidanc
 
 - `ai-guidelines/usage.md` - primary agent instructions (start here)
 - `ai-guidelines/diagram-authoring.md` - exhaustive diagram authoring guide (all engines, colors, theming)
-- `ai-guidelines/llms.txt` - compact CLI reference
-- `ai-guidelines/llms-full.txt` - full CLI + API reference
+- `llms.txt` - compact CLI reference
+- `llms-full.txt` - full CLI + API reference
 
 ### Root LLM Files
 
-- `llms-quick.txt` - shortest command-oriented guide
 - `llms.txt` - practical defaults and CLI usage
 - `llms-full.txt` - complete CLI + API + type reference
 
@@ -127,14 +170,46 @@ Use `diagramkit --agent-help` when you want the full reference in one command ou
 
 ## Repo Bootstrap With Agents
 
-Use `node_modules/diagramkit/ai-guidelines/usage.md` as the first file an agent reads after installing the package.
+After installing the package, agents should read in this order:
+
+1. `node_modules/diagramkit/REFERENCE.md` — landing page (always read first; reflects the exact installed version)
+2. `node_modules/diagramkit/ai-guidelines/usage.md` — primary agent setup instructions
+3. `node_modules/diagramkit/ai-guidelines/diagram-authoring.md` — per-engine authoring rules
 
 Recommended repo bootstrap steps:
 
+- `npm add diagramkit` (always prefer the local install over a global one)
 - add `"render:diagrams": "diagramkit render ."` to `package.json`
-- create `diagramkit.config.json5` only when the repository needs non-default behavior
-- run `npx diagramkit --install-skill` to create `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md`
+- create `diagramkit.config.json5` only when the repository needs non-default behavior (use `npx diagramkit init --yes` to wire the JSON Schema)
+- install diagramkit project skills via the standalone `skills` CLI so any agent works: `npx skills add sujeet-pro/diagramkit`
 - run `npx diagramkit warmup` unless the repository is Graphviz-only
+
+### Copy-paste agent prompt (bootstrap)
+
+```text
+Set up diagramkit in this repo:
+1. npm add diagramkit
+2. Read node_modules/diagramkit/REFERENCE.md (use the LOCAL install, not a
+   globally installed CLI).
+3. npx diagramkit warmup        # skip if Graphviz-only
+4. npx diagramkit init --yes    # only if non-default behavior is needed
+5. Add "render:diagrams": "diagramkit render ." to package.json
+6. npx skills add sujeet-pro/diagramkit   # installs diagramkit-* agent skills
+7. npx diagramkit render .
+```
+
+### Copy-paste agent prompt (generate a diagram + raster exports)
+
+```text
+Use the diagramkit-* skills in this repo (installed via
+`npx skills add sujeet-pro/diagramkit`) to create a [TOPIC] diagram. Read
+node_modules/diagramkit/REFERENCE.md first to anchor on the locally installed
+diagramkit version. Use diagramkit-auto to choose the engine, then the
+matching engine skill. Save the source under `diagrams/`. Render to multiple
+formats:
+  npx diagramkit render diagrams/<file> --format svg,png,webp --scale 2
+Embed it in the relevant markdown using the <picture> pattern.
+```
 
 ## Programmatic API
 
@@ -143,7 +218,9 @@ import { render, renderFile, renderAll, watchDiagrams, loadConfig, warmup, dispo
 ```
 
 `--json` returns a versioned envelope (`schemaVersion: 1`) with nested `result`.
-JSON schema: `diagramkit/schemas/diagramkit-cli-render.v1.json` (exported from the npm package).
+JSON schemas (exported from the npm package):
+- `diagramkit/schemas/diagramkit-cli-render.v1.json` — CLI render JSON output envelope
+- `diagramkit/schemas/diagramkit-config.v1.json` — `diagramkit.config.{json5,json}` config file
 
 Exit codes: `0` = success, `1` = error (render failure, unknown command, etc.).
 Use `--quiet --json` together for clean JSON on stdout (suppresses log noise).

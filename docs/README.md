@@ -11,10 +11,10 @@ actions:
     link: /guide/cli
     theme: alt
   - text: CLI Options Table
-    link: /reference/cli
+    link: /reference/diagramkit/cli
     theme: alt
   - text: API Reference
-    link: /reference/api
+    link: /reference/diagramkit/api
     theme: alt
   - text: For AI Agents
     link: /guide/ai-agents
@@ -36,13 +36,20 @@ features:
 
 ## Quick Start with an AI Agent
 
-The fastest way to get started is to tell your AI coding agent:
+The fastest way to get started is to tell your AI coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, ...):
 
-> Set up diagramkit in this repo. Install the package, read `node_modules/diagramkit/llms.txt`, add a `render:diagrams` script, run `npx diagramkit --install-skill`, and render all diagram files to SVG.
+> Set up diagramkit in this repo:
+>
+> 1. `npm add diagramkit`.
+> 2. Read `node_modules/diagramkit/REFERENCE.md` (anchor on the LOCAL install).
+> 3. `npx diagramkit warmup` (skip if Graphviz-only).
+> 4. Add `"render:diagrams": "diagramkit render ."` to `package.json`.
+> 5. Install diagramkit's agent skills with the standalone `skills` CLI: `npx skills add sujeet-pro/diagramkit`.
+> 6. Render all diagrams to SVG: `npx diagramkit render .`.
 
-The agent will install diagramkit, set up the browser when needed, add project skills for Claude and Cursor, and render everything. If you are using Claude Code, [Cursor](https://cursor.com), or a similar tool, diagramkit ships `llms-quick.txt`, `llms.txt`, and `llms-full.txt` so the agent already knows the full API.
+The agent will install diagramkit (locally, never globally), warm up the browser when needed, install diagramkit's engine + setup + auto-router skills via [`npx skills`](https://github.com/vercel-labs/skills), and render everything. diagramkit ships `REFERENCE.md`, `llms.txt`, `llms-full.txt`, and `ai-guidelines/` inside the npm package, so the agent always reads documentation pinned to the installed version.
 
-Need a setup playbook? See [AI Agents](/guide/ai-agents).
+Need a setup playbook? See [AI Agents](./guide/ai-agents/README.md) and [Getting Started](./guide/getting-started/README.md).
 
 ## Quick Start (Manual)
 

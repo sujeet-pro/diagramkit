@@ -1,0 +1,7 @@
+{
+  $schema: './node_modules/@pagesmith/docs/schemas/docs-section-meta.schema.json',
+  displayName: 'How it works',
+  description: 'Internals — browser pool, manifest, rendering pipeline, color processing',
+  orderBy: 'manual',
+  items: ['pool', 'manifest', 'rendering-pipeline', 'color-processing'],
+}

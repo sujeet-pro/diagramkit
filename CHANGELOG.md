@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Bundled Assets guide** at `docs/guide/bundled-assets/README.md` — an explicit map of every file the npm package ships beyond the JS bundles (REFERENCE.md, llms.txt/llms-full.txt, ai-guidelines/, schemas/, skills/, dist/), with five copy-paste agent prompts that reference each asset by its `node_modules/diagramkit/` path so agents stay anchored on the locally installed version.
+- **CLI `validate` documentation** in `docs/guide/cli/README.md`, `docs/reference/diagramkit/cli/README.md`, `llms.txt`, `llms-full.txt`, and `REFERENCE.md`. The command was already implemented and shipped — this release brings the docs back in sync with the code.
+- **CLI `--strict` flag** documented across the same surfaces. `--strict` (render-failure strictness) is independent of `--strict-config` (config-validation strictness) and exits non-zero if any single render fails inside a batch.
+- **Interactive flag matrix** documented (`--interactive`/`-i`, `--no-interactive`, `--yes`/`-y`) in the CLI guide and reference, plus the bare-`diagramkit` top-level picker behavior.
+- **Project-level link-style validation** in `scripts/validate-pagesmith.ts`. Every internal link inside `docs/**` must now use the explicit `./path/README.md` (or `./file.md`) form. Pagesmith rewrites these to clean URLs at build time, but the source file always points at a real markdown source on disk. The pagesmith `internalLinksMustBeMarkdown` resolver check is also enabled unconditionally (previously opt-in via `--full`).
+- **SVG validation edge-case tests** covering missing `xmlns`, invalid `viewBox`, whitespace-only content, multi-URL external resource truncation, missing-file behavior, recursive vs top-level directory scans, and non-SVG file skipping.
+- **CLI e2e tests for `validate`**: pass case, `--json` output shape, broken-SVG failure path, missing-path error path, and `--strict` propagation in directory render mode.
+
+### Changed
+
+- All internal links inside `docs/**` rewritten from `[text](/section/path)` to relative `[text](./path/README.md)` form so the source-of-truth check (`internalLinksMustBeMarkdown`) and the new project-level link-style check both pass. Frontmatter `actions[].link` URLs in `docs/README.md` keep the URL form because pagesmith handles them as nav buttons.
+
+### Removed
+
+- **Breaking:** `diagramkit --install-skill` CLI flag and the `src/agent-skill.ts` module that backed it. Skill installation is now delegated to the standalone [`skills`](https://github.com/vercel-labs/skills) CLI from Vercel Labs (`npx skills add sujeet-pro/diagramkit`), so the same diagramkit-\* skills work across 41+ agents (Claude Code, Cursor, Codex, Continue, OpenCode, …) and stay current via `npx skills update sujeet-pro/diagramkit` without bumping the diagramkit npm package. Running the legacy flag now exits with code 1 and prints the replacement command.
+
+### Changed
+
+- All consumer-facing skills (`diagramkit-setup`, `diagramkit-auto`, `diagramkit-mermaid`, `diagramkit-excalidraw`, `diagramkit-draw-io`, `diagramkit-graphviz`) now explicitly anchor on the **locally installed** CLI/API. They read `node_modules/diagramkit/REFERENCE.md` first and run `npx diagramkit ...` (which auto-resolves to `./node_modules/.bin/diagramkit`) so the agent always uses the version pinned in this repo, never a divergent global install.
+- Agent-facing docs (`README.md`, `REFERENCE.md`, `llms.txt`, `llms-full.txt`, `ai-guidelines/usage.md`, `docs/guide/getting-started/`, `docs/guide/ai-agents/`, `docs/guide/cli/`, `docs/reference/diagramkit/cli/`) now include copy-paste prompts that bootstrap diagramkit and install all `diagramkit-*` skills via `npx skills add sujeet-pro/diagramkit`, plus prompts for generating diagrams that flow through diagramkit's multi-format SVG/PNG/JPEG/WebP/AVIF rendering.
+
+### Migration
+
+- Replace any `npx diagramkit --install-skill` invocations or scripts with `npx skills add sujeet-pro/diagramkit` (optionally pass `-a <agent>` to target specific agents or `-s <skill>` to pick specific diagramkit-\* skills).
+- Re-install skills after upgrading; `npx skills update sujeet-pro/diagramkit` keeps them current independent of the diagramkit npm version.
+
+### Added
+
+- Interactive CLI mode powered by `@clack/prompts`, usable across the whole tool rather than just `diagramkit init`:
+  - Running `diagramkit` bare on a TTY now launches a top-level picker (render / validate / init / doctor / warmup).
+  - `diagramkit render` automatically enters an interactive wizard when invoked without a target on a TTY; prompts are seeded from the effective `DiagramkitConfig` discovered by walking up from `cwd` (`diagramkit.config.ts`/`.json5`/`.diagramkitrc.json`), falling back to built-in defaults.
+  - `diagramkit validate` gets an interactive wizard for target + `--recursive` when run without args.
+  - New flags: `--interactive` / `-i` forces the wizard even with args present; `--no-interactive` guarantees the old flag-driven behavior for CI and agents (in addition to existing `--yes`/`-y`). On non-TTY environments `--interactive` warns once and falls back safely.
+
 ### Fixed
 
 - CLI startup now resolves symlinked npm bin entrypoints to the real file, so `npx diagramkit`, `./node_modules/.bin/diagramkit`, and direct `dist/cli/bin.mjs` invocation behave consistently for `--version` and normal render commands.
@@ -49,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- CI workflow referencing non-existent `build:docs` script (now `docs:build`)
+- CI workflow referencing non-existent `build:docs` script (now `build:docs`)
 - Docs deployment workflow using stale VitePress output path (now `gh-pages/`)
 - Output directory shown as `.diagrams/` instead of `.diagramkit/` in diagram engine guides
 - Incorrect `postProcessDarkSvg` import path in JS API docs

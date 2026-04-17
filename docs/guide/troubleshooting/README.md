@@ -10,6 +10,12 @@ description: Common issues and solutions for diagramkit rendering problems.
   <img src=".diagramkit/troubleshooting-flow-light.svg" alt="Troubleshooting decision tree: common issues and quick fixes">
 </picture>
 
+## Do it with an agent
+
+> diagramkit is failing in this repo. Run `npx diagramkit doctor --json` and `npx diagramkit render . --dry-run --json`, then use the JSON output to diagnose. Read `node_modules/diagramkit/llms-full.txt` for error code meanings. Common fixes: missing Chromium → `npx diagramkit warmup`; missing sharp for raster → `npm add sharp`; stale manifest → `--force`. Report the specific cause and the fix applied.
+
+## Do it manually
+
 ## Local npm Bin Command Is Silent
 
 **Symptom:** `./node_modules/.bin/diagramkit --version` prints nothing, or `npx diagramkit render ...` exits without output.
@@ -98,7 +104,7 @@ diagramkit render . --no-contrast
 2. **Use neutral fills** in Mermaid diagrams -- bright neon colors (high luminance) are darkened to meet WCAG contrast thresholds
 3. **Draw.io and Excalidraw** handle dark mode in their own renderers -- `--no-contrast` has no effect on these engines
 
-See [Architecture](/guide/architecture) for details on how each engine handles dark mode.
+See [Architecture](../architecture/README.md) for details on how each engine handles dark mode.
 
 ## Watch Mode Stops Detecting Changes
 

@@ -5,6 +5,14 @@ description: Layered configuration system -- config files, environment variables
 
 # Configuration
 
+## Do it with an agent
+
+> Configure diagramkit for this repo. Read `node_modules/diagramkit/llms.txt` first. If the defaults (SVG, both themes, `.diagramkit/` output dir, incremental rebuild) work, do nothing. Otherwise run `npx diagramkit init --yes` to scaffold `diagramkit.config.json5`, then edit only the fields this repo actually needs to override (formats, theme, outputDir, sameFolder, outputPrefix/Suffix).
+
+For a TypeScript config with autocompletion: `npx diagramkit init --ts`.
+
+## Do it manually
+
 diagramkit works with zero configuration. All settings have sensible defaults. When you need to customize, settings merge in this order (later sources override earlier):
 
 <picture>
@@ -19,7 +27,7 @@ diagramkit works with zero configuration. All settings have sensible defaults. W
 5. **CLI flags / API overrides** -- highest priority
 
 Use `--config <path>` to point at a specific config file instead of auto-discovery.
-For a quick chooser, see [Config Decision Matrix](/guide/configuration/config-decision-matrix).
+For a quick chooser, see [Config Decision Matrix](./config-decision-matrix.md).
 
 ## Config Files
 

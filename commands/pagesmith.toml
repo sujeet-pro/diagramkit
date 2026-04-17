@@ -6,7 +6,7 @@ Focus on concrete, implementation-ready help:
 - design collections with defineCollection
 - configure createContentLayer and defineConfig
 - prefer folder-based markdown entries when local assets sit beside content
-- follow the markdown guidelines in `.pagesmith/markdown-guidelines.md`
+- follow the markdown guidelines in `.agents/skills/prj-update-docs/references/pagesmith-markdown.md` (or `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md` for the canonical version-matched copy)
 - for docs bootstrap or retrofit tasks, start with `node_modules/@pagesmith/docs/ai-guidelines/setup-docs.md`
 - read `node_modules/@pagesmith/docs/ai-guidelines/docs-guidelines.md` and `node_modules/@pagesmith/docs/ai-guidelines/markdown-guidelines.md` before editing docs content or structure
 - for docs sites, follow the convention-based `content/` structure

@@ -12,6 +12,12 @@ description: Render Draw.io XML diagrams with automatic light/dark theme color a
 
 [Draw.io](https://www.drawio.com/) (diagrams.net) produces XML-based diagram files. diagramkit includes a built-in renderer that parses mxGraphModel XML and converts shapes and edges to SVG.
 
+## Do it with an agent
+
+> Author a Draw.io diagram for [TOPIC]. Load the `diagramkit-draw-io` skill from `node_modules/diagramkit/skills/diagramkit-draw-io/` (or its `references/`). Create `<name>.drawio.xml`, render with `npx diagramkit render <name>.drawio.xml`, then validate with `npx diagramkit validate .diagramkit/ --recursive`. Iterate until errors are zero.
+
+## Do it manually
+
 ## File Extensions
 
 `.drawio`, `.drawio.xml`, `.dio` -- all treated identically.

@@ -257,17 +257,19 @@ Extensions: `.mermaid`, `.mmd`, `.mmdc`
 ### Build Rules
 
 1. Start every source file with a comment header:
-   ```
-   %% Diagram: <title>
-   %% Type: <diagram-type>
-   ```
-2. Pick the smallest diagram type that matches the job
-3. Use semantic IDs (`auth_service`, not `a`)
-4. Keep a single diagram focused — split large systems into multiple files
-5. Prefer `classDef` and `linkStyle` over repetitive inline styling
-6. Use hex colors, not named colors
-7. Let diagramkit control theme — do not hardcode `%%{init: {theme: ...}}%%`
-8. For `<img>` embeds, add `%%{init: {'htmlLabels': false}}%%` at the top
+
+```
+ %% Diagram: <title>
+ %% Type: <diagram-type>
+```
+
+1. Pick the smallest diagram type that matches the job
+2. Use semantic IDs (`auth_service`, not `a`)
+3. Keep a single diagram focused — split large systems into multiple files
+4. Prefer `classDef` and `linkStyle` over repetitive inline styling
+5. Use hex colors, not named colors
+6. Let diagramkit control theme — do not hardcode `%%{init: {theme: ...}}%%`
+7. For `<img>` embeds, add `%%{init: {'htmlLabels': false}}%%` at the top
 
 ### Type Routing
 
@@ -1234,15 +1236,15 @@ project/
 
 Before finishing a diagram:
 
-- [ ] Does the page become easier to understand with this diagram?
-- [ ] Is the chosen engine the simplest one that fits?
-- [ ] Are semantic IDs and descriptive labels used throughout?
-- [ ] Do colors use the mid-tone palette (not near-white or near-black)?
-- [ ] Is the source file committed alongside rendered outputs?
-- [ ] Is the markdown embed correct for the target surface?
-- [ ] Is alt text descriptive and specific?
-- [ ] Did you re-render after edits?
-- [ ] Did you check both light and dark variants?
+- Does the page become easier to understand with this diagram?
+- Is the chosen engine the simplest one that fits?
+- Are semantic IDs and descriptive labels used throughout?
+- Do colors use the mid-tone palette (not near-white or near-black)?
+- Is the source file committed alongside rendered outputs?
+- Is the markdown embed correct for the target surface?
+- Is alt text descriptive and specific?
+- Did you re-render after edits?
+- Did you check both light and dark variants?
 
 ## Anti-Patterns
 

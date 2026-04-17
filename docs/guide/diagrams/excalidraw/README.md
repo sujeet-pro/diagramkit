@@ -12,6 +12,12 @@ description: Render Excalidraw hand-drawn style diagrams from JSON files with au
 
 [Excalidraw](https://excalidraw.com/) is a virtual whiteboard that produces hand-drawn style diagrams. diagramkit renders `.excalidraw` JSON files using the official `@excalidraw/excalidraw` library in headless Chromium.
 
+## Do it with an agent
+
+> Author an Excalidraw diagram for [TOPIC]. Load the `diagramkit-excalidraw` skill from `node_modules/diagramkit/skills/diagramkit-excalidraw/` (or its `references/`). Create `<name>.excalidraw`, render with `npx diagramkit render <name>.excalidraw`, then validate with `npx diagramkit validate .diagramkit/ --recursive`. Iterate until errors are zero.
+
+## Do it manually
+
 ## File Extensions
 
 `.excalidraw`

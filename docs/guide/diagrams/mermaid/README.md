@@ -12,6 +12,12 @@ description: Render Mermaid text-based diagrams with automatic light/dark theme 
 
 [Mermaid](https://mermaid.js.org/) is a text-based diagramming language. diagramkit renders Mermaid files using headless Chromium with the official mermaid library.
 
+## Do it with an agent
+
+> Author a Mermaid diagram for [TOPIC]. Load the `diagramkit-mermaid` skill from `node_modules/diagramkit/skills/diagramkit-mermaid/` (or its `references/`) for type-specific guidance. Create `<name>.mermaid`, render with `npx diagramkit render <name>.mermaid`, then validate with `npx diagramkit validate .diagramkit/ --recursive`. Iterate until errors are zero.
+
+## Do it manually
+
 ## File Extensions
 
 `.mermaid`, `.mmd`, `.mmdc` -- all treated identically.

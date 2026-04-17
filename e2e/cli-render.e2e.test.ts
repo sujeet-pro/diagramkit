@@ -551,32 +551,25 @@ describe('CLI rendering e2e', () => {
     expect(content).toContain('diagramkit configuration')
     expect(content).toContain('{')
     expect(content).toContain('}')
+    // The generated config wires up the JSON Schema reference so editors
+    // (VSCode, JetBrains, etc.) offer autocomplete for diagramkit.config.*.
+    expect(content).toContain(
+      "$schema: './node_modules/diagramkit/schemas/diagramkit-config.v1.json'",
+    )
     expect(stdout).toContain('diagramkit.config.json5')
   }, 120_000)
 
-  it('--install-skill creates project skills and skips existing files', () => {
-    const workspace = createWorkspace('e2e-cli-install-skill')
-    const claudeSkillPath = join(workspace, '.claude', 'skills', 'diagramkit', 'SKILL.md')
-    const cursorSkillPath = join(workspace, '.cursor', 'skills', 'diagramkit', 'SKILL.md')
+  it('--install-skill is removed and points users at the standalone "skills" CLI', () => {
+    const workspace = createWorkspace('e2e-cli-install-skill-removed')
 
-    const first = runCli(['--install-skill'], workspace)
+    const result = runCliSafe(['--install-skill'], workspace)
 
-    expect(existsSync(claudeSkillPath)).toBe(true)
-    expect(existsSync(cursorSkillPath)).toBe(true)
-    expect(first).toContain('.claude/skills/diagramkit/SKILL.md')
-    expect(first).toContain('.cursor/skills/diagramkit/SKILL.md')
-
-    const installedContent = readFileSync(cursorSkillPath, 'utf-8')
-    expect(installedContent).toContain('node_modules/diagramkit/llms.txt')
-    expect(installedContent).toContain('"render:diagrams": "diagramkit render ."')
-
-    writeFileSync(claudeSkillPath, 'custom skill\n')
-
-    const second = runCli(['--install-skill'], workspace)
-
-    expect(readFileSync(claudeSkillPath, 'utf-8')).toBe('custom skill\n')
-    expect(readFileSync(cursorSkillPath, 'utf-8')).toBe(installedContent)
-    expect(second).toContain('Skipped existing files:')
+    expect(result.exitCode).toBe(1)
+    const combined = `${result.stdout}\n${result.stderr}`
+    expect(combined).toContain('--install-skill')
+    expect(combined).toContain('npx skills add sujeet-pro/diagramkit')
+    expect(existsSync(join(workspace, '.claude', 'skills', 'diagramkit', 'SKILL.md'))).toBe(false)
+    expect(existsSync(join(workspace, '.cursor', 'skills', 'diagramkit', 'SKILL.md'))).toBe(false)
   }, 120_000)
 
   it('--agent-help outputs llms-full.txt content', () => {
@@ -592,6 +585,73 @@ describe('CLI rendering e2e', () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('Done.')
+  }, 120_000)
+
+  it('validate command passes for a freshly rendered .diagramkit/ folder', () => {
+    const workspace = createWorkspace('e2e-cli-validate-pass')
+
+    runCli(['render', 'architecture.mmd', '--theme', 'light', '--format', 'svg'], workspace)
+
+    const result = runCliSafe(
+      ['validate', join(workspace, '.diagramkit'), '--recursive'],
+      workspace,
+    )
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('PASS')
+  }, 120_000)
+
+  it('validate --json emits structured results without an envelope', () => {
+    const workspace = createWorkspace('e2e-cli-validate-json')
+
+    runCli(['render', 'architecture.mmd', '--theme', 'light', '--format', 'svg'], workspace)
+
+    const stdout = runCli(
+      ['validate', join(workspace, '.diagramkit'), '--recursive', '--json'],
+      workspace,
+    )
+    const parsed = JSON.parse(stdout.trim().split('\n').pop()!)
+    expect(parsed).toHaveProperty('files')
+    expect(parsed).toHaveProperty('valid')
+    expect(parsed).toHaveProperty('invalid')
+    expect(Array.isArray(parsed.results)).toBe(true)
+    expect(parsed.invalid).toBe(0)
+  }, 120_000)
+
+  it('validate exits non-zero and reports issues for a broken SVG', () => {
+    const workspace = createWorkspace('e2e-cli-validate-fail')
+
+    // Drop an obviously broken SVG and validate it
+    writeFileSync(join(workspace, 'broken.svg'), '<not-an-svg></not-an-svg>')
+
+    const result = runCliSafe(['validate', join(workspace, 'broken.svg')], workspace)
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toMatch(/FAIL/)
+    expect(result.stdout).toMatch(/MISSING_SVG_TAG/)
+  }, 120_000)
+
+  it('validate on a missing path exits non-zero with a clear message', () => {
+    const result = runCliSafe(['validate', '/does/not/exist/at/all.svg'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Path does not exist')
+  }, 120_000)
+
+  it('--strict propagates render failures to a non-zero exit code in directory mode', () => {
+    const workspace = createWorkspace('e2e-cli-strict')
+
+    // Replace the Mermaid file with broken content; renderAll will not throw
+    // for a single failure unless --strict is set.
+    writeFileSync(join(workspace, 'architecture.mmd'), 'this is not valid mermaid')
+    rmSync(join(workspace, 'whiteboard.excalidraw'))
+    rmSync(join(workspace, 'system.drawio.xml'))
+
+    const lenient = runCliSafe(['render', '.', '--format', 'svg', '--theme', 'light'], workspace)
+    expect(lenient.exitCode).not.toBe(0) // even without --strict, we exit 1 for failures
+
+    const strict = runCliSafe(
+      ['render', '.', '--format', 'svg', '--theme', 'light', '--strict'],
+      workspace,
+    )
+    expect(strict.exitCode).not.toBe(0)
   }, 120_000)
 
   it('--watch re-renders when source file changes', async () => {

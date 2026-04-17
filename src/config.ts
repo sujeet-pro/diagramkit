@@ -157,6 +157,10 @@ function migrateRawConfig(raw: unknown): Partial<DiagramkitConfig> {
   if (!raw || typeof raw !== 'object') return {}
   const obj = raw as Record<string, unknown>
 
+  // Strip editor-only metadata: $schema is for IDE autocomplete (see
+  // schemas/diagramkit-config.v1.json) and is not part of DiagramkitConfig.
+  if ('$schema' in obj) delete obj.$schema
+
   // Migrate old defaultFormat (string) → defaultFormats (array)
   if ('defaultFormat' in obj && !('defaultFormats' in obj)) {
     obj.defaultFormats = [obj.defaultFormat]

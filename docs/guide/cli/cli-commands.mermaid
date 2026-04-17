@@ -1,12 +1,13 @@
 %% Diagram: CLI Command Structure
 %% Type: flowchart
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 flowchart TB
     diagramkit[diagramkit] --> render[render]
     diagramkit --> warmup[warmup]
     diagramkit --> doctor[doctor]
     diagramkit --> init[init]
-    diagramkit --> install_skill[--install-skill]
     diagramkit --> agent_help[--agent-help]
+    skills_cli["npx skills add\nsujeet-pro/diagramkit"] -. installs agent skills .-> diagramkit
 
     render --> format_flag["--format svg,png,jpeg,webp,avif"]
     render --> theme_flag["--theme light,dark,both"]

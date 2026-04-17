@@ -7,6 +7,7 @@ export default defineConfig({
       utils: 'src/utils.ts',
       'color/index': 'src/color/index.ts',
       convert: 'src/convert.ts',
+      validate: 'src/validate.ts',
       'cli/bin': 'cli/bin.ts',
       'renderers/drawio-entry': 'src/renderers/drawio-entry.ts',
       'renderers/excalidraw-entry': 'src/renderers/excalidraw-entry.ts',

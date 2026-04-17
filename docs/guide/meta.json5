@@ -3,34 +3,48 @@
   displayName: 'Guide',
   description: 'Learn how to use diagramkit',
   orderBy: 'manual',
+  // AI-first ordering: agent workflows come before manual instructions.
+  // Every guide page should include a "Do it with an agent" section before
+  // a "Do it manually" section. See .agents/skills/prj-update-docs/references/docs-workflow.md.
   items: [
-    'getting-started',
-    'design-principles',
     'ai-agents',
+    'getting-started',
+    'configuration',
+    'cli',
+    'js-api',
+    'bundled-assets',
     'diagrams/mermaid',
     'diagrams/excalidraw',
     'diagrams/drawio',
     'diagrams/graphviz',
-    'cli',
-    'configuration',
-    'image-formats',
     'watch-mode',
-    'js-api',
-    'api-patterns',
+    'image-formats',
     'ci-cd',
+    'api-patterns',
     'architecture',
+    'design-principles',
     'troubleshooting',
   ],
   series: [
     {
-      slug: 'start-here',
-      displayName: 'Start here',
-      articles: ['getting-started', 'design-principles'],
-    },
-    {
       slug: 'ai-assistants',
       displayName: 'AI assistants',
       articles: ['ai-agents'],
+    },
+    {
+      slug: 'start-here',
+      displayName: 'Start here',
+      articles: ['getting-started', 'configuration'],
+    },
+    {
+      slug: 'cli-workflow',
+      displayName: 'CLI & workflow',
+      articles: ['cli', 'watch-mode', 'image-formats'],
+    },
+    {
+      slug: 'javascript-automation',
+      displayName: 'JavaScript & automation',
+      articles: ['js-api', 'api-patterns', 'ci-cd', 'bundled-assets'],
     },
     {
       slug: 'diagram-sources',
@@ -38,19 +52,9 @@
       articles: ['diagrams/mermaid', 'diagrams/excalidraw', 'diagrams/drawio', 'diagrams/graphviz'],
     },
     {
-      slug: 'cli-workflow',
-      displayName: 'CLI & workflow',
-      articles: ['cli', 'configuration', 'image-formats', 'watch-mode'],
-    },
-    {
-      slug: 'javascript-automation',
-      displayName: 'JavaScript & automation',
-      articles: ['js-api', 'api-patterns', 'ci-cd'],
-    },
-    {
       slug: 'internals',
       displayName: 'How it works',
-      articles: ['architecture'],
+      articles: ['architecture', 'design-principles'],
     },
     {
       slug: 'help',

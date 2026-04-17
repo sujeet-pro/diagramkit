@@ -12,6 +12,12 @@ description: Automatically re-render diagrams when source files change.
 
 Watch mode monitors diagram source files and re-renders them on save. It uses [chokidar](https://github.com/paulmillr/chokidar) for file watching.
 
+## Do it with an agent
+
+> Start diagramkit in watch mode so my diagrams update as I edit them. Run `npx diagramkit render . --watch` in a separate terminal. If Chromium is not installed yet, run `npx diagramkit warmup` first (skip if Graphviz-only).
+
+## Do it manually
+
 ## CLI Usage
 
 ```bash

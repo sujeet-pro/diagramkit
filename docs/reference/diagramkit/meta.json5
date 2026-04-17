@@ -1,0 +1,24 @@
+{
+  $schema: './node_modules/@pagesmith/docs/schemas/docs-section-meta.schema.json',
+  displayName: 'diagramkit',
+  description: 'Per-surface reference for the diagramkit npm package',
+  orderBy: 'manual',
+  items: ['cli', 'api', 'config', 'types', 'utils', 'color', 'convert'],
+  series: [
+    {
+      slug: 'cli-config',
+      displayName: 'CLI & configuration',
+      articles: ['cli', 'config'],
+    },
+    {
+      slug: 'api-types',
+      displayName: 'API & types',
+      articles: ['api', 'types'],
+    },
+    {
+      slug: 'subpaths',
+      displayName: 'Subpath exports',
+      articles: ['utils', 'color', 'convert'],
+    },
+  ],
+}

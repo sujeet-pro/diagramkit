@@ -19,29 +19,39 @@ npm add sharp
 
 ### Repo Bootstrap For Agents
 
-Use `node_modules/diagramkit/llms.txt` as the first file to read when adding diagramkit to an existing repository.
+Use `node_modules/diagramkit/REFERENCE.md` (then `node_modules/diagramkit/ai-guidelines/usage.md`) as the first files to read when adding diagramkit to an existing repository. Always anchor on the locally installed version under `node_modules/`, not a globally installed `diagramkit` CLI.
 
 Recommended setup steps:
 
-1. Add `"render:diagrams": "diagramkit render ."` to `package.json`.
-2. Create `diagramkit.config.json5` only if the repository needs non-default behavior.
-3. Run `npx diagramkit --install-skill` to create `.claude/skills/diagramkit/SKILL.md` and `.cursor/skills/diagramkit/SKILL.md`.
-4. Run `npx diagramkit warmup` unless the repository is Graphviz-only.
+1. `npm add diagramkit`.
+2. Add `"render:diagrams": "diagramkit render ."` to `package.json`.
+3. Create `diagramkit.config.json5` only if the repository needs non-default behavior (`npx diagramkit init --yes` wires up the JSON Schema for editor autocomplete).
+4. Install the diagramkit-* agent skills with the standalone [`skills`](https://github.com/vercel-labs/skills) CLI (works for Claude Code, Cursor, Codex, Continue, OpenCode, ...):
+   `npx skills add sujeet-pro/diagramkit`
+   The CLI also accepts agent-targeting flags (`-a claude-code -a cursor`) and skill-targeting flags (`-s diagramkit-setup -s diagramkit-mermaid`).
+5. Run `npx diagramkit warmup` unless the repository is Graphviz-only.
+
+> The diagramkit npm package no longer ships its own `--install-skill` flag; skill installation is delegated to `npx skills` so it can target any agent and stay current via `npx skills update`.
 
 ## CLI Reference
 
 ### Commands
 
 ```
-diagramkit render <file-or-dir> [options]    Render diagram file(s) to images
-diagramkit <file-or-dir> [options]           Alias for "diagramkit render"
-diagramkit warmup                            Pre-install Playwright chromium browser
-diagramkit doctor                            Validate runtime dependencies and environment
-diagramkit init [--ts]                       Create config file (JSON5 or TypeScript)
-diagramkit --install-skill                   Install project skills for Claude and Cursor
-diagramkit --version                         Show version
-diagramkit --help                            Show help
-diagramkit --agent-help                      Output full reference for LLM agents (this file)
+diagramkit render <file-or-dir> [options]            Render diagram file(s) to images
+diagramkit <file-or-dir> [options]                   Alias for "diagramkit render"
+diagramkit validate <file-or-dir> [--recursive]      Validate generated SVGs for img-tag compatibility
+                                  [--json]
+diagramkit warmup                                    Pre-install Playwright chromium browser
+diagramkit doctor [--json]                           Validate runtime dependencies and environment
+diagramkit init [--ts] [--yes]                       Create config file (JSON5 or TypeScript)
+diagramkit                                           Interactive picker (TTY only)
+diagramkit --version                                 Show version
+diagramkit --help                                    Show help
+diagramkit --agent-help                              Output full reference for LLM agents (this file)
+diagramkit --interactive / -i                        Force interactive wizard (TTY required)
+diagramkit --no-interactive                          Disable interactive wizard (CI / agents)
+diagramkit --yes / -y                                Alias for --no-interactive
 ```
 
 ### Render Options
@@ -67,11 +77,37 @@ diagramkit --agent-help                      Output full reference for LLM agent
 --dry-run                Show what would be rendered without rendering
 --plan                   Show stale plan with reasons (directory mode)
 --strict-config          Fail on config warnings/invalid values
+--strict                 Exit non-zero on any single render failure
 --max-type-lanes <1-4>   Max concurrent engine lanes in batch render
 --log-level <level>      Logging verbosity: silent/error/warn/info/verbose (default: info)
 --quiet                  Suppress informational output, only show errors
 --json                   Output results as JSON (for CI/scripting)
+--interactive / -i       Force the interactive wizard (TTY only)
+--no-interactive         Disable the interactive wizard (CI / agents)
+--yes / -y               Alias for --no-interactive
 ```
+
+### Validate Command
+
+```
+diagramkit validate <file-or-dir> [--recursive] [--json]
+```
+
+Validates generated SVG files for structural correctness and `<img>`-tag
+renderability. Checks every `.svg` in scope for:
+
+- empty file or missing `<svg>` root
+- missing `xmlns="http://www.w3.org/2000/svg"`
+- missing `width`/`height` AND no `viewBox` (silent layout failure under `<img>`)
+- embedded `<script>` tags (browsers block scripts in SVGs loaded via `<img>`)
+- `<foreignObject>` warnings (does not render in all contexts; for Mermaid, set `htmlLabels: false`)
+- external `href`/`xlink:href` resources (blocked under `<img>`)
+- 50 MB size warning (likely renders slowly)
+
+Without `--recursive`, only files in the top level of the target directory are
+scanned. With `--json`, the command emits `{ files, valid, invalid, results: [...] }`
+suitable for CI parsing. Exits non-zero when any file fails. The same checks run
+automatically as a post-render gate inside `diagramkit render`.
 
 Exit codes: `0` = success, `1` = error (render failure, unknown command, etc.)
 

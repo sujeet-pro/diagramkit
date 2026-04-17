@@ -16,6 +16,12 @@ diagramkit works in any CI environment with Node.js 24+. The key requirements ar
 2. Render diagrams
 3. (Optional) Fail the build if any diagrams fail to render
 
+## Do it with an agent
+
+> Add a CI job that renders all diagrams on every push. Use the repo's existing CI system. Cache Playwright browsers. Run `npx diagramkit warmup` once (unless Graphviz-only), then `npx diagramkit render . --force --json > .temp/render.json` and fail the build if any `failedDetails[]` entries exist. Check the rendered SVGs into the branch or upload as an artifact — follow this repo's convention.
+
+## Do it manually
+
 ## GitHub Actions
 
 ```yaml

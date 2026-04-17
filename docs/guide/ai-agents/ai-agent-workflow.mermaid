@@ -1,16 +1,19 @@
 %% Diagram: AI Agent Workflow
 %% Type: sequenceDiagram
+%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
 sequenceDiagram
     participant Agent as AI Agent
-    participant CLI as diagramkit CLI
+    participant CLI as diagramkit CLI (local)
+    participant Skills as npx skills (Vercel Labs)
     participant FS as File System
 
     Agent->>CLI: npm add diagramkit
-    Agent->>CLI: npx diagramkit --install-skill
-    CLI->>FS: Write .claude/skills/ & .cursor/skills/
+    Agent->>FS: read node_modules/diagramkit/REFERENCE.md
     Agent->>CLI: npx diagramkit warmup
     CLI->>FS: Install Chromium binary
+    Agent->>Skills: npx skills add sujeet-pro/diagramkit
+    Skills->>FS: Write diagramkit-* skills under .claude/, .cursor/, .codex/, ...
     Agent->>CLI: npx diagramkit render . --json
     CLI->>FS: Discover diagram files
-    CLI->>FS: Write SVG outputs to .diagramkit/
+    CLI->>FS: Write SVG / PNG / JPEG / WebP / AVIF outputs to .diagramkit/
     CLI-->>Agent: JSON result (rendered, skipped, failed)

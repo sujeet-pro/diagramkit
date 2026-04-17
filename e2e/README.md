@@ -35,7 +35,8 @@ CLI tests run against the built `dist/cli/bin.mjs`.
 - `--output-prefix` / `--output-suffix` naming controls
 - `--force`, `--dry-run`, `--plan --json`, `--json`, `--quiet`
 - `--no-contrast`, `--scale`, `--quality`, `--strict-config`, `--max-type-lanes`
-- `init`, `doctor`, `--install-skill`, `--agent-help`, `warmup`
+- `init`, `doctor`, `--agent-help`, `warmup`
+- the removal/deprecation of `--install-skill` (now installed via `npx skills add sujeet-pro/diagramkit`)
 - watch mode re-rendering on file changes
 
 ## Structure

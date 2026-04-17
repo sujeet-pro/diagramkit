@@ -49,8 +49,8 @@
       ],
     },
   ],
-  assets: {
-    '/': ['llms-quick.txt'],
-    '/packages/diagramkit': ['llms.txt', 'llms-full.txt', 'llms-quick.txt'],
-  },
+  // llms.txt and llms-full.txt are published to gh-pages/
+  // by scripts/copy-llms.ts after build:docs completes. The source of truth
+  // lives under ai-guidelines/ so the shipped npm package and the docs site
+  // stay in sync from a single edit.
 }

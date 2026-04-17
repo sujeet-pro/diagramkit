@@ -62,3 +62,13 @@ export { renderGraphviz } from './graphviz'
 /* ── Color ── */
 
 export { postProcessDarkSvg } from './color/contrast'
+
+/* ── Validate ── */
+
+export {
+  validateSvg,
+  validateSvgFile,
+  validateSvgDirectory,
+  formatValidationResult,
+} from './validate'
+export type { SvgIssue, SvgIssueCode, SvgIssueSeverity, SvgValidationResult } from './validate'
