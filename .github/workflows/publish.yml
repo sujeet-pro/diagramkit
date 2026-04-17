@@ -68,6 +68,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      # The cicd gate re-renders docs SVGs as part of `npm run build:docs`;
+      # because Chromium / sharp output is platform-sensitive, a clean
+      # checkout on Ubuntu may produce byte-different SVGs than what was
+      # committed from a contributor laptop. Discard any non-source changes
+      # to tracked artifacts so `npm version` (which requires a clean tree)
+      # can proceed. Any *real* source changes would already have failed
+      # `npm run check` / `npm run typecheck` upstream.
+      - name: Reset render-only artifact diffs
+        run: |
+          git checkout -- 'docs/**/*.svg' || true
+          git status --short
+
       - name: Bump version
         run: 'npm version ${{ inputs.release_type }} -m "release: v%s"'
 
