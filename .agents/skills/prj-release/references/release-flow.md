@@ -74,7 +74,7 @@ gh run watch
 
 - `npm view diagramkit version` matches the new tag.
 - `gh release view v<version>` shows the release.
-- `npm add diagramkit@latest` in a scratch folder; `npx diagramkit --version` works.
+- `npm add diagramkit@latest` in a throwaway directory **outside** this repo (e.g. `$(mktemp -d)`; never inside the diagramkit checkout — the `.temp/` non-negotiable applies only to in-repo scratch). Then `npx diagramkit --version` should resolve to the new release.
 - `https://projects.sujeet.pro/diagramkit/` rebuilt (cicd.yml deploys docs on push to main).
 
 ## Rollback

@@ -7,6 +7,14 @@ description: Every file the diagramkit npm package ships beyond the JS bundles â
 
 The diagramkit npm package ships more than just JavaScript. Every release also publishes a JSON Schema for the config and CLI envelope, two LLM context files, agent setup guides, and a directory of installable agent skills. Agents and CI tools can resolve every one of them from `node_modules/diagramkit/` so they always match the installed version.
 
+## Do it with an agent
+
+Pick the prompt that matches your task from [Copy-paste agent prompts that reference the bundled assets](#copy-paste-agent-prompts-that-reference-the-bundled-assets) below. Each prompt is self-contained and points the agent at the matching bundled file under `node_modules/diagramkit/`.
+
+## Do it manually
+
+Look up the file you need in the [Asset map](#asset-map) below. Every asset is reachable as `node_modules/diagramkit/<path>` after `npm add diagramkit`, and most are also exported from `package.json` `exports` (so `import schema from 'diagramkit/schemas/diagramkit-config.v1.json' with { type: 'json' }` works).
+
 ## Asset map
 
 | Asset                                                       | Path inside `node_modules/diagramkit/`                                | Use when                                                                                                                |

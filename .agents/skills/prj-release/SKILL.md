@@ -80,7 +80,7 @@ The workflow will:
 
 - `npm view diagramkit version` matches the new tag.
 - `gh release view v<version>` shows the release.
-- Install in a scratch folder: `npm add diagramkit@latest` and run `npx diagramkit --version`.
+- Install in a throwaway directory **outside** the diagramkit checkout (e.g. `mktemp -d` or any path under `~/scratch/`, never inside this repo — `.temp/` is for in-repo scratch only). Run `npm add diagramkit@latest` and `npx diagramkit --version` to confirm the published artifact resolves cleanly.
 - Confirm `https://projects.sujeet.pro/diagramkit/` rebuilt (cicd.yml deploys docs on push to main).
 
 ## Rollback

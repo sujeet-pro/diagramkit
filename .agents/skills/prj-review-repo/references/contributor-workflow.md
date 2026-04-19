@@ -37,14 +37,14 @@ Never write ad-hoc files outside `.temp/`. Never commit `.temp/` contents.
 
 `npm run cicd` is the single canonical pre-merge check. It runs these steps sequentially:
 
-| Step              | Command                         | What it verifies                                          |
-| ----------------- | ------------------------------- | --------------------------------------------------------- |
-| 1. Lint/format    | `npm run check`                 | Oxlint + Oxfmt pass                                       |
-| 2. Typecheck      | `npm run typecheck`             | `tsc --noEmit`                                            |
-| 3. Build all      | `npm run build:all`             | `vp pack` (lib) + `pagesmith build` (docs)                |
-| 4. Unit tests     | `npm run test:unit`             | `vp test run src/`                                        |
-| 5. E2E tests      | `npm run test:e2e`              | `vp test run e2e/` (Playwright + built dist)              |
-| 6. Validate build | `tsx scripts/validate-build.ts` | `npm pack --dry-run` payload, SKILL.md frontmatter, links |
+| Step              | Command                         | What it verifies                                                                                                                                                            |
+| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Lint/format    | `npm run check`                 | Oxlint + Oxfmt pass                                                                                                                                                         |
+| 2. Typecheck      | `npm run typecheck`             | `tsc --noEmit`                                                                                                                                                              |
+| 3. Build all      | `npm run build:all`             | `vp pack` (lib) + `pagesmith build` (docs)                                                                                                                                  |
+| 4. Unit tests     | `npm run test:unit`             | `vp test run src/`                                                                                                                                                          |
+| 5. E2E tests      | `npm run test:e2e`              | `vp test run e2e/` (Playwright + built dist)                                                                                                                                |
+| 6. Validate build | `tsx scripts/validate-build.ts` | SKILL.md frontmatter + harness mirrors, `package.json` `files`/`exports` payload, shipped JSON schemas, gh-pages broken-link spot-check, docs SVG WCAG 2.2 AA contrast scan |
 
 `npm run validate` is a back-compat alias for `npm run cicd`.
 

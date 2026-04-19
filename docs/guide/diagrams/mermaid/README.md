@@ -18,6 +18,8 @@ description: Render Mermaid text-based diagrams with automatic light/dark theme 
 
 ## Do it manually
 
+Walk the page top-down — file extensions, capabilities, examples, theming, and troubleshooting are each in their own section below.
+
 ## File Extensions
 
 `.mermaid`, `.mmd`, `.mmdc` -- all treated identically.

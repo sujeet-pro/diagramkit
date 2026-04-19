@@ -9,6 +9,13 @@ This page explains how diagramkit works under the hood. Understanding the archit
 
 For the stable implementation philosophy behind these mechanics, see [Design Principles](../design-principles/README.md).
 
+> [!NOTE]
+> This is a reference/explainer page. There is no equivalent "Do it with an agent" prompt because the page is purely descriptive. Use [Getting Started](../getting-started/README.md) for the agent-first install flow and [AI Agents](../ai-agents/README.md) for prompt recipes.
+
+## Do it manually
+
+Read top-down — each section explains one piece of the pipeline.
+
 ## Render Pipeline
 
 Every diagram goes through the same pipeline: detect type from file extension, render to SVG, optionally convert to raster, and write atomically to disk.

@@ -214,8 +214,17 @@ Embed it in the relevant markdown using the <picture> pattern.
 ## Programmatic API
 
 ```ts
-import { render, renderFile, renderAll, watchDiagrams, loadConfig, warmup, dispose } from 'diagramkit'
+import {
+  render, renderFile, renderAll, renderDiagramFileToDisk, watchDiagrams,
+  warmup, dispose, createRendererRuntime,
+  defineConfig, loadConfig, getDefaultConfig, getFileOverrides,
+  convertSvg,
+  ENGINE_PROFILES, getEngineProfile, defaultMermaidDarkTheme,
+  DiagramkitError, type DiagramkitErrorCode,
+} from 'diagramkit'
 ```
+
+See `llms-full.txt` (or `diagramkit --agent-help`) for full type signatures and examples for every export above.
 
 `--json` returns a versioned envelope (`schemaVersion: 1`) with nested `result`.
 JSON schemas (exported from the npm package):

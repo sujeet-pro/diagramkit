@@ -102,7 +102,7 @@ Pattern: `{name}-{theme}.{format}`
 
 With `outputPrefix` / `outputSuffix` config:
 
-```
+```text
 ${outputPrefix}${name}${outputSuffix}-${theme}.${format}
 ```
 
@@ -110,7 +110,7 @@ ${outputPrefix}${name}${outputSuffix}-${theme}.${format}
 
 By default, output goes to `.diagramkit/` next to the source:
 
-```
+```text
 project/
   docs/
     flow.mermaid

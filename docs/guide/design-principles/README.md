@@ -12,6 +12,13 @@ description: Core architecture principles that guide diagramkit implementation a
 
 These principles define how diagramkit is built and what should remain stable through 1.0+ evolution.
 
+> [!NOTE]
+> This is a reference/explainer page. There is no equivalent "Do it with an agent" prompt because the page is purely descriptive — it documents the project's stable design constraints. Use [Getting Started](../getting-started/README.md) and [AI Agents](../ai-agents/README.md) for executable agent flows.
+
+## Do it manually
+
+Read top-down — each principle is independent and self-contained.
+
 ## One Chromium, Shared Pool
 
 Mermaid, Excalidraw, and Draw.io use one Playwright Chromium instance managed by `BrowserPool`.

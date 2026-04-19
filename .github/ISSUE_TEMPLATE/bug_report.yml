@@ -1,73 +1,155 @@
 name: Bug Report
-description: Report a bug or unexpected behavior
-labels: ['bug']
+description: Report a bug or unexpected behavior in the diagramkit library or CLI
+title: '[bug]: '
+labels: ['bug', 'needs-triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug! Please fill out the details below.
+        Thanks for taking the time to file a bug report.
+
+        Before opening this issue please:
+
+        - [Search existing issues](https://github.com/sujeet-pro/diagramkit/issues?q=is%3Aissue) to avoid duplicates.
+        - Skim the [docs](https://projects.sujeet.pro/diagramkit/) — your scenario may already be documented.
+        - Try with the latest version (`npm i diagramkit@latest`) — many fixes ship between minor releases.
+
+  - type: checkboxes
+    id: pre-checks
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched the existing issues and did not find a duplicate.
+          required: true
+        - label: I reproduced the bug on the latest published version of diagramkit.
+          required: true
+        - label: I can share a minimal reproduction (snippet, repo, or steps).
+          required: true
+
   - type: input
     id: version
     attributes:
       label: diagramkit version
-      placeholder: 'e.g. 0.0.2'
+      description: Output of `npx diagramkit --version` (or the version in `package.json`).
+      placeholder: e.g. 0.3.1
     validations:
       required: true
+
   - type: input
     id: node-version
     attributes:
       label: Node.js version
-      placeholder: '24.0.0'
+      description: Output of `node --version`.
+      placeholder: e.g. v24.4.0
     validations:
       required: true
+
+  - type: input
+    id: package-manager
+    attributes:
+      label: Package manager
+      description: Name and version (e.g. `npm 11.x`, `pnpm 9.x`, `yarn 4.x`, `bun 1.x`).
+      placeholder: e.g. npm 11.12.1
+    validations:
+      required: false
+
   - type: dropdown
     id: os
     attributes:
-      label: Operating System
+      label: Operating system
       options:
         - macOS
         - Linux
         - Windows
+        - Other
     validations:
       required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit the bug?
+      multiple: true
+      options:
+        - CLI (`diagramkit`)
+        - Library API (`import from 'diagramkit'`)
+        - Validator (`diagramkit/validate`)
+        - Color processing (`diagramkit/color`)
+        - Conversion (`diagramkit/convert`)
+        - Documentation site
+        - Build pipeline / CI
+        - Other
+    validations:
+      required: true
+
   - type: dropdown
     id: diagram-type
     attributes:
       label: Diagram type
+      multiple: true
       options:
         - Mermaid
         - Excalidraw
         - Draw.io
-        - Graphviz
+        - Graphviz (.dot/.gv)
         - All / Multiple
         - N/A
     validations:
       required: true
+
   - type: textarea
     id: description
     attributes:
       label: Description
-      description: A clear description of the bug
+      description: A clear and concise description of the bug.
     validations:
       required: true
+
   - type: textarea
     id: reproduction
     attributes:
       label: Steps to reproduce
-      description: Minimal steps to reproduce the behavior
+      description: Minimal, ordered steps to reproduce the behavior. A repo link or paste of a small diagram source is ideal.
+      placeholder: |
+        1. Create a file `chart.mermaid` with `…`
+        2. Run `npx diagramkit render chart.mermaid --format svg`
+        3. …
+      render: bash
     validations:
       required: true
+
+  - type: input
+    id: reproduction-link
+    attributes:
+      label: Reproduction link (optional)
+      description: Link to a minimal repo, gist, or CodeSandbox that reproduces the bug.
+      placeholder: https://github.com/your-name/diagramkit-repro
+
   - type: textarea
     id: expected
     attributes:
       label: Expected behavior
-      description: What you expected to happen
     validations:
       required: true
+
   - type: textarea
     id: actual
     attributes:
       label: Actual behavior
-      description: What actually happened (include error messages if any)
+      description: Include error messages, stack traces, or rendered output if relevant. Paste verbatim — no need to redact line numbers.
+      render: text
     validations:
       required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Paste any relevant CLI output, browser console output, or diagnostic logs.
+      render: text
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context (optional)
+      description: Screenshots, related issues, links to discussions, anything else that helps.

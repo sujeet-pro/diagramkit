@@ -130,13 +130,16 @@ describe('manifest', () => {
     it('returns default manifest when manifest file contains invalid JSON', () => {
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'manifest.json'), 'not json{{')
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
 
       expect(readManifest(testDir)).toEqual({ version: 2, diagrams: {} })
+      expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('failed to parse manifest'))
     })
 
     it('moves corrupt manifest files aside before resetting', () => {
       const outDir = ensureDiagramsDir(testDir)
       writeFileSync(join(outDir, 'manifest.json'), 'not json{{')
+      vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
 
       readManifest(testDir)
 

@@ -1,3 +1,10 @@
+---
+title: Config Decision Matrix
+description: Pick the smallest config surface (CLI flags, env vars, config file, or overrides) that fits your use case.
+sidebarLabel: Decision matrix
+order: 2
+---
+
 # Config Decision Matrix
 
 Choose the smallest config surface that solves your use case.

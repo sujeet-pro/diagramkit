@@ -18,6 +18,8 @@ description: Render Excalidraw hand-drawn style diagrams from JSON files with au
 
 ## Do it manually
 
+Walk the page top-down — file extensions, capabilities, authoring tips, and dark-mode behavior are each in their own section below.
+
 ## File Extensions
 
 `.excalidraw`

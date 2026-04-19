@@ -12,7 +12,11 @@ description: Agent-first onboarding and automation workflow for diagramkit.
 
 This page is the fastest path for agent-driven setup and usage.
 
-## Copy-Paste Prompt: Install Latest + Configure Skills
+## Do it with an agent
+
+The rest of this page is the agent flow — copy any of the prompts below into your AI coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, Windsurf, Gemini, GitHub Copilot, …). Start with the install/configure prompt, then use the situational prompts as you need them. If you do not have an agent available, jump to [Do it manually](#do-it-manually) for a paste-into-rules-files fallback.
+
+### Copy-Paste Prompt: Install Latest + Configure Skills
 
 Paste this prompt into your coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, Windsurf, GitHub Copilot, ...). It installs the latest diagramkit, reads the version-pinned reference, then wires up local-pointer agent skills that always defer to the skills bundled inside the installed package.
 
@@ -197,7 +201,7 @@ These copy-paste prompts can be given to any AI coding agent. They reference the
 3. **Harden:** "Use --dry-run and show what will re-render before changing files."
 4. **Automate:** "Add a CI step that runs diagramkit render . and fails on errors."
 
-## Manual Fallback Rules
+## Do it manually
 
 If your assistant does not support project skills yet, paste the equivalent guidance into the repo's memory or rules files.
 

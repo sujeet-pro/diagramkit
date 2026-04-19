@@ -139,7 +139,7 @@ schemas/
 docs/                 Documentation site content (@pagesmith/docs convention)
   README.md           Home page (DocHome layout)
   meta.json5          Header/footer navigation
-  guide/              Guide section (ai-agents FIRST, then getting-started, configuration, cli, js-api, diagrams, watch-mode, image-formats, ci-cd, api-patterns, architecture, design-principles, troubleshooting)
+  guide/              Guide section (ai-agents FIRST, then getting-started, configuration, cli, js-api, bundled-assets, diagrams, watch-mode, image-formats, ci-cd, api-patterns, architecture, design-principles, troubleshooting)
   reference/
     diagramkit/       Per-package reference series (cli, api, config, types, utils, color, convert)
     how-it-works/     "How this is built" series (pool, manifest, rendering-pipeline, color-processing)

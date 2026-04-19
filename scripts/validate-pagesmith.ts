@@ -3,14 +3,18 @@
 /**
  * Diagramkit docs validation orchestrator.
  *
- * Runs the diagramkit-specific docs checks and, when the installed
- * `@pagesmith/docs` exposes its validator API, also delegates to the
- * upstream content + build validators. The validator export is feature-
- * detected so the script keeps working against published versions of
- * `@pagesmith/docs` that do not yet ship `validateDocs` (e.g. 0.9.5,
- * which only exports `validateConfig`).
+ * Delegates markdown content and built-HTML output validation to the
+ * upstream `validateDocs` API shipped by `@pagesmith/docs`, then layers
+ * the diagramkit-specific cross-reference and link-style checks on top.
  *
- * Diagramkit-specific checks (always run):
+ * Upstream `validateDocs` covers:
+ *   - markdown frontmatter, internal/external links, images, alt text,
+ *     theme variants, raw <img> tag policy
+ *   - rendered HTML output: link integrity, in-page anchors, asset
+ *     hashes, SVG renderability, required output files (favicon.svg,
+ *     sitemap.xml, robots.txt, llms.txt, llms-full.txt)
+ *
+ * Diagramkit-specific checks (layered on top, always run):
  *
  *   1. Every diagram referenced from `docs/**` via a `<picture>` element or
  *      `![]()` syntax should resolve to a `.diagramkit/` source so that
@@ -26,12 +30,12 @@
  *   npm run validate:pagesmith              full check
  *   npm run validate:pagesmith -- --content content only
  *   npm run validate:pagesmith -- --build   build output only
- *   npm run validate:pagesmith -- --full    enable opt-in strict checks (when supported)
+ *   npm run validate:pagesmith -- --full    enable opt-in strict checks
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
-import * as pagesmithDocs from '@pagesmith/docs'
+import { validateDocs } from '@pagesmith/docs'
 import { findDiagramAssetReferences, findLinkStyleViolations } from './lib/docs-rules.ts'
 
 const repoRoot = resolve(import.meta.dirname, '..')
@@ -44,43 +48,21 @@ const fullPreset = args.includes('--full')
 let totalErrors = 0
 let totalWarnings = 0
 
-interface ValidateDocsResult {
-  errors: number
-  warnings: number
-}
-type ValidateDocsFn = (options: Record<string, unknown>) => Promise<ValidateDocsResult>
-
-// Feature-detect the upstream `validateDocs` export. Older published
-// versions of @pagesmith/docs (e.g. 0.9.5) only ship `validateConfig`.
-// Skip the upstream pass cleanly in that case so the diagramkit-specific
-// checks still run.
-const validateDocs = (pagesmithDocs as unknown as Record<string, unknown>).validateDocs as
-  | ValidateDocsFn
-  | undefined
-
-if (typeof validateDocs === 'function') {
-  const result = await validateDocs({
-    configPath: resolve(repoRoot, 'pagesmith.config.json5'),
-    skipContent,
-    skipBuild,
-    // Always enforce that internal links resolve to a real markdown file on disk.
-    // The `./path/README.md` rule is enforced by the project-level check below.
-    internalLinksMustBeMarkdown: true,
-    // The strict trailing-slash check (both forms must work) and the modern-raster
-    // requirement are still opt-in via `--full` because they only make sense for
-    // releases that opt into both URL forms.
-    requireBothTrailingSlashForms: fullPreset,
-    requireRasterModernFormats: fullPreset,
-  })
-  totalErrors += result.errors
-  totalWarnings += result.warnings
-} else {
-  console.log(
-    '\n[pagesmith-docs] validateDocs is not exported by the installed ' +
-      '@pagesmith/docs (need a release that ships the validator API). ' +
-      'Skipping upstream content + build validation; running diagramkit-specific checks only.',
-  )
-}
+const upstream = await validateDocs({
+  configPath: resolve(repoRoot, 'pagesmith.config.json5'),
+  skipContent,
+  skipBuild,
+  // Always enforce that internal links resolve to a real markdown file on disk.
+  // The `./path/README.md` rule is enforced by the project-level check below.
+  internalLinksMustBeMarkdown: true,
+  // The strict trailing-slash check (both forms must work) and the modern-raster
+  // requirement are still opt-in via `--full` because they only make sense for
+  // releases that opt into both URL forms.
+  requireBothTrailingSlashForms: fullPreset,
+  requireRasterModernFormats: fullPreset,
+})
+totalErrors += upstream.errors
+totalWarnings += upstream.warnings
 
 // ── diagramkit-specific cross-reference: every <picture>/img diagram source
 //    should live in a sibling `.diagramkit/` directory so render runs

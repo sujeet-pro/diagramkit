@@ -22,6 +22,8 @@ For a repeatable script, ask the agent to add `"render:diagrams": "diagramkit re
 
 ## Do it manually
 
+The rest of this page is the manual reference: how to invoke the CLI, every command, every flag, examples, and exit codes. Skim the section that matches what you're trying to do.
+
 ## Invocation Paths
 
 After installation, these entrypoints all invoke the same CLI:

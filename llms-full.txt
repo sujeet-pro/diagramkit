@@ -232,6 +232,39 @@ import { convertSvg } from 'diagramkit'         // also from 'diagramkit/convert
     Convert SVG to raster format (PNG/JPEG/WebP/AVIF) using sharp.
     sharp is dynamically imported — only required when called.
 
+### Engine Metadata
+
+```ts
+import { ENGINE_PROFILES, getEngineProfile, defaultMermaidDarkTheme } from 'diagramkit'
+```
+
+  ENGINE_PROFILES: ReadonlyArray<EngineProfile>
+    Static metadata for every supported diagram engine — `type`, `browserPool`
+    (true if the engine renders inside the BrowserPool, false if WASM/native),
+    and lane/scheduling hints. Iterate this instead of hard-coding the engine
+    list when building dashboards or per-engine tooling.
+
+  getEngineProfile(type: DiagramType): EngineProfile
+    Lookup helper for a single engine.
+
+  defaultMermaidDarkTheme: Record<string, string>
+    Built-in Mermaid `themeVariables` map used for the default `-dark` SVG.
+    Re-exported so consumers customizing Mermaid via `mermaidConfig` can
+    extend (rather than replace) the theme.
+
+### Errors
+
+```ts
+import { DiagramkitError, type DiagramkitErrorCode } from 'diagramkit'
+```
+
+  DiagramkitError extends Error
+    Every error thrown by the public API is an instance of this class.
+    Inspect `error.code` (`DiagramkitErrorCode`) for machine-readable handling.
+    Codes match the CLI `failedDetails[].code` strings:
+      UNKNOWN_TYPE, RENDER_FAILED, MISSING_DEPENDENCY, CONFIG_INVALID,
+      BROWSER_LAUNCH_FAILED, BUNDLE_FAILED.
+
 ### Configuration
 
 ```ts

@@ -1,0 +1,81 @@
+name: Documentation Issue
+description: Report a missing, broken, outdated, or incorrect part of the docs
+title: '[docs]: '
+labels: ['docs', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the docs!
+
+        Use this template to report:
+
+        - missing pages or undocumented behavior
+        - broken links, broken examples, or stale screenshots
+        - typos, grammar, formatting, or accessibility issues
+        - documentation that contradicts the implementation
+
+        For bugs in the **library or CLI itself** use the Bug Report template instead.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type of doc issue
+      multiple: true
+      options:
+        - Missing content / undocumented feature
+        - Broken example / outdated code snippet
+        - Inaccurate / contradicts the implementation
+        - Broken link
+        - Typo / grammar / formatting
+        - Accessibility issue (color contrast, alt text, headings, etc.)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: page-url
+    attributes:
+      label: Page URL
+      description: Full URL of the page on https://projects.sujeet.pro/diagramkit/, or path under `docs/` for source-only issues.
+      placeholder: https://projects.sujeet.pro/diagramkit/guide/getting-started/
+    validations:
+      required: true
+
+  - type: input
+    id: section
+    attributes:
+      label: Section / heading (optional)
+      description: The specific section/heading in the page where the issue lives.
+      placeholder: e.g. "Render a single diagram"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What is wrong?
+      description: Describe the issue. For inaccuracies, quote the docs and the actual behavior side by side.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested fix (optional)
+      description: A proposed sentence, code snippet, or rewrite. Even rough wording helps.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to send a pull request?
+      options:
+        - 'Yes — I plan to send a PR.'
+        - 'Yes — with guidance.'
+        - 'No — I am only reporting.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context (optional)
+      description: Screenshots, related issues, links to discussions, etc.

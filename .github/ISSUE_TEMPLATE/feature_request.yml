@@ -1,38 +1,109 @@
 name: Feature Request
-description: Suggest a new feature or improvement
-labels: ['enhancement']
+description: Suggest a new feature, enhancement, or new diagram engine for diagramkit
+title: '[feat]: '
+labels: ['enhancement', 'needs-triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for suggesting a feature! Please describe what you'd like.
-  - type: textarea
-    id: problem
+        Thanks for suggesting a feature!
+
+        Before opening this request please:
+
+        - [Search existing issues and PRs](https://github.com/sujeet-pro/diagramkit/issues?q=is%3Aissue) so we don't duplicate work.
+        - Check the [docs](https://projects.sujeet.pro/diagramkit/) — the feature may already exist behind a flag.
+
+  - type: checkboxes
+    id: pre-checks
     attributes:
-      label: Problem
-      description: What problem does this feature solve?
+      label: Pre-submission checklist
+      options:
+        - label: I searched the existing issues and did not find a duplicate proposal.
+          required: true
+        - label: This is a single, focused proposal (not a wish list).
+          required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which area is this about?
+      multiple: true
+      options:
+        - CLI (`diagramkit`)
+        - Library API (`import from 'diagramkit'`)
+        - Validator (`diagramkit/validate`)
+        - Color processing (`diagramkit/color`)
+        - Conversion (`diagramkit/convert`)
+        - Documentation site
+        - Build pipeline / CI
+        - New diagram engine
+        - Other
     validations:
       required: true
-  - type: textarea
-    id: solution
-    attributes:
-      label: Proposed solution
-      description: How would you like this to work?
-    validations:
-      required: true
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: Any alternative solutions or workarounds you've considered
+
   - type: dropdown
     id: diagram-type
     attributes:
       label: Related diagram type
+      multiple: true
       options:
         - Mermaid
         - Excalidraw
         - Draw.io
-        - Graphviz
+        - Graphviz (.dot/.gv)
         - All / General
         - N/A
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this feature solve? Who is it for?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        How would you like this to work? Concrete API, CLI flags, or example output if you have it.
+        For new engines, link to the engine's docs and call out any peer dependencies needed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions, workarounds, or existing tools you've evaluated.
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Would this be a breaking change?
+      options:
+        - 'No'
+        - 'Yes'
+        - "I'm not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to send a pull request?
+      options:
+        - 'Yes — I plan to send a PR.'
+        - 'Yes — with guidance.'
+        - 'No — I am only proposing.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context (optional)
+      description: Mockups, references to similar features in other tools, prior art, etc.

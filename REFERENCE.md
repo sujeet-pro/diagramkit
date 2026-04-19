@@ -225,16 +225,34 @@ diagramkit --agent-help                  # Full reference (same as llms-full.txt
 
 ## Quick API reference
 
+The most common imports — see [`llms-full.txt`](./llms-full.txt) for the full surface (annotated by section).
+
 ```ts
 import {
+  // rendering
   render,
   renderFile,
   renderAll,
+  renderDiagramFileToDisk,
   watchDiagrams,
   createRendererRuntime,
+  // browser lifecycle
   warmup,
   dispose,
+  // config
   defineConfig,
+  loadConfig,
+  getDefaultConfig,
+  getFileOverrides,
+  // raster conversion (also available from 'diagramkit/convert')
+  convertSvg,
+  // engine metadata
+  ENGINE_PROFILES,
+  getEngineProfile,
+  defaultMermaidDarkTheme,
+  // errors
+  DiagramkitError,
+  type DiagramkitErrorCode,
 } from 'diagramkit'
 
 // From a string

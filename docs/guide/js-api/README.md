@@ -210,6 +210,72 @@ const ciConfig = loadConfig({}, '.', './ci.config.json5')
 const strictConfig = loadConfig({}, '.', undefined, { strict: true })
 ```
 
+## `defineConfig(config)`
+
+Identity helper for TypeScript config files. Lets `diagramkit.config.ts` opt into autocomplete and `DiagramkitConfig` typing without runtime cost.
+
+```ts
+import { defineConfig } from 'diagramkit'
+
+export default defineConfig({
+  outputDir: '.diagramkit',
+  defaultFormats: ['svg', 'png'],
+})
+```
+
+## `getDefaultConfig()` and `getFileOverrides(filePath, config?, rootDir?)`
+
+`getDefaultConfig()` returns the baseline config object before any layering (defaults → global → env → local → overrides). `getFileOverrides(filePath, config?, rootDir?)` resolves any per-file `overrides` rules in the loaded config for a single source file.
+
+```ts
+import { getDefaultConfig, getFileOverrides, loadConfig } from 'diagramkit'
+
+const defaults = getDefaultConfig()
+const config = loadConfig()
+const overrides = getFileOverrides('docs/diagrams/system.mermaid', config)
+```
+
+## Engine Metadata: `ENGINE_PROFILES`, `getEngineProfile`, `defaultMermaidDarkTheme`
+
+Reflective metadata for the four engines (mermaid, excalidraw, drawio, graphviz). Useful when you build dashboards, pickers, or per-engine tooling without hard-coding the engine list.
+
+```ts
+import {
+  ENGINE_PROFILES,
+  getEngineProfile,
+  defaultMermaidDarkTheme,
+} from 'diagramkit'
+
+ENGINE_PROFILES.forEach((profile) => {
+  console.log(profile.type, profile.browserPool ? '(browser)' : '(wasm)')
+})
+
+const mermaid = getEngineProfile('mermaid')
+
+// Inject the built-in dark theme variables into a custom mermaid.initialize() call
+const themeVars = defaultMermaidDarkTheme
+```
+
+## `DiagramkitError` and error codes
+
+All thrown errors are instances of `DiagramkitError`. Inspect `error.code` (a `DiagramkitErrorCode`) for machine-readable handling — codes match the CLI `failedDetails[].code` strings (`UNKNOWN_TYPE`, `RENDER_FAILED`, `MISSING_DEPENDENCY`, `CONFIG_INVALID`, `BROWSER_LAUNCH_FAILED`, `BUNDLE_FAILED`).
+
+```ts
+import { renderFile, DiagramkitError } from 'diagramkit'
+
+try {
+  await renderFile('diagrams/broken.mermaid')
+} catch (err) {
+  if (err instanceof DiagramkitError) {
+    console.error(`[${err.code}] ${err.message}`)
+    if (err.code === 'MISSING_DEPENDENCY') {
+      console.error('Run: npm add sharp')
+    }
+  }
+  throw err
+}
+```
+
 ## File Discovery
 
 ```ts

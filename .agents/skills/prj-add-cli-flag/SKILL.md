@@ -6,7 +6,7 @@ user_invocable: true
 
 # Add a CLI Flag
 
-diagramkit uses manual argument parsing in [cli/bin.ts](cli/bin.ts) (no CLI framework). Interactive prompts for `init` use `@clack/prompts`.
+diagramkit uses manual argument parsing in [cli/bin.ts](../../../cli/bin.ts) (no CLI framework). Interactive prompts for `init` use `@clack/prompts`.
 
 ## Read first
 
@@ -31,18 +31,18 @@ Before adding a flag, decide:
 
 ## Steps
 
-1. **Config field** (if applicable) — add to the `DiagramkitConfig` interface in [src/types.ts](src/types.ts) with a default in `getDefaultConfig()`. Update the merge logic in `src/config.ts` if the field requires special handling (arrays, deep objects). Also update the JSON Schema in [`schemas/diagramkit-config.v1.json`](../../../schemas/diagramkit-config.v1.json) so editor autocomplete and validation stay in sync (this schema ships in the npm package).
-2. **Env var** (if applicable) — add to `loadEnvConfig()` in [src/config.ts](src/config.ts).
-3. **Arg parser** — in [cli/bin.ts](cli/bin.ts), read the flag using `getFlag()` or `getFlagValue()` inside the correct command handler (`render`, `validate`, `init`, etc.). Validate the value; call `console.error` and exit `1` on invalid input.
+1. **Config field** (if applicable) — add to the `DiagramkitConfig` interface in [src/types.ts](../../../src/types.ts) with a default in `getDefaultConfig()`. Update the merge logic in [src/config.ts](../../../src/config.ts) if the field requires special handling (arrays, deep objects). Also update the JSON Schema in [`schemas/diagramkit-config.v1.json`](../../../schemas/diagramkit-config.v1.json) so editor autocomplete and validation stay in sync (this schema ships in the npm package).
+2. **Env var** (if applicable) — add to `loadEnvConfig()` in [src/config.ts](../../../src/config.ts).
+3. **Arg parser** — in [cli/bin.ts](../../../cli/bin.ts), read the flag using `getFlag()` or `getFlagValue()` inside the correct command handler (`render`, `validate`, `init`, etc.). Validate the value; call `console.error` and exit `1` on invalid input.
 4. **Overrides** — pass the resolved value into `loadConfig` overrides or the per-call options object. Never mutate the config layer ordering.
 5. **Help text** — add a line under the matching group in `printHelp()` with the default value noted.
 6. **Agent help** — ensure `printAgentHelp()` still works. If the flag appears in `llms.txt` / `llms-full.txt`, regenerate via `tsx scripts/copy-llms.ts`.
 7. **Interactive init** (if flag maps to a config field) — add a `@clack/prompts` question in the `init` flow of `cli/bin.ts`. Respect `--yes` (skip and use default).
 8. **Unknown-flag suggestions** — add the new flag name to the `KNOWN_FLAGS` list in `warnUnknownFlags()` (if used) so typo suggestions stay accurate.
 9. **Tests**:
-   - Unit tests in [src/cli-bin.test.ts](src/cli-bin.test.ts) for flag parsing and validation.
-   - Config tests in [src/config.test.ts](src/config.test.ts) for new config field and env var.
-   - E2E test in [e2e/cli-render.e2e.test.ts](e2e/cli-render.e2e.test.ts) asserting behavior end-to-end.
+   - Unit tests in [src/cli-bin.test.ts](../../../src/cli-bin.test.ts) for flag parsing and validation.
+   - Config tests in [src/config.test.ts](../../../src/config.test.ts) for new config field and env var.
+   - E2E test in [e2e/cli-render.e2e.test.ts](../../../e2e/cli-render.e2e.test.ts) asserting behavior end-to-end.
 10. **Docs**:
     - `docs/guide/cli/README.md` and `docs/reference/diagramkit/cli/README.md` — add the flag with default and example.
     - `docs/reference/diagramkit/config/README.md` — if the flag backs a config field, document the field.

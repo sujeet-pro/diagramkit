@@ -10,7 +10,7 @@ description: Install diagramkit and render your first diagram in under a minute.
   <img src=".diagramkit/getting-started-flow-light.svg" alt="Getting started flow: install, warmup, create diagram, render, output">
 </picture>
 
-## Using an AI Agent (Recommended)
+## Do it with an agent
 
 If you use an AI coding agent (Claude Code, Cursor, Codex, Continue, OpenCode, Windsurf, GitHub Copilot, etc.), the fastest path is to give it one bootstrap prompt and let it set up the repo. diagramkit ships every agent skill inside the npm package at `node_modules/diagramkit/skills/`; the `diagramkit-setup` skill writes thin local pointers that defer to those bundled SKILL.md files, so every agent reads guidance pinned to the installed CLI version.
 
@@ -103,7 +103,7 @@ await dispose() // Always dispose to close the browser
 > [!IMPORTANT]
 > Always call `dispose()` after rendering in scripts and CI. The browser pool has a 5-second idle timeout, but explicit disposal prevents resource leaks and zombie processes.
 
-## Manual Setup
+## Do it manually
 
 ### Install
 
@@ -144,7 +144,7 @@ npx diagramkit render architecture.mermaid
 
 Output:
 
-```
+```text
 .diagramkit/
   architecture-light.svg
   architecture-dark.svg
@@ -167,7 +167,7 @@ You can also omit the `render` subcommand when the first argument is an existing
 
 Images go into a `.diagramkit/` hidden folder next to each source file:
 
-```
+```text
 docs/
   getting-started/
     flow.mermaid

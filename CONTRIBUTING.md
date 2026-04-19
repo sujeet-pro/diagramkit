@@ -112,7 +112,7 @@ npm run typecheck
 
 ## Architecture and AI guidelines
 
-All contributor guidance lives inside the relevant skill under [`.agents/skills/prj-<name>/`](.agents/skills/). Every contributor skill carries the `prj-` prefix. Each skill is self-contained — its `SKILL.md` plus its `references/` folder carry everything needed. The harness-specific folders (`.claude/skills/`, `.cursor/skills/`, `.cursor/commands/`) are thin pointers — edit only the file under `.agents/skills/prj-<name>/`.
+All contributor guidance lives inside the relevant skill under `.agents/skills/prj-<name>/SKILL.md`. Every contributor skill carries the `prj-` prefix. Each skill is self-contained — its `SKILL.md` plus its `references/` folder carry everything needed. The harness-specific folders (`.claude/skills/`, `.cursor/skills/`, `.cursor/commands/`) are thin pointers — edit only the file under `.agents/skills/prj-<name>/`.
 
 Available contributor skills and what they cover:
 

@@ -18,6 +18,8 @@ description: Render Draw.io XML diagrams with automatic light/dark theme color a
 
 ## Do it manually
 
+Walk the page top-down — file extensions, capabilities, authoring tips, and dark-mode behavior are each in their own section below.
+
 ## File Extensions
 
 `.drawio`, `.drawio.xml`, `.dio` -- all treated identically.

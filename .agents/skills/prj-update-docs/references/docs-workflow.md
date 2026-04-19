@@ -11,14 +11,15 @@ How to author and update documentation for diagramkit. Docs are written with **P
   3. `configuration/`
   4. `cli/`
   5. `js-api/`
-  6. `diagrams/` (per-engine subpages)
-  7. `watch-mode/`
-  8. `image-formats/`
-  9. `ci-cd/`
-  10. `api-patterns/`
-  11. `architecture/`
-  12. `design-principles/`
-  13. `troubleshooting/`
+  6. `bundled-assets/` — every file shipped in the npm tarball (schemas, llms files, ai-guidelines, skills)
+  7. `diagrams/` (per-engine subpages)
+  8. `watch-mode/`
+  9. `image-formats/`
+  10. `ci-cd/`
+  11. `api-patterns/`
+  12. `architecture/`
+  13. `design-principles/`
+  14. `troubleshooting/`
 - `docs/reference/` has two series:
   - `reference/diagramkit/` — per-package reference (cli, api, config, types, utils, color, convert). Currently one package; the shape allows growth.
   - `reference/how-it-works/` — "how this is built" series (pool, manifest, rendering-pipeline, color-processing).

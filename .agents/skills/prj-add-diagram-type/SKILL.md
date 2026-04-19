@@ -19,14 +19,14 @@ Canonical long-form references (only when you need the full picture): [`../prj-r
 
 Replace `<engine>` with the new engine id (lowercase, no hyphens, e.g. `plantuml`).
 
-1. **Extension map** — add entries to `DEFAULT_EXTENSION_MAP` in [src/extensions.ts](src/extensions.ts) (e.g. `.puml: 'plantuml'`).
-2. **DiagramType union** — add `'<engine>'` to the `DiagramType` type in [src/types.ts](src/types.ts). The exhaustive `never` check in the renderer will flag all sites that must handle the new type.
-3. **Engine profile** — add metadata to `ENGINE_PROFILES` in [src/engine-profiles.ts](src/engine-profiles.ts). Declare whether the engine is browser-backed (`browserPool: true`) or WASM/native (`browserPool: false`), and its lane order.
-4. **Pool page** (only if browser-based) — add a `get<Engine>Page()` method to `BrowserPool` in [src/pool.ts](src/pool.ts). Follow the excalidraw/drawio pattern if the renderer needs a bundled IIFE, or the mermaid pattern if it loads a script directly.
+1. **Extension map** — add entries to `DEFAULT_EXTENSION_MAP` in [src/extensions.ts](../../../src/extensions.ts) (e.g. `.puml: 'plantuml'`).
+2. **DiagramType union** — add `'<engine>'` to the `DiagramType` type in [src/types.ts](../../../src/types.ts). The exhaustive `never` check in the renderer will flag all sites that must handle the new type.
+3. **Engine profile** — add metadata to `ENGINE_PROFILES` in [src/engine-profiles.ts](../../../src/engine-profiles.ts). Declare whether the engine is browser-backed (`browserPool: true`) or WASM/native (`browserPool: false`), and its lane order.
+4. **Pool page** (only if browser-based) — add a `get<Engine>Page()` method to `BrowserPool` in [src/pool.ts](../../../src/pool.ts). Follow the excalidraw/drawio pattern if the renderer needs a bundled IIFE, or the mermaid pattern if it loads a script directly.
 5. **Browser entry** (only if needed) — create `src/renderers/<engine>-entry.ts` exposing `__render<Engine>()` as a global. Add the entry to `vite.config.ts` pack entries so it ships with `dist/`.
-6. **Renderer logic** — register a renderer in [src/render-engines.ts](src/render-engines.ts) and ensure [src/renderer.ts](src/renderer.ts) dispatches to it. TypeScript will enforce exhaustiveness.
+6. **Renderer logic** — register a renderer in [src/render-engines.ts](../../../src/render-engines.ts) and ensure [src/renderer.ts](../../../src/renderer.ts) dispatches to it. TypeScript will enforce exhaustiveness.
 7. **Tests**:
-   - Extension resolution tests in [src/extensions.test.ts](src/extensions.test.ts).
+   - Extension resolution tests in [src/extensions.test.ts](../../../src/extensions.test.ts).
    - A fixture file under `e2e/fixtures/mixed-diagrams/`.
    - E2E coverage in `e2e/api-render.e2e.test.ts` and `e2e/cli-render.e2e.test.ts` (render, light/dark, formats, incremental).
    - Per-engine unit test if non-trivial logic lives in the renderer.
@@ -34,7 +34,7 @@ Replace `<engine>` with the new engine id (lowercase, no hyphens, e.g. `plantuml
    - `docs/guide/diagrams/<engine>/README.md` with the AI-first template (prompt + manual steps).
    - Add `<engine>` to `docs/guide/diagrams/meta.json5`.
    - If the engine has its own authoring reference, place it at `skills/diagramkit-<engine>/SKILL.md` and shipped `references/` files.
-   - Add a row to the extension table in [../prj-review-repo/references/project-context.md](../prj-review-repo/references/project-context.md) and [README.md](README.md).
+   - Add a row to the extension table in [../prj-review-repo/references/project-context.md](../prj-review-repo/references/project-context.md) and [README.md](../../../README.md).
 
 Manifest, discovery, output naming, and watch all work automatically via the extension map — no changes needed there.
 

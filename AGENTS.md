@@ -8,15 +8,22 @@ This file is the single source of truth for contributor guidance. [`CLAUDE.md`](
 
 All contributor guidance lives **inside the relevant skill** under `.agents/skills/prj-<name>/`. Every contributor skill carries the `prj-` prefix so it never clashes with consumer-facing `diagramkit-*` skills. Each skill is self-contained — its `SKILL.md` plus its `references/` folder carry everything that skill needs. The harness-specific folders (`.claude/skills/`, `.cursor/skills/`, `.cursor/commands/`) are thin pointers to `.agents/skills/prj-<name>/SKILL.md`; never edit them directly.
 
+Skill layering used in this repo (do not deviate without changing both this section and `scripts/validate-build.ts`):
+
+- `.claude/skills/<name>/SKILL.md` and `.cursor/skills/<name>/SKILL.md` — thin frontmatter-only pointers that delegate to `.agents/skills/<name>/SKILL.md`. Generated/edited only when the canonical changes.
+- `.agents/skills/prj-*` — canonical contributor skills. Self-contained with sibling `references/`.
+- `.agents/skills/pagesmith-docs-*`, `.agents/skills/pagesmith-generate-docs` — **thin pointers** that delegate to `node_modules/@pagesmith/docs/skills/<name>/SKILL.md`. The upstream skill is the version-matched source of truth; never copy its body into this repo, just keep diagramkit-specific extras inside the pointer file.
+- `skills/diagramkit-*` — consumer-facing skills shipped to npm consumers. Edit these for diagram-engine and CLI consumer guidance; they are the only skills folder included in the published tarball.
+
 Available contributor skills:
 
-| Skill                                                        | Use when                                                      |
-| ------------------------------------------------------------ | ------------------------------------------------------------- |
-| [prj-review-repo](.agents/skills/prj-review-repo/)           | Full repo audit (code, tests, docs, AI alignment, packaging). |
-| [prj-update-docs](.agents/skills/prj-update-docs/)           | Sync the Pagesmith docs site with the current implementation. |
-| [prj-add-diagram-type](.agents/skills/prj-add-diagram-type/) | Add a new diagram engine (e.g. PlantUML, D2).                 |
-| [prj-add-cli-flag](.agents/skills/prj-add-cli-flag/)         | Extend the CLI manual arg parser + config.                    |
-| [prj-release](.agents/skills/prj-release/)                   | Cut a release via the `publish.yml` workflow.                 |
+| Skill                                                                | Use when                                                      |
+| -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [prj-review-repo](.agents/skills/prj-review-repo/SKILL.md)           | Full repo audit (code, tests, docs, AI alignment, packaging). |
+| [prj-update-docs](.agents/skills/prj-update-docs/SKILL.md)           | Sync the Pagesmith docs site with the current implementation. |
+| [prj-add-diagram-type](.agents/skills/prj-add-diagram-type/SKILL.md) | Add a new diagram engine (e.g. PlantUML, D2, Structurizr).    |
+| [prj-add-cli-flag](.agents/skills/prj-add-cli-flag/SKILL.md)         | Extend the CLI manual arg parser + config.                    |
+| [prj-release](.agents/skills/prj-release/SKILL.md)                   | Cut a release via the `publish.yml` workflow.                 |
 
 The comprehensive references (when you need them directly, outside a skill invocation):
 
@@ -42,12 +49,19 @@ Consumer-facing agent docs (shipped to npm):
 ## Validation
 
 ```bash
-npm run cicd          # canonical pre-merge gate
-npm run check         # fast lint + format
-npm run typecheck     # tsc --noEmit
-npm run test:unit     # fast, no browser
-npm run test:e2e      # slow, needs Playwright warmup
+npm run cicd                       # canonical pre-merge gate
+npm run check                      # fast lint + format
+npm run typecheck                  # tsc --noEmit
+npm run test:unit                  # fast, no browser
+npm run test:e2e                   # slow, needs Playwright warmup
+npm run validate:pagesmith         # markdown content + rendered HTML output (via @pagesmith/docs validateDocs)
+npm run validate:pagesmith:full    # adds opt-in strict checks (raster modern formats, both trailing-slash forms)
 ```
+
+Docs validation covers both `.md` content and the built HTML output under `gh-pages/`. `npm run cicd` runs:
+
+1. `scripts/validate-build.ts` — SKILL.md frontmatter + mirror checks, package.json `files`/`exports`, schemas, gh-pages broken-link spot-check, docs SVG WCAG 2.2 AA contrast scan.
+2. `npm run validate:pagesmith` — calls upstream `@pagesmith/docs` `validateDocs`, which validates markdown frontmatter/links/images/alt-text/theme-variants **and** the rendered HTML output (link integrity, in-page anchors, asset hashes, SVG renderability, required output files like `favicon.svg`, `sitemap.xml`, `robots.txt`, `llms.txt`, `llms-full.txt`). Plus the diagramkit-specific cross-reference (`.diagramkit/` source must exist) and link-style (`./path/README.md`) rules from `scripts/validate-pagesmith.ts`.
 
 <!-- pagesmith-ai:codex-memory:start -->
 

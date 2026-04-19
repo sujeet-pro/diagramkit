@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Documentation
+  - name: 📚 Documentation
     url: https://projects.sujeet.pro/diagramkit/
-    about: Check the documentation for guides and API reference
+    about: Guides, CLI reference, API reference, configuration, and how-it-works.
+  - name: 💬 GitHub Discussions
+    url: https://github.com/sujeet-pro/diagramkit/discussions
+    about: Ask questions, share ideas, and get help from the community.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/sujeet-pro/diagramkit/security/advisories/new
+    about: Privately disclose a security issue. Please do NOT open a public issue for security bugs.
