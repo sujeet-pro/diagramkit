@@ -96,7 +96,7 @@
     "build:docs": "node --experimental-strip-types --no-warnings ./scripts/run-pagesmith.ts build && node --experimental-strip-types --no-warnings ./scripts/copy-llms.ts",
     "prebuild:docs": "npm run render:docs",
     "preview": "npm run build:all && npm run preview:docs",
-    "preview:docs": "node --experimental-strip-types --no-warnings ./scripts/run-pagesmith.ts preview",
+    "preview:docs": "node --experimental-strip-types --no-warnings ./scripts/run-pagesmith.ts preview --log-level info --open",
     "dev": "npm run dev:docs",
     "dev:docs": "node --experimental-strip-types --no-warnings ./scripts/run-pagesmith.ts dev",
     "predev:docs": "npm run render:docs",

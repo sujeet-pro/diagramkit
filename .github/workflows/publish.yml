@@ -1,13 +1,30 @@
 name: Publish
 
-# Manual release workflow. Runs the full `npm run cicd` gate sequentially
-# (on one runner, so the version bump / tag / publish all see the same
-# dist output), bumps the version, commits, tags, publishes to npm with
-# provenance, and creates a GitHub Release. Use `dry_run: true` to
-# exercise the pipeline end-to-end without publishing or pushing.
+# Manual release workflow. Mirrors `cicd.yml` so the release validation
+# uses the same parallel quality gates instead of a single sequential
+# `npm run cicd` step. The release version is computed once in `prepare`,
+# baked into `package.json` + `package-lock.json`, uploaded as an
+# artifact, and consumed by every downstream job so they all build,
+# test, and publish against the exact release version.
 #
-# Caching and Playwright setup mirror the CI workflow via the reusable
+# Use `dry_run: true` to exercise the pipeline end-to-end without
+# publishing, pushing, or creating a GitHub Release.
+#
+# Caching and Playwright setup mirror `cicd.yml` via the reusable
 # composite actions under `.github/actions/`.
+#
+# Dependency graph:
+#
+#   prepare ──┬── lint
+#             ├── typecheck
+#             ├── build-lib ──┬── lib-pack-check
+#             │               ├── unit
+#             │               ├── e2e
+#             │               └── docs-build ── validate-build
+#             │
+#             └── (all gates pass) ── publish ── tag-and-release
+#                                        │
+#                                        └── summary (always)
 
 on:
   workflow_dispatch:
@@ -21,7 +38,7 @@ on:
           - minor
           - major
       dry_run:
-        description: 'Dry run — skip npm publish and GitHub Release'
+        description: 'Dry run — skip npm publish, git push, and GitHub Release'
         required: false
         type: boolean
         default: false
@@ -29,6 +46,9 @@ on:
 concurrency:
   group: publish
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 # Opt every job into the Node.js 24 runtime for JavaScript-based actions so
 # any third-party action that has not yet shipped a Node 24 build still runs
@@ -38,76 +58,403 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  publish:
+  # -------------------------------------------------------------------------
+  # Tier 0 — resolve and bake the release version into the manifests.
+  # -------------------------------------------------------------------------
+
+  prepare:
+    name: Resolve & sync release version
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      id-token: write
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+
+      - name: Bump version (no git side effects)
+        id: version
+        run: |
+          OLD_VERSION=$(node -p "require('./package.json').version")
+          # `--no-git-tag-version` skips the auto-commit / auto-tag; we do
+          # both manually in `tag-and-release` after npm publish succeeds.
+          NEW_VERSION=$(npm version "${{ inputs.release_type }}" \
+            --no-git-tag-version --no-workspaces-update | tr -d 'v')
+          # Keep package-lock.json's top-level `version` in lockstep with
+          # package.json so the two artifacts agree on the release version.
+          npm install --package-lock-only --ignore-scripts
+          echo "Bumping ${OLD_VERSION} → ${NEW_VERSION} (${{ inputs.release_type }})"
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload synced manifests
+        uses: actions/upload-artifact@v7
         with:
-          fetch-depth: 0
+          name: release-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Setup Node + deps
-        uses: ./.github/actions/setup
+  # -------------------------------------------------------------------------
+  # Tier 1 — gates that only need the synced manifests + node_modules.
+  # All Tier 1+ jobs perform `setup` BEFORE downloading the manifests so
+  # the cached `node_modules` (keyed on the original lockfile hash) hits
+  # cleanly; only the package's own `version` field differs between the
+  # cached lock and the synced one, so the dependency tree is unchanged.
+  # -------------------------------------------------------------------------
+
+  lint:
+    name: Lint + format + audit
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
         with:
-          registry-url: 'https://registry.npmjs.org'
+          name: release-manifests
+      - name: npm audit
+        run: npm audit --audit-level=moderate
+      - name: Lint + format (oxlint / oxfmt)
+        run: npm run check
 
-      - name: Setup Playwright
-        uses: ./.github/actions/setup-playwright
+  typecheck:
+    name: Typecheck
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - run: npm run typecheck
 
-      - name: Run full cicd gate
-        run: npm run cicd
+  build-lib:
+    name: Build library
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - name: Build library (vp pack)
+        run: npm run build:lib
+      - name: Verify dist output exists
+        run: |
+          test -d dist
+          test -f dist/index.mjs
+          test -f dist/index.d.mts
+          test -f dist/utils.mjs
+          test -f dist/utils.d.mts
+          test -f dist/cli/bin.mjs
+          test -f schemas/diagramkit-cli-render.v1.json
+          test -f schemas/diagramkit-config.v1.json
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+          if-no-files-found: error
 
+  # -------------------------------------------------------------------------
+  # Tier 2 — gates that consume the built `dist/` artifact.
+  # -------------------------------------------------------------------------
+
+  lib-pack-check:
+    name: Library pack check
+    needs: build-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
       - name: Inspect npm package contents
         run: npm pack --dry-run
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+  unit:
+    name: Unit tests
+    needs: build-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - run: npm run test:unit
 
-      # The cicd gate re-renders docs SVGs as part of `npm run build:docs`;
-      # because Chromium / sharp output is platform-sensitive, a clean
-      # checkout on Ubuntu may produce byte-different SVGs than what was
-      # committed from a contributor laptop. Discard any non-source changes
-      # to tracked artifacts so `npm version` (which requires a clean tree)
-      # can proceed. Any *real* source changes would already have failed
-      # `npm run check` / `npm run typecheck` upstream.
-      - name: Reset render-only artifact diffs
-        run: |
-          git checkout -- 'docs/**/*.svg' || true
-          git status --short
+  e2e:
+    name: E2E tests
+    needs: build-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      # actions/upload-artifact@v7 zips the payload and drops Unix exec bits,
+      # so restore it on the CLI entry before e2e tests spawn
+      # `./node_modules/.bin/diagramkit` (which symlinks to dist/cli/bin.mjs).
+      - name: Restore CLI exec bit
+        run: chmod +x dist/cli/bin.mjs
+      - uses: ./.github/actions/setup-playwright
+      - run: npm run test:e2e
 
-      - name: Bump version
-        run: 'npm version ${{ inputs.release_type }} -m "release: v%s"'
+  docs-build:
+    name: Docs build
+    needs: build-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - uses: ./.github/actions/setup-playwright
+      # Run the pieces of `npm run build:docs` directly so we don't trip the
+      # `prebuild:docs` → `render:docs` → `npm run build:lib` cascade that
+      # would rebuild the library we just downloaded as an artifact.
+      - name: Render docs diagrams (CLI)
+        run: node ./dist/cli/bin.mjs render docs/
+      - name: Build docs site (pagesmith)
+        run: node --experimental-strip-types --no-warnings ./scripts/run-pagesmith.ts build
+      - name: Copy llms context files
+        run: node --experimental-strip-types --no-warnings ./scripts/copy-llms.ts
+      - name: Verify docs output exists
+        run: test -d gh-pages
+      - name: Upload gh-pages artifact (internal)
+        uses: actions/upload-artifact@v7
+        with:
+          name: gh-pages
+          path: gh-pages
+          retention-days: 1
+          if-no-files-found: error
+      - name: Upload rendered diagram SVGs (for validate-build)
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-rendered-svgs
+          path: docs/**/.diagramkit/**
+          retention-days: 1
+          if-no-files-found: error
+          # `.diagramkit/` is hidden (leading dot); default upload excludes
+          # hidden entries which would make this upload empty.
+          include-hidden-files: true
 
+  # -------------------------------------------------------------------------
+  # Tier 3 — needs the built docs site + rendered SVGs.
+  # -------------------------------------------------------------------------
+
+  validate-build:
+    name: Validate build
+    needs: [build-lib, docs-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: gh-pages
+          path: gh-pages
+      - uses: actions/download-artifact@v8
+        with:
+          name: docs-rendered-svgs
+          path: .
+      - name: Run validate-build script
+        run: node --experimental-strip-types --no-warnings ./scripts/validate-build.ts
+
+  # -------------------------------------------------------------------------
+  # Publish — needs every quality gate to succeed AND the built dist.
+  # `id-token: write` is required for npm provenance.
+  # -------------------------------------------------------------------------
+
+  publish:
+    name: Publish to npm
+    needs:
+      - prepare
+      - lint
+      - typecheck
+      - build-lib
+      - lib-pack-check
+      - unit
+      - e2e
+      - docs-build
+      - validate-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+        with:
+          registry-url: 'https://registry.npmjs.org'
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      # `--ignore-scripts` skips `prepack` so npm publishes the dist/ we
+      # already validated through `build-lib` instead of rebuilding it.
       - name: Publish to npm (dry run)
         if: ${{ inputs.dry_run }}
-        run: npm publish --dry-run --access public
-
+        run: npm publish --dry-run --access public --ignore-scripts
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Push version commit and tag
-        if: ${{ !inputs.dry_run }}
-        run: |
-          git push origin ${{ github.ref_name }}
-          git push origin --tags
+  # -------------------------------------------------------------------------
+  # Tag & release — only after npm publish succeeds. Skipped on dry runs.
+  # `fetch-depth: 0` so existing tags are visible to `git push --follow-tags`
+  # and to `gh release create`.
+  # -------------------------------------------------------------------------
 
+  tag-and-release:
+    name: Tag, push, GitHub Release
+    needs: [prepare, publish]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-manifests
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Commit version bump and tag
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No version file changes to commit for ${TAG}."
+          else
+            git commit -m "release: ${TAG}"
+          fi
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists locally; skipping tag creation."
+          else
+            git tag -a "${TAG}" -m "Release ${TAG}"
+          fi
+          git push origin HEAD:${{ github.ref_name }} --follow-tags
       - name: Create GitHub Release
-        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "v$(node -p 'require("./package.json").version')" --generate-notes
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release create "${TAG}" --generate-notes
 
-      - name: Summary — dry run
-        if: ${{ inputs.dry_run }}
+  # -------------------------------------------------------------------------
+  # Summary aggregator. Mirrors `cicd.yml`'s summary so a single status
+  # check surfaces every gate result and clearly marks dry-run runs.
+  # -------------------------------------------------------------------------
+
+  summary:
+    name: Publish summary
+    needs:
+      - prepare
+      - lint
+      - typecheck
+      - build-lib
+      - lib-pack-check
+      - unit
+      - e2e
+      - docs-build
+      - validate-build
+      - publish
+      - tag-and-release
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate gate results
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          RESULTS: |
+            prepare=${{ needs.prepare.result }}
+            lint=${{ needs.lint.result }}
+            typecheck=${{ needs.typecheck.result }}
+            build-lib=${{ needs.build-lib.result }}
+            lib-pack-check=${{ needs.lib-pack-check.result }}
+            unit=${{ needs.unit.result }}
+            e2e=${{ needs.e2e.result }}
+            docs-build=${{ needs.docs-build.result }}
+            validate-build=${{ needs.validate-build.result }}
+            publish=${{ needs.publish.result }}
+            tag-and-release=${{ needs.tag-and-release.result }}
         run: |
-          echo "::notice::Dry run complete. No npm publish, git push, or GitHub Release was performed."
-          echo "::notice::Next version would be v$(node -p 'require(\"./package.json\").version')"
+          echo "Publish gate results:"
+          echo "$RESULTS"
+          fail=0
+          while IFS='=' read -r name result; do
+            [ -z "$name" ] && continue
+            # `tag-and-release` is intentionally skipped on dry runs.
+            if [ "$name" = "tag-and-release" ] && [ "$DRY_RUN" = "true" ] && [ "$result" = "skipped" ]; then
+              continue
+            fi
+            if [ "$result" != "success" ]; then
+              echo "::error::Gate '$name' finished with result '$result'"
+              fail=1
+            fi
+          done <<< "$RESULTS"
+          if [ "$fail" = "1" ]; then
+            echo "One or more publish gates failed."
+            exit 1
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Dry run complete. No npm publish, git push, or GitHub Release was performed."
+            echo "::notice::Next version would be v${VERSION}"
+          else
+            echo "::notice::Released v${VERSION}."
+          fi

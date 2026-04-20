@@ -85,8 +85,10 @@ diagramkit validate . --recursive --json        # JSON output for CI
 ```
 
 The `validate` command checks each `.svg` for missing `xmlns`, missing dimensions,
-embedded `<script>`, broken `<foreignObject>`, and external resource references —
-issues that silently degrade in `<img>`-based markdown embeds.
+embedded `<script>`, broken `<foreignObject>`, external resource references,
+WCAG 2.2 AA contrast violations (`LOW_CONTRAST_TEXT`), and extreme aspect ratios
+(`ASPECT_RATIO_EXTREME`, default band `[1:1.9, 3.3:1]`) — issues that silently
+degrade in `<img>`-based markdown embeds or harm readability when scaled.
 
 ### Examples
 
@@ -120,7 +122,7 @@ Config file: `diagramkit.config.json5` or `diagramkit.config.ts`
 Global: `~/.config/diagramkit/config.json5`
 Merge order: defaults → global → env vars (DIAGRAMKIT_*) → local → CLI flags
 
-Key options: outputDir, manifestFile, useManifest, sameFolder, defaultFormats, defaultTheme, outputPrefix, outputSuffix, extensionMap, overrides (per-file settings).
+Key options: outputDir, manifestFile, useManifest, sameFolder, defaultFormats, defaultTheme, outputPrefix, outputSuffix, extensionMap, overrides (per-file settings), mermaidLayout (mermaid aspect-ratio rebalance: { mode: 'off' | 'warn' | 'flip' | 'elk' | 'auto', targetAspectRatio: 4/3, tolerance: 2.5 }).
 
 JSON Schema (for IDE autocomplete in `diagramkit.config.json5` / `.json`):
 

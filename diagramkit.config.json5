@@ -1,0 +1,13 @@
+{
+  $schema: './node_modules/diagramkit/schemas/diagramkit-config.v1.json',
+
+  // Enable auto LR↔TB flip + ELK rebalance during render so per-source
+  // ASPECT_RATIO_EXTREME / SVG_VIEWBOX_TOO_WIDE warnings clear without manual
+  // edits where possible. The agent loop still handles residuals
+  // (split / collapse-replicas / engine swap) per the engine SKILL playbooks.
+  mermaidLayout: {
+    mode: 'auto',
+    targetAspectRatio: 1.3333333333333333,
+    tolerance: 2.5,
+  },
+}

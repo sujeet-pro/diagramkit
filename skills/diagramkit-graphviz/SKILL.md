@@ -193,6 +193,55 @@ If rendering fails, check for these common issues:
 
 Fix the issue, re-render, and validate again. Repeat until validation passes.
 
+### Validation issues to watch for
+
+| Code                   | Severity | Meaning                                                                                                                                                                                              |
+| ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOW_CONTRAST_TEXT`    | warning  | `fillcolor` + `fontcolor` pair fails WCAG 2.2 AA. Swap to the AA palette in [Color Palette](#4--color-palette) above.                                                                                |
+| `ASPECT_RATIO_EXTREME` | warning  | Layout is too wide/tall (outside `[1:1.9, 3.3:1]`). See [Readability](#readability-budget-and-aspect-ratio) below — graphviz lets you set `ratio=` directly, which is the most powerful single knob. |
+| `NO_VISUAL_ELEMENTS`   | error    | Almost always a syntax error — unclosed brace, missing semicolon, reserved keyword, or wrong arrow operator.                                                                                         |
+| `MISSING_SVG_CLOSE`    | error    | Same root cause as `NO_VISUAL_ELEMENTS`; check `failedDetails[]` from the render JSON for the parse error line.                                                                                      |
+
+## Readability budget and aspect ratio
+
+Graphviz computes layout for you, but you can shape the result. Apply these limits:
+
+| Dimension       | Hard ceiling                                     | Why                                                                                                                                                               |
+| :-------------- | :----------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nodes per graph | **≤ 50 dense / ≤ 100 sparse** (target ≤ 30)      | Past these caps comprehension drops sharply.                                                                                                                      |
+| Edges per graph | **≤ 100**                                        | Visual graph density past this point exceeds underlying logic density.                                                                                            |
+| Branching width | **≤ 8 parallel children** off any single node    | Wider fans force the reader to lose their place. Cluster wide fans under a synthetic parent or split the graph.                                                   |
+| Aspect ratio    | **inside `[1:1.9, 3.3:1]`** against a 4:3 target | Diagrams overflowing typical doc widths (~650–800 px) get scaled down and lose ~39% text legibility. The validator emits `ASPECT_RATIO_EXTREME` when this breaks. |
+
+### Visual encoding
+
+- **Use shape semantics consistently.** `shape=box` for processes, `shape=cylinder` for storage, `shape=hexagon` for external systems / queues, `shape=diamond` only for decisions, `shape=parallelogram` for I/O. Mixing shapes for the same role slows comprehension ~4×.
+- **Never rely on colour alone.** Pair every fill with a shape, label, position, or `style=` (dashed / bold). ~8% of male engineers have red-green colour-vision deficiency.
+- **Reserve red (`#B43A3A`) for errors / alerts.**
+
+### Aspect-ratio control — graphviz's superpower
+
+Unlike Mermaid, graphviz exposes direct aspect-ratio control. When `ASPECT_RATIO_EXTREME` fires, the fix is usually a one-attribute change on the `graph [...]` block:
+
+| Attribute                         | Effect                                                            | When to use                                                             |
+| :-------------------------------- | :---------------------------------------------------------------- | :---------------------------------------------------------------------- |
+| `ratio="0.75"`                    | Target a specific width / height ratio (4:3 ≈ 0.75 height/width). | Default knob — set this on every `graph [...]` block.                   |
+| `ratio="compress"`                | Compress the layout to fit a defined `size`.                      | When you also set `size="8,6"` and want the layout to honour both axes. |
+| `ratio="fill"`                    | Stretch nodes to fill `size`.                                     | Rarely; produces uneven node sizes.                                     |
+| `nodesep="0.4"` / `ranksep="0.6"` | Tighten or loosen spacing between nodes / ranks.                  | Tune after `ratio=` if individual axes still feel off.                  |
+| `{rank=same; a; b; c}`            | Force nodes onto the same rank.                                   | When a deep DAG should compress vertically.                             |
+
+### When `ASPECT_RATIO_EXTREME` fires
+
+Apply the steps in this order — re-render with `--force` after each step and re-validate. Cap at 8 iterations per file.
+
+1. **Set `ratio=` on the graph.** Add `ratio="0.75"` (or `ratio="compress"` if you also set `size=`) to the `graph [...]` defaults. This is graphviz's direct knob — most cases resolve here.
+2. **Flip `rankdir`.** If the natural shape doesn't fit the target, swap `rankdir=LR` ↔ `rankdir=TB`. Combine with `ratio=` for best results.
+3. **Constrain ranks / cluster wide fans.** Use `{rank=same; …}` to compress wide fans onto a single row, or wrap them in a `subgraph cluster_*` block to bound them visually.
+4. **Reduce node count / split.** Pull dense subsections into separate `.dot` files; cross-reference from the surrounding markdown. This is the right move when a single graph is conceptually two or three diagrams.
+5. **Swap engine (last resort).** If algorithmic layout isn't the value being added, convert to `.mermaid` (with `mermaidLayout: { mode: 'auto' }`) or `.drawio` (for icon/precision-heavy layouts). Follow the corresponding engine SKILL.md for the rewrite.
+6. **Record residual** in the review report if the loop hasn't cleared the warning.
+
 ## 6 — Raster / Embed / Dark Mode
 
 ### Raster Output (PNG / JPEG / WebP / AVIF)
@@ -280,15 +329,20 @@ For each source, verify in order — apply the minimum textual fix for each rule
 8. **Hex colours only** — no named colours (`lightblue`, `red`, …); use `fillcolor` / `color` / `fontcolor` with hex values.
 9. **Palette / fontcolor coupling** — pastel fills (`#dae8fc`, `#d5e8d4`, …) pair with `fontcolor="#1a1a1a"` (or `#333333`); AA-compliant darker fills (`#2E5A88`, `#1F6E68`, …) pair with `fontcolor="#ffffff"`. Never pair white text with the pastel palette.
 10. **Record nodes** — `|` separates fields, `<port>` declares a port; mismatched braces in record labels cause parse failures.
+11. **Readability budget** — graph has ≤ 50 nodes (dense) / ≤ 100 (sparse), ≤ 100 edges, ≤ 8 parallel children off any node.
+12. **Aspect-ratio knob set** — `ratio="0.75"` (or another targeted value) is on the `graph [...]` defaults block. Without it, very wide / tall graphs hit `ASPECT_RATIO_EXTREME`.
+13. **Shape semantics consistent** — `shape=box` for processes, `cylinder` for storage, `hexagon` for external/queues, `diamond` only for decisions.
+14. **Colour is not the only differentiator** — every colour-coded role also has a shape, position, or `style=` cue.
 
 ### Validation issue → fix mapping
 
-| Code                 | Fix                                                                                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LOW_CONTRAST_TEXT`  | Update the offending node's `fillcolor=` to the AA-compliant hex and ensure `fontcolor="#ffffff"`. If the design intent is dark text, switch `fillcolor` to a pastel and `fontcolor="#1a1a1a"`. Re-render with `--force`. |
-| `NO_VISUAL_ELEMENTS` | Almost always a syntax error — check for unclosed braces, missing semicolons, reserved-keyword IDs, or wrong arrow operator for the graph type.                                                                           |
-| `MISSING_SVG_CLOSE`  | Same as `NO_VISUAL_ELEMENTS` — read `failedDetails[]` from the render JSON for the parse error line.                                                                                                                      |
-| `EXTERNAL_RESOURCE`  | Rare; usually an `image=` attribute pointing at an external URL or HTML label with `<IMG SRC="https://…">`. Replace with an inlined element or remove.                                                                    |
+| Code                   | Fix                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `LOW_CONTRAST_TEXT`    | Update the offending node's `fillcolor=` to the AA-compliant hex and ensure `fontcolor="#ffffff"`. If the design intent is dark text, switch `fillcolor` to a pastel and `fontcolor="#1a1a1a"`. Re-render with `--force`.                        |
+| `ASPECT_RATIO_EXTREME` | Run the [aspect-ratio escalation ladder](#when-aspect_ratio_extreme-fires): set `ratio=` → flip `rankdir` → constrain ranks / cluster wide fans → split into multiple `.dot` files → swap to `.mermaid`/`.drawio`. Cap at 8 iterations per file. |
+| `NO_VISUAL_ELEMENTS`   | Almost always a syntax error — check for unclosed braces, missing semicolons, reserved-keyword IDs, or wrong arrow operator for the graph type.                                                                                                  |
+| `MISSING_SVG_CLOSE`    | Same as `NO_VISUAL_ELEMENTS` — read `failedDetails[]` from the render JSON for the parse error line.                                                                                                                                             |
+| `EXTERNAL_RESOURCE`    | Rare; usually an `image=` attribute pointing at an external URL or HTML label with `<IMG SRC="https://…">`. Replace with an inlined element or remove.                                                                                           |
 
 ### Single-file repair loop
 

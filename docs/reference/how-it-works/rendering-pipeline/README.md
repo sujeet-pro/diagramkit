@@ -30,7 +30,13 @@ Per-engine lane scheduling (runWithConcurrency)
       └──► Graphviz: render via @viz-js/viz (WASM, no browser)
       │
       ▼
-Post-processing (color contrast on dark SVGs)
+Mermaid aspect-ratio rebalance (per `mermaidLayout` config)
+      │   • measure rendered SVG ratio
+      │   • if outside band: try direction flip (LR↔TB) and/or ELK init
+      │   • pick the candidate closest to target ratio (log-scale distance)
+      │
+      ▼
+Post-processing (WCAG 2.2 AA color contrast on dark SVGs)
       │
       ▼
 Optional raster conversion (sharp, per requested format)
@@ -42,7 +48,7 @@ Atomic write (.tmp + rename) per output
 Manifest update + orphan cleanup
 ```
 
-Relevant source files: `src/renderer.ts`, `src/render-all.ts`, `src/render-engines.ts`, `src/engine-profiles.ts`, `src/pool.ts`, `src/convert.ts`, `src/output.ts`, `src/manifest.ts`.
+Relevant source files: `src/renderer.ts`, `src/render-all.ts`, `src/render-engines.ts`, `src/mermaid-layout.ts`, `src/engine-profiles.ts`, `src/pool.ts`, `src/convert.ts`, `src/output.ts`, `src/manifest.ts`.
 
 ## Key invariants
 

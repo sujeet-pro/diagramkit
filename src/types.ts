@@ -50,6 +50,34 @@ export interface OutputNamingOptions {
 
 /* ── Configuration ── */
 
+/**
+ * Mermaid layout rebalance modes.
+ *
+ * - `off`: never measure or rebalance; emit no warnings.
+ * - `warn`: measure the rendered SVG ratio and warn when it is outside the tolerance band.
+ * - `flip`: for flowcharts only, swap LR↔TB / RL↔BT and keep whichever ratio is closer to the target.
+ * - `elk`: re-render with the ELK layout engine and an `aspectRatio` hint, keep the closer result.
+ * - `auto`: try `flip` first; if still outside the band, also try `elk`; pick the closest of all attempts.
+ */
+export type MermaidLayoutMode = 'off' | 'warn' | 'flip' | 'elk' | 'auto'
+
+/** Mermaid aspect-ratio rebalance options. */
+export interface MermaidLayoutOptions {
+  /** Rebalance behaviour. Default: 'warn'. */
+  mode?: MermaidLayoutMode
+  /**
+   * Target aspect ratio (width / height) used when picking the closest rebalance candidate
+   * and when injecting `elk.aspectRatio`. Default: 4 / 3 ≈ 1.333.
+   */
+  targetAspectRatio?: number
+  /**
+   * Tolerance factor. The rendered ratio is considered acceptable when it falls inside
+   * `[targetAspectRatio / tolerance, targetAspectRatio * tolerance]`. Must be > 1.
+   * Default: 2.5 — a target of 4:3 then accepts roughly 1:1.9 to 3.3:1.
+   */
+  tolerance?: number
+}
+
 /** Per-file render overrides */
 export interface FileOverride {
   /** Output formats for this file */
@@ -87,6 +115,11 @@ export interface DiagramkitConfig {
   inputDirs?: string[]
   /** Per-file render overrides keyed by filename or glob pattern */
   overrides?: Record<string, FileOverride>
+  /**
+   * Mermaid aspect-ratio rebalance options. Applies only to mermaid renders.
+   * Default: `{ mode: 'warn', targetAspectRatio: 4 / 3, tolerance: 2.5 }`.
+   */
+  mermaidLayout?: MermaidLayoutOptions
 }
 
 /* ── File types ── */
@@ -137,8 +170,19 @@ export interface RenderOptions {
   contrastOptimize?: boolean
   /** Custom dark theme variables for mermaid. Uses built-in palette if omitted. */
   mermaidDarkTheme?: Record<string, string>
+  /**
+   * Mermaid aspect-ratio rebalance overrides for this render call. Merged on top of the
+   * resolved config defaults.
+   */
+  mermaidLayout?: MermaidLayoutOptions
   /** Configuration overrides for this render call */
   config?: Partial<DiagramkitConfig>
+  /**
+   * Optional logger used for non-fatal warnings during a single render call (e.g.
+   * mermaid aspect-ratio rebalance notices). Batch and watch flows already pass their
+   * own logger via `BatchOptions`/`WatchOptions`.
+   */
+  logger?: Logger
   /** Optional browser pool instance (advanced/runtime API). */
   pool?: import('./pool').BrowserPool
 }

@@ -67,14 +67,12 @@ gh workflow run publish.yml -f release_type=<type> -f dry_run=false
 gh run watch
 ```
 
-The workflow will:
+The workflow will (parallel jobs — see [`references/release-flow.md`](references/release-flow.md) for the full graph):
 
-1. `npm ci`
-2. `npm run cicd`
-3. `npm version <type> --no-git-tag-version`
-4. Commit + tag `v<version>`, push to `main`.
-5. `npm publish --provenance --access public`
-6. Create a GitHub Release with the CHANGELOG section.
+1. `prepare` — bump version with `npm version <type> --no-git-tag-version`, sync `package-lock.json`, upload manifests as an artifact.
+2. Run every quality gate in parallel against the synced manifests: `lint`, `typecheck`, `build-lib`, `lib-pack-check`, `unit`, `e2e`, `docs-build`, `validate-build` (same gates as `cicd.yml`).
+3. `publish` — `npm publish --provenance --access public --ignore-scripts` against the validated `dist` artifact.
+4. `tag-and-release` — commit the synced manifests as `release: v<version>`, tag `v<version>`, push, create a GitHub Release with auto-generated notes.
 
 ### 5. Verify
 

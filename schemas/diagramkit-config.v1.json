@@ -84,6 +84,10 @@
       "additionalProperties": {
         "$ref": "#/$defs/fileOverride"
       }
+    },
+    "mermaidLayout": {
+      "$ref": "#/$defs/mermaidLayout",
+      "description": "Mermaid aspect-ratio rebalance options. Controls whether diagramkit measures the rendered SVG aspect ratio and warns or auto-rebalances flowcharts that fall outside the tolerance band. Only affects mermaid renders."
     }
   },
   "$defs": {
@@ -128,6 +132,31 @@
           "description": "Disable dark SVG contrast optimization for matching files when set to false."
         }
       }
+    },
+    "mermaidLayout": {
+      "type": "object",
+      "description": "Mermaid aspect-ratio rebalance options.",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["off", "warn", "flip", "elk", "auto"],
+          "default": "warn",
+          "description": "Rebalance behaviour. 'off' disables measurement; 'warn' (default) only warns when the rendered SVG ratio is outside the tolerance band; 'flip' swaps flowchart direction (LR<->TB); 'elk' re-renders with the ELK layout engine and an aspectRatio hint; 'auto' tries flip first then ELK and keeps the closest result."
+        },
+        "targetAspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.3333333333333333,
+          "description": "Target aspect ratio (width / height). Used both as the picker target and as the `elk.aspectRatio` hint. Default: 4/3 ≈ 1.333."
+        },
+        "tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 1,
+          "default": 2.5,
+          "description": "Tolerance factor — the rendered ratio is acceptable when inside [target/tolerance, target*tolerance]. Default: 2.5."
+        }
+      }
     }
   },
   "examples": [
@@ -146,6 +175,11 @@
       "overrides": {
         "hero.mermaid": { "formats": ["svg", "png"], "scale": 3 },
         "docs/*.excalidraw": { "theme": "light" }
+      },
+      "mermaidLayout": {
+        "mode": "auto",
+        "targetAspectRatio": 1.3333333333333333,
+        "tolerance": 2.5
       }
     }
   ]

@@ -125,23 +125,25 @@ $DK validate . --recursive --json
 
 Each entry in the JSON output has `path`, `valid`, and `issues[]`. Each issue has `code`, `severity` (`error` | `warning`), and a human-readable `message`. The full mapping of codes to fixes lives in [`references/issue-fix-matrix.md`](references/issue-fix-matrix.md). The most common ones:
 
-| Code                      | Sev     | What it means                                                                |
-| ------------------------- | ------- | ---------------------------------------------------------------------------- |
-| `NO_VISUAL_ELEMENTS`      | error   | SVG is empty — render produced nothing usable. Source has a syntax error.    |
-| `MISSING_SVG_CLOSE`       | error   | Render crashed mid-output. Source error or engine crash.                     |
-| `EMPTY_FILE`              | error   | Output file is zero bytes. Re-render; check Chromium (`diagramkit warmup`).  |
-| `CONTAINS_SCRIPT`         | error   | SVG has `<script>` — won't work in `<img>` embeds.                           |
-| `CONTAINS_FOREIGN_OBJECT` | warning | Mermaid emitted HTML labels — silently degrade in `<img>` / Markdown embeds. |
-| `EXTERNAL_RESOURCE`       | warning | SVG references external URLs — blocked in `<img>` embeds.                    |
-| `LOW_CONTRAST_TEXT`       | warning | Text/background pair fails WCAG 2.2 AA (< 4.5:1 normal, < 3:1 large).        |
+| Code                      | Sev     | What it means                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NO_VISUAL_ELEMENTS`      | error   | SVG is empty — render produced nothing usable. Source has a syntax error.                                                                                                                                                                                                                                                                                                                                              |
+| `MISSING_SVG_CLOSE`       | error   | Render crashed mid-output. Source error or engine crash.                                                                                                                                                                                                                                                                                                                                                               |
+| `EMPTY_FILE`              | error   | Output file is zero bytes. Re-render; check Chromium (`diagramkit warmup`).                                                                                                                                                                                                                                                                                                                                            |
+| `CONTAINS_SCRIPT`         | error   | SVG has `<script>` — won't work in `<img>` embeds.                                                                                                                                                                                                                                                                                                                                                                     |
+| `CONTAINS_FOREIGN_OBJECT` | warning | Mermaid emitted HTML labels — silently degrade in `<img>` / Markdown embeds.                                                                                                                                                                                                                                                                                                                                           |
+| `EXTERNAL_RESOURCE`       | warning | SVG references external URLs — blocked in `<img>` embeds.                                                                                                                                                                                                                                                                                                                                                              |
+| `LOW_CONTRAST_TEXT`       | warning | Text/background pair fails WCAG 2.2 AA (< 4.5:1 normal, < 3:1 large). **Accessibility regression — always fix.**                                                                                                                                                                                                                                                                                                       |
+| `ASPECT_RATIO_EXTREME`    | warning | Rendered SVG width/height ratio is outside the readable band (default `[1:1.9, 3.3:1]` against 4:3). Diagrams overflowing typical doc widths (~650–800 px) lose ~39% text legibility. **Readability regression — always fix** (with split / engine-swap escalation if needed).                                                                                                                                         |
+| `SVG_VIEWBOX_TOO_WIDE`    | warning | Rendered SVG's _absolute_ viewBox width exceeds the readable threshold (default 1600 px). The aspect-ratio check passes when ratio is fine, but a 2000+ px-wide SVG still scales by ~3× into a 700-800 px doc column, dropping text to ~33% of native size. **Readability regression — always fix** with the same escalation ladder as `ASPECT_RATIO_EXTREME` (engine-local rebalance → reduce → split → engine swap). |
 
 **Severity policy**
 
 - `severity: "error"` — must fix; review fails until clean.
 - `severity: "warning"` — must fix when SVGs are embedded via Markdown `![]()`, GitHub `<picture>`, or any `<img>` tag (the dominant case). Only deliberately allow warnings when the user explicitly confirms outputs are consumed only by SVG-aware viewers.
-- `LOW_CONTRAST_TEXT` is **always** a fix in this review; accessibility regressions are not optional.
+- `LOW_CONTRAST_TEXT`, `ASPECT_RATIO_EXTREME`, and `SVG_VIEWBOX_TOO_WIDE` are **always** fixes in this review; accessibility and readability regressions are not optional. Combined treatment: a "beautiful diagram" must pass the contrast scan, the aspect-ratio check, AND the absolute-width check before it is shipped. The two readability codes are independent — a near-square 2400×2200 SVG passes ratio but fails width; a 1300×400 SVG passes width but fails ratio. Treat both as the same escalation ladder.
 
-## Phase 4 — Iterative repair (delegated)
+## Phase 4 — Iterative repair (delegated, with escalation ladder)
 
 For every issue surfaced by Phase 2 or Phase 3, find the **source file** that produced the affected SVG (output filename → source via diagramkit's `<source-stem>-<theme>.<ext>` convention), then jump into the matching engine's `## Review Mode` to apply the fix:
 
@@ -153,7 +155,36 @@ For every issue surfaced by Phase 2 or Phase 3, find the **source file** that pr
 
 For `LOW_CONTRAST_TEXT`, always replace fills with the engine's WCAG 2.2 AA palette documented in its SKILL.md, NOT the legacy "pastel" palette. The exact swap tables for each engine are in `references/audit-checklist.md`.
 
-After every fix loop completes, **re-run Phase 3 in full** so cross-file regressions surface (a palette change in one file can reveal another file's previously-masked failure).
+### `ASPECT_RATIO_EXTREME` — escalation ladder
+
+The aspect-ratio fix is the only validation issue with a multi-step escalation policy because a single textual fix often isn't enough. Apply the steps in order; advance to the next step only when the current one didn't bring the rendered SVG inside the readable band. Re-render with `--force` and re-validate after **each** step.
+
+| #   | Step                             | Engines                                                                                                                                                                                                                                                                                      | When to use                                                                                                                 |
+| :-- | :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Engine-local rebalance**       | Mermaid: flip directive (`LR` ↔ `TB`) and/or set `mermaidLayout: { mode: 'auto' }` in the project config. Drawio: reflow `<mxGeometry>` rows/columns. Graphviz: add `ratio="0.75"` to `graph [...]` and/or flip `rankdir`. Excalidraw: reflow shape positions per the layout grids.          | First attempt — usually clears the warning when the diagram has natural slack.                                              |
+| 2   | **Collapse replica nodes**       | Mermaid only (high-leverage). When `N×M` cross-subgraph fan exists (`GW1 & GW2 & GW3 --> RLS1 & RLS2 & RLS3`), replace the replicas with a single representative node per tier (`GW` → `RLS`). The diagram shows the _data path_, not the _replica count_. Validated 60-80% width reduction. | Applies to "fan-out" architecture diagrams with redundancy/scale-out shown as separate nodes.                               |
+| 3   | **Reduce / restructure**         | Merge low-information nodes; pull subgraphs into separate files; cap branching width at 8 children per parent.                                                                                                                                                                               | When the diagram is genuinely too dense, not just badly-oriented.                                                           |
+| 4   | **Split into multiple diagrams** | Save as `<name>-<concern-a>.<ext>` + `<name>-<concern-b>.<ext>` (e.g. `-ingress` / `-delivery`, `-data-path` / `-quota-and-observability`). Update embedding markdown to reference all parts. Keep the engine the same.                                                                      | When the source covers two unrelated concerns or has an irreducibly long axis — splitting beats cramming.                   |
+| 5   | **Swap engine** (last resort)    | Mermaid → Drawio (icon-heavy / precision) or Graphviz (pure DAG). Drawio → Graphviz (algorithmic) or Mermaid (text-first structured types). Graphviz → Mermaid (structured types) or Drawio (icons). Excalidraw → Mermaid or Graphviz. Delete the original source after the rewrite.         | When the engine itself is fighting the layout — the cost is rewriting the source in the new engine's syntax.                |
+| 6   | **Record residual**              | If steps 1–5 still leave the SVG outside the band, log the diagram in the Phase 5 report under **Residual issues** with the chain of attempts. Do not infinite-loop.                                                                                                                         | The 8-iteration cap was reached, OR the user explicitly confirmed the diagram should ship as-is (e.g. a deliberate banner). |
+
+### Combined contrast + aspect loop
+
+In practice the loop interleaves both checks because a palette swap can cascade across diagrams:
+
+```text
+for each source file with issues:
+  for iter in 1..8:
+    apply minimum textual fix for the highest-priority issue
+    render --force --json
+    validate --json
+    if no errors AND no LOW_CONTRAST_TEXT AND no ASPECT_RATIO_EXTREME:
+      done
+    if iter == 8:
+      record as residual; advance to next file
+```
+
+After every fix loop completes, **re-run Phase 3 in full** so cross-file regressions surface (a palette change in one file can reveal another file's previously-masked failure; an aspect-ratio split can change which files the markdown references).
 
 ## Phase 5 — Summary report
 
@@ -178,12 +209,18 @@ Write the report to `.temp/diagram-review/<timestamp>/report.md` (the `.temp/` r
 - Errors fixed: <count>
 - Warnings fixed: <count>
 - LOW_CONTRAST_TEXT fixes: <count>
-- Residual issues (failed >8 iterations): <list>
+- ASPECT_RATIO_EXTREME fixes: <count>
+  - Cleared at step 1 (engine-local rebalance): <count>
+  - Cleared at step 2 (reduce / restructure): <count>
+  - Cleared at step 3 (split into multiple diagrams): <list of source → split parts>
+  - Cleared at step 4 (engine swap): <list of source → new engine>
+- Residual issues (failed >8 iterations): <list with last-attempted step>
 
 ## Recommended next steps
 
 - <e.g. add `npm run render:diagrams:check` to CI>
 - <e.g. delete orphaned `<old-name>-<theme>.svg` siblings>
+- <e.g. add `mermaidLayout: { mode: 'auto' }` to diagramkit.config.json5 if not already set>
 ```
 
 If the repo has CI, recommend wiring the validate command into a pre-merge job:

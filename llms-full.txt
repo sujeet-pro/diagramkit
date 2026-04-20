@@ -104,6 +104,7 @@ renderability, and WCAG 2.2 AA text contrast. Checks every `.svg` in scope for:
 - external `href`/`xlink:href` resources (blocked under `<img>`)
 - 50 MB size warning (likely renders slowly)
 - low-contrast text (`LOW_CONTRAST_TEXT`, warning) — text/background pairs that fall below the WCAG 2.2 AA threshold of 4.5:1 (normal) or 3:1 (large text)
+- extreme aspect ratio (`ASPECT_RATIO_EXTREME`, warning) — rendered SVG width/height ratio outside `[1:1.9, 3.3:1]` (default band; configurable via `SvgValidateOptions.aspectRatio`). Diagrams overflowing typical doc widths (~650–800 px) lose ~39% text legibility when scaled down. Suggestion includes engine-specific fixes: flip Mermaid directives, set `mermaidLayout: { mode: 'auto' }`, split into multiple diagrams, or swap engine.
 
 Without `--recursive`, only files in the top level of the target directory are
 scanned. With `--json`, the command emits `{ files, valid, invalid, results: [...] }`
@@ -401,7 +402,9 @@ interface RenderOptions {
   scale?: number                  // Scale for raster output. Default: 2
   contrastOptimize?: boolean      // Dark SVG contrast fix. Default: true
   mermaidDarkTheme?: Record<string, string>  // Custom dark theme variables
+  mermaidLayout?: MermaidLayoutOptions       // Per-call mermaid aspect-ratio rebalance
   config?: Partial<DiagramkitConfig>
+  logger?: Logger             // Optional logger for non-fatal warnings
   pool?: BrowserPool          // Optional isolated pool instance
 }
 ```
@@ -514,6 +517,16 @@ interface FileOverride {
 ### DiagramkitConfig
 
 ```ts
+interface MermaidLayoutOptions {
+  // 'off' = never measure. 'warn' (default) = log when ratio out of band.
+  // 'flip' = retry with swapped flowchart direction. 'elk' = retry with ELK layout
+  // engine + aspectRatio hint (requires @mermaid-js/layout-elk). 'auto' = try flip
+  // then elk, keep the closest to target.
+  mode?: 'off' | 'warn' | 'flip' | 'elk' | 'auto'  // Default: 'warn'
+  targetAspectRatio?: number      // Default: 4 / 3 ≈ 1.333
+  tolerance?: number              // Must be > 1. Default: 2.5
+}
+
 interface DiagramkitConfig {
   outputDir: string              // Output folder name. Default: '.diagramkit'
   manifestFile: string           // Manifest filename. Default: 'manifest.json'
@@ -526,6 +539,7 @@ interface DiagramkitConfig {
   extensionMap?: Record<string, DiagramType>  // Custom extension overrides
   inputDirs?: string[]           // Directories to scan (relative to project root). Default: scan entire tree
   overrides?: Record<string, FileOverride>    // Per-file render overrides
+  mermaidLayout?: MermaidLayoutOptions        // Mermaid aspect-ratio rebalance options
 }
 ```
 

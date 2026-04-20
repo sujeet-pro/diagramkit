@@ -21,10 +21,21 @@
  * 7. Every SVG under docs/.../.diagramkit/ passes the validator's WCAG 2.2 AA
  *    contrast scan — protects the docs site from regressing on hard-to-read
  *    text/background combinations as authors edit diagram sources.
+ * 8. Every Mermaid source under docs/ has no leading YAML frontmatter block
+ *    — frontmatter is silently dropped during render and breaks the
+ *    "first non-comment line is the diagram keyword" rule from
+ *    skills/diagramkit-mermaid/SKILL.md Review Mode.
+ * 9. If docs/ contains any Mermaid source, the project root has a
+ *    diagramkit.config.json5 (or .ts) with `mermaidLayout: { mode: 'auto' }`
+ *    set. Without it the renderer cannot auto-flip / ELK-rebalance, and
+ *    every ASPECT_RATIO_EXTREME warning has to be fixed source-by-source.
+ *    Surfaced as a warning (not a failure) so projects that genuinely opt
+ *    out can keep the build green.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { extname, join, relative, resolve } from 'node:path'
+import { detectMermaidLayoutConfig, hasMermaidYamlFrontmatter } from './lib/docs-rules.ts'
 
 const root = process.cwd()
 let failures = 0
@@ -254,6 +265,95 @@ async function validateDocsContrast(): Promise<void> {
   }
 }
 
+/* ── Mermaid source-file lint ── */
+
+const MERMAID_SOURCE_EXTENSIONS = new Set(['.mermaid', '.mmd', '.mmdc'])
+
+function collectMermaidSources(dir: string): string[] {
+  const out: string[] = []
+  if (!existsSync(dir)) return out
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.name === 'node_modules' || entry.name === '.diagramkit') continue
+    if (entry.isDirectory()) {
+      out.push(...collectMermaidSources(full))
+    } else if (MERMAID_SOURCE_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
+      out.push(full)
+    }
+  }
+  return out
+}
+
+function validateMermaidSources(): void {
+  const docsDir = resolve(root, 'docs')
+  if (!existsSync(docsDir)) {
+    info('docs/ not present — skipping Mermaid source-file lint')
+    return
+  }
+  const sources = collectMermaidSources(docsDir)
+  if (sources.length === 0) {
+    info('No Mermaid sources under docs/ — skipping source-file lint')
+    return
+  }
+  let frontmatterFailures = 0
+  for (const source of sources) {
+    if (hasMermaidYamlFrontmatter(readFileSync(source, 'utf-8'))) {
+      frontmatterFailures += 1
+      fail(
+        `${relative(root, source)}: starts with a YAML frontmatter block. Mermaid silently drops the title at render time and the block hides the diagram keyword from source scanners. Replace with %% Diagram: … / %% Type: … comments (skills/diagramkit-mermaid/SKILL.md Review Mode rule #1).`,
+      )
+    }
+  }
+  if (frontmatterFailures === 0) {
+    info(
+      `Mermaid source-file lint: ${sources.length} source(s) checked, no leading YAML frontmatter`,
+    )
+  }
+}
+
+/* ── Project-level diagramkit.config check ── */
+
+function validateMermaidLayoutConfig(): void {
+  const docsDir = resolve(root, 'docs')
+  if (!existsSync(docsDir)) return
+  const sources = collectMermaidSources(docsDir)
+  if (sources.length === 0) return
+  const candidates = [
+    'diagramkit.config.json5',
+    'diagramkit.config.ts',
+    'diagramkit.config.js',
+    'diagramkit.config.mjs',
+  ]
+  let configSource: string | null = null
+  let configPath = ''
+  for (const candidate of candidates) {
+    const abs = resolve(root, candidate)
+    if (existsSync(abs)) {
+      configSource = readFileSync(abs, 'utf-8')
+      configPath = candidate
+      break
+    }
+  }
+  const state = detectMermaidLayoutConfig(configSource)
+  if (state === 'present-auto') {
+    info(`mermaidLayout config: ${configPath} sets mode: 'auto' (auto-flip / ELK enabled)`)
+    return
+  }
+  // Surface as a console warning rather than a hard failure so opt-outs are possible.
+  // The skills (audit-checklist + diagramkit-mermaid Review Mode) explain why this matters.
+  const reason =
+    state === 'no-config'
+      ? `no diagramkit.config.* at the repo root`
+      : state === 'absent'
+        ? `${configPath} does not set mermaidLayout`
+        : `${configPath} sets mermaidLayout but mode is not 'auto'`
+  console.warn(
+    `[validate-build] WARN: docs/ has ${sources.length} Mermaid source(s) but ${reason}. ` +
+      `Add \`mermaidLayout: { mode: 'auto' }\` so the renderer auto-flips LR↔TB and tries ELK; this clears most ASPECT_RATIO_EXTREME warnings before any per-source edit. ` +
+      `See skills/diagramkit-review/references/audit-checklist.md (Mermaid section).`,
+  )
+}
+
 /* ── Run ── */
 
 info('Validating SKILL.md frontmatter under .agents/skills/')
@@ -277,6 +377,12 @@ validateGhPagesLinks()
 
 info('Scanning docs/ SVGs for WCAG 2.2 AA contrast regressions')
 await validateDocsContrast()
+
+info('Linting Mermaid sources under docs/ for stray YAML frontmatter')
+validateMermaidSources()
+
+info('Checking project-level mermaidLayout config')
+validateMermaidLayoutConfig()
 
 if (failures > 0) {
   console.error(`\n[validate-build] ${failures} check(s) failed`)

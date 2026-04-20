@@ -56,6 +56,11 @@ describe('config loading', () => {
       defaultTheme: 'both',
       outputPrefix: '',
       outputSuffix: '',
+      mermaidLayout: {
+        mode: 'warn',
+        targetAspectRatio: 4 / 3,
+        tolerance: 2.5,
+      },
     })
   })
 
@@ -219,6 +224,11 @@ describe('config loading', () => {
       defaultTheme: 'dark',
       outputPrefix: '',
       outputSuffix: '',
+      mermaidLayout: {
+        mode: 'warn',
+        targetAspectRatio: 4 / 3,
+        tolerance: 2.5,
+      },
     })
   })
 
@@ -348,6 +358,84 @@ describe('config loading', () => {
 
     writeFileSync(join(root, 'diagramkit.config.json5'), '{ broken json5 ')
     expect(() => loadConfig(undefined, root, undefined, { strict: true })).toThrow(DiagramkitError)
+  })
+})
+
+/**
+ * Mermaid layout block resolves through the same defaults -> global -> env -> local -> overrides
+ * pipeline. The renderer treats the resolved object as a `Required<MermaidLayoutOptions>` so each
+ * field must always be populated, even when the user only specifies one of them.
+ */
+describe('mermaidLayout config', () => {
+  it('exposes the documented defaults via getDefaultConfig', () => {
+    expect(getDefaultConfig().mermaidLayout).toEqual({
+      mode: 'warn',
+      targetAspectRatio: 4 / 3,
+      tolerance: 2.5,
+    })
+  })
+
+  it('layers a partial per-call override on top of defaults without dropping other fields', () => {
+    const config = loadConfig({ mermaidLayout: { mode: 'auto' } })
+    expect(config.mermaidLayout).toEqual({
+      mode: 'auto',
+      targetAspectRatio: 4 / 3,
+      tolerance: 2.5,
+    })
+  })
+
+  it('falls back to the default mode when given an invalid mode value', () => {
+    const warn = vi.fn()
+    const config = loadConfig(
+      { mermaidLayout: { mode: 'sideways' as unknown as 'auto' } },
+      undefined,
+      undefined,
+      { warn },
+    )
+    expect(config.mermaidLayout?.mode).toBe('warn')
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('mermaidLayout.mode'))
+  })
+
+  it('rejects non-positive targetAspectRatio and falls back to default', () => {
+    const warn = vi.fn()
+    const config = loadConfig({ mermaidLayout: { targetAspectRatio: -1 } }, undefined, undefined, {
+      warn,
+    })
+    expect(config.mermaidLayout?.targetAspectRatio).toBeCloseTo(4 / 3, 6)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('targetAspectRatio'))
+  })
+
+  it('rejects tolerance values <= 1 and falls back to default', () => {
+    const warn = vi.fn()
+    const config = loadConfig({ mermaidLayout: { tolerance: 0.5 } }, undefined, undefined, { warn })
+    expect(config.mermaidLayout?.tolerance).toBe(2.5)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('tolerance'))
+  })
+
+  it('throws in strict mode for an invalid mermaidLayout.mode', () => {
+    expect(() =>
+      loadConfig({ mermaidLayout: { mode: 'noop' as unknown as 'off' } }, undefined, undefined, {
+        strict: true,
+      }),
+    ).toThrow(DiagramkitError)
+  })
+
+  it('reads mermaidLayout from a local config file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-mermaid-layout-'))
+    try {
+      writeFileSync(
+        join(root, 'diagramkit.config.json5'),
+        `{ mermaidLayout: { mode: 'flip', targetAspectRatio: 2.0 } }`,
+      )
+      const config = loadConfig(undefined, root)
+      expect(config.mermaidLayout).toEqual({
+        mode: 'flip',
+        targetAspectRatio: 2.0,
+        tolerance: 2.5,
+      })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })
 

@@ -5,6 +5,8 @@ import {
   DiagramkitError,
   type DiagramkitConfig,
   type FileOverride,
+  type MermaidLayoutMode,
+  type MermaidLayoutOptions,
   type OutputFormat,
   type Theme,
 } from './types'
@@ -29,7 +31,85 @@ export function getDefaultConfig(): DiagramkitConfig {
     defaultTheme: 'both',
     outputPrefix: '',
     outputSuffix: '',
+    mermaidLayout: getDefaultMermaidLayout(),
   }
+}
+
+/** Resolved mermaid layout defaults. Exported for use by the renderer pipeline. */
+export function getDefaultMermaidLayout(): Required<MermaidLayoutOptions> {
+  return {
+    mode: 'warn',
+    targetAspectRatio: 4 / 3,
+    tolerance: 2.5,
+  }
+}
+
+const VALID_MERMAID_LAYOUT_MODES: readonly MermaidLayoutMode[] = [
+  'off',
+  'warn',
+  'flip',
+  'elk',
+  'auto',
+]
+
+/**
+ * Validate and resolve a partial MermaidLayoutOptions against the defaults.
+ * Invalid values fall back to defaults with a warning (or throw under strict mode).
+ */
+export function resolveMermaidLayout(
+  input: MermaidLayoutOptions | undefined,
+  runtime: ConfigLoadRuntime = {},
+): Required<MermaidLayoutOptions> {
+  const defaults = getDefaultMermaidLayout()
+  if (!input || typeof input !== 'object') return defaults
+
+  const resolved: Required<MermaidLayoutOptions> = { ...defaults }
+
+  if (input.mode !== undefined) {
+    if (typeof input.mode === 'string' && VALID_MERMAID_LAYOUT_MODES.includes(input.mode)) {
+      resolved.mode = input.mode
+    } else {
+      warnOrThrow(
+        `Warning: invalid mermaidLayout.mode "${String(input.mode)}". ` +
+          `Expected one of ${VALID_MERMAID_LAYOUT_MODES.join(', ')}. Using default "${defaults.mode}".`,
+        runtime,
+      )
+    }
+  }
+
+  if (input.targetAspectRatio !== undefined) {
+    if (
+      typeof input.targetAspectRatio === 'number' &&
+      input.targetAspectRatio > 0 &&
+      Number.isFinite(input.targetAspectRatio)
+    ) {
+      resolved.targetAspectRatio = input.targetAspectRatio
+    } else {
+      warnOrThrow(
+        `Warning: invalid mermaidLayout.targetAspectRatio (${String(input.targetAspectRatio)}). ` +
+          `Must be a positive number. Using default ${defaults.targetAspectRatio}.`,
+        runtime,
+      )
+    }
+  }
+
+  if (input.tolerance !== undefined) {
+    if (
+      typeof input.tolerance === 'number' &&
+      input.tolerance > 1 &&
+      Number.isFinite(input.tolerance)
+    ) {
+      resolved.tolerance = input.tolerance
+    } else {
+      warnOrThrow(
+        `Warning: invalid mermaidLayout.tolerance (${String(input.tolerance)}). ` +
+          `Must be a number greater than 1. Using default ${defaults.tolerance}.`,
+        runtime,
+      )
+    }
+  }
+
+  return resolved
 }
 
 /* ── Config file names (searched per directory, first match wins) ── */
@@ -264,6 +344,19 @@ export function loadConfig(
       ...overrides?.overrides,
     }
   }
+
+  // Deep-merge mermaidLayout so a partial override (just `mode`) keeps the other defaults.
+  // Also validates each layer so malformed entries fall back to defaults.
+  merged.mermaidLayout = resolveMermaidLayout(
+    {
+      ...defaults.mermaidLayout,
+      ...global?.mermaidLayout,
+      ...env.mermaidLayout,
+      ...local?.mermaidLayout,
+      ...overrides?.mermaidLayout,
+    },
+    runtime,
+  )
 
   // Reset invalid config values to defaults (catches malformed config files)
   if (typeof merged.outputDir !== 'string') {

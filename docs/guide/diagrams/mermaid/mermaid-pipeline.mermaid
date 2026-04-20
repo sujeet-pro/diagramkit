@@ -1,7 +1,7 @@
 %% Diagram: Mermaid Rendering Pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     source[".mermaid Source"] --> browser_pool[Browser Pool]
     browser_pool --> light_page["Light Page<br/>theme: default"]
     browser_pool --> dark_page["Dark Page<br/>theme: base +<br/>custom variables"]

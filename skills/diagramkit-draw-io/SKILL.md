@@ -218,6 +218,44 @@ If rendering fails, check for these common issues:
 
 Fix the issue, re-render, and validate again. Repeat until validation passes.
 
+### Validation issues to watch for
+
+| Code                   | Severity | Meaning                                                                                                                                                                                          |
+| ---------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `EXTERNAL_RESOURCE`    | warning  | Drawio export wrapped shapes in `<a xlink:href="…">`; strip the wrapper. Re-render with `--force`.                                                                                               |
+| `LOW_CONTRAST_TEXT`    | warning  | `fillColor` + `fontColor` pair fails WCAG 2.2 AA. See [Color Palette](#4--color-palette) above for the AA-safe pairings.                                                                         |
+| `ASPECT_RATIO_EXTREME` | warning  | Bounding box is too wide / tall (outside `[1:1.9, 3.3:1]`). See [Readability](#readability-budget-and-aspect-ratio) below — drawio gives you full positioning control, so the fix is mechanical. |
+| `NO_VISUAL_ELEMENTS`   | error    | `<root>` is missing `id="0"` / `id="1"` cells, or every cell is `vertex="0" edge="0"`.                                                                                                           |
+| `MISSING_SVG_CLOSE`    | error    | Malformed XML — unclosed tag or missing attribute quote.                                                                                                                                         |
+
+## Readability budget and aspect ratio
+
+Drawio's strength is precise positioning — which makes you responsible for the diagram's overall shape. Apply these limits to every `.drawio` source:
+
+| Dimension                                      | Hard ceiling                                   | Why                                                                                                                                                               |
+| :--------------------------------------------- | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cells per `<diagram>` page                     | **≤ 50 dense / ≤ 100 sparse** (target ≤ 30)    | Past these caps comprehension drops sharply. Use multi-page (`<diagram name="Detail-1"/>`) to split.                                                              |
+| Edges per page                                 | **≤ 100**                                      | Visual graph density past this point exceeds underlying logic density.                                                                                            |
+| Branching width                                | **≤ 8 parallel children** off any single cell  | Wider fans force the reader to lose their place.                                                                                                                  |
+| Aspect ratio (`(maxX − minX) / (maxY − minY)`) | **inside `[0.53, 3.33]`** against a 4:3 target | Diagrams overflowing typical doc widths (~650–800 px) get scaled down and lose ~39% text legibility. The validator emits `ASPECT_RATIO_EXTREME` when this breaks. |
+
+### Visual encoding
+
+- **Reuse 3–6 styles for semantic roles** — pick one `style=` string per role (service / database / external / queue / actor) and apply it everywhere. Mixing styles for the same role slows comprehension.
+- **Diamonds for decisions only.** Don't use `style=rhombus` as decoration — semantic shape mapping reduces interpretation latency ~4×.
+- **Never rely on colour alone for meaning.** Pair every fill with a shape, label, or position. ~8% of male engineers have red-green colour-vision deficiency.
+- **Reserve red (`#B43A3A`) for errors / alerts.**
+
+### When `ASPECT_RATIO_EXTREME` fires
+
+Apply the steps in this order — re-render with `--force` after each step and re-validate. Cap at 8 iterations per file.
+
+1. **Reflow the layout.** Tally `(maxX − minX) / (maxY − minY)` from every `<mxGeometry>`. If width / height is too wide, wrap a horizontal row into 2–3 rows; if too tall, do the inverse. This is mechanical — drawio honours your geometry exactly.
+2. **Reduce cell count.** Merge low-information shapes; pull peripheral detail into a separate `<diagram>` page (drawio multi-page). Link from the overview page.
+3. **Split into multiple pages.** Add a second `<diagram name="Detail-1"/>` with the dense subsection; keep the overview lean. Both pages render to separate SVGs side by side.
+4. **Swap engine (last resort).** When precision/icons are not the value being added, convert to `.dot` (graphviz) for algorithmic layout with `ratio=` control, or `.mermaid` (with `mermaidLayout: { mode: 'auto' }`) for text-first authoring. Follow `../diagramkit-graphviz/SKILL.md` or `../diagramkit-mermaid/SKILL.md` for the rewrite.
+5. **Record residual** in the review report if the loop hasn't cleared the warning.
+
 ### Hand-exported SVGs: strip `<a xlink:href>` wrappers
 
 If you receive an `.svg` exported directly from draw.io desktop or diagrams.net (not rendered through diagramkit), `diagramkit validate` may emit:
@@ -331,16 +369,21 @@ For each source, verify in order — apply the minimum textual fix for each rule
 8. **Stencils available in the bundled library** — custom stencils not in mxgraph builtins fail silently. Replace with built-in shapes if missing.
 9. **WCAG palette** — `fillColor=` paired with appropriate `fontColor=`. White text only on AA-compliant darker fills (`#2E5A88`, `#1F6E68`, `#B43A3A`, `#8B5E15`, `#2D7A2D`, `#5A5A5A`); dark text (`#1a1a1a`) on pastel fills.
 10. **No hardcoded background overrides on the page** — let diagramkit handle theme.
+11. **Readability budget** — page has ≤ 50 cells (dense) / ≤ 100 (sparse), ≤ 100 edges, ≤ 8 parallel children off any cell.
+12. **Aspect ratio in band** — `(maxX − minX) / (maxY − minY)` from the geometry sits inside `[0.53, 3.33]`. If not, reflow rows/columns or split into a second `<diagram>` page.
+13. **Semantic shape reuse** — at most 3–6 distinct `style=` strings, one per role (service, datastore, external, queue, actor). Diamond shapes only for decisions.
+14. **Colour is not the only differentiator** — every colour-coded role also has a shape or position cue (8% of male engineers have red-green CVD).
 
 ### Validation issue → fix mapping
 
-| Code                 | Fix                                                                                                                                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXTERNAL_RESOURCE`  | Strip outer `<a xlink:href="https://www.drawio.com/…">` link wrappers from the source XML. If only an exported SVG is available, also see "Hand-exported SVGs" above. Re-render with `--force`. |
-| `LOW_CONTRAST_TEXT`  | Update the offending cell's `style=` string: replace `fillColor=` with the AA-compliant hex and pair with `fontColor=#ffffff`. Re-render with `--force`, then re-validate.                      |
-| `NO_VISUAL_ELEMENTS` | Verify the `<root>` contains `id="0"` / `id="1"` cells; check that content cells have `vertex="1"` or `edge="1"`.                                                                               |
-| `MISSING_SVG_CLOSE`  | Almost always malformed XML — confirm all tags are closed and attribute values are quoted.                                                                                                      |
-| `CONTAINS_SCRIPT`    | Custom JavaScript stencil emitted a `<script>`; remove the stencil and replace with a built-in shape.                                                                                           |
+| Code                   | Fix                                                                                                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXTERNAL_RESOURCE`    | Strip outer `<a xlink:href="https://www.drawio.com/…">` link wrappers from the source XML. If only an exported SVG is available, also see "Hand-exported SVGs" above. Re-render with `--force`.                                     |
+| `LOW_CONTRAST_TEXT`    | Update the offending cell's `style=` string: replace `fillColor=` with the AA-compliant hex and pair with `fontColor=#ffffff`. Re-render with `--force`, then re-validate.                                                          |
+| `ASPECT_RATIO_EXTREME` | Run the [aspect-ratio escalation ladder](#when-aspect_ratio_extreme-fires): reflow geometry → reduce cell count → split into multiple `<diagram>` pages → swap to `.dot`/`.mermaid` as a last resort. Cap at 8 iterations per file. |
+| `NO_VISUAL_ELEMENTS`   | Verify the `<root>` contains `id="0"` / `id="1"` cells; check that content cells have `vertex="1"` or `edge="1"`.                                                                                                                   |
+| `MISSING_SVG_CLOSE`    | Almost always malformed XML — confirm all tags are closed and attribute values are quoted.                                                                                                                                          |
+| `CONTAINS_SCRIPT`      | Custom JavaScript stencil emitted a `<script>`; remove the stencil and replace with a built-in shape.                                                                                                                               |
 
 ### Single-file repair loop
 

@@ -138,3 +138,43 @@ export function findDiagramAssetReferences(markdown: string): DiagramAssetRefere
   }
   return refs
 }
+
+/**
+ * Detect a leading YAML frontmatter block (`---\n…\n---`) in a Mermaid
+ * source file. Mermaid silently swallows the frontmatter `title:` field —
+ * it never reaches the SVG output — and the block hides the diagram
+ * keyword from any tool that scans for it on the first non-comment line.
+ * The fix is to replace the frontmatter with `%% Diagram: …` / `%% Type: …`
+ * comments per `skills/diagramkit-mermaid/SKILL.md` Review Mode rule #1.
+ *
+ * Returns `true` only when the file STARTS with a `---` fence (allowing
+ * an optional UTF-8 BOM). A `---` later in the file is fine — that's a
+ * Markdown horizontal rule inside a label, not a frontmatter block.
+ */
+export function hasMermaidYamlFrontmatter(source: string): boolean {
+  const stripped = source.replace(/^\uFEFF/, '')
+  return /^---\s*\r?\n[\s\S]*?\r?\n---\s*(\r?\n|$)/.test(stripped)
+}
+
+/**
+ * `mermaidLayout` config probe. Returns one of:
+ *   - 'present-auto'    config has `mermaidLayout: { mode: 'auto', … }`
+ *   - 'present-other'   config has a `mermaidLayout` block but mode != 'auto'
+ *   - 'absent'          config exists but does not mention `mermaidLayout`
+ *   - 'no-config'       no `diagramkit.config.json5` / `.ts` source string passed
+ *
+ * The probe is regex-based (no JSON5 parser) so it stays dependency-free
+ * and works on both `diagramkit.config.json5` and `diagramkit.config.ts`
+ * sources. It tolerates whitespace, single/double quotes, and trailing
+ * commas.
+ */
+export type MermaidLayoutConfigState = 'present-auto' | 'present-other' | 'absent' | 'no-config'
+
+export function detectMermaidLayoutConfig(configSource: string | null): MermaidLayoutConfigState {
+  if (configSource == null) return 'no-config'
+  const blockMatch = configSource.match(/mermaidLayout\s*:\s*\{([\s\S]*?)\}/)
+  if (!blockMatch) return 'absent'
+  const body = blockMatch[1] ?? ''
+  if (/\bmode\s*:\s*['"]auto['"]/.test(body)) return 'present-auto'
+  return 'present-other'
+}

@@ -114,6 +114,13 @@ interface DiagramkitConfig {
 
   /** Per-file render overrides (keyed by filename, path, or glob) */
   overrides?: Record<string, FileOverride>
+
+  /**
+   * Mermaid aspect-ratio rebalance options. Applies only to mermaid renders.
+   * Default: `{ mode: 'warn', targetAspectRatio: 4 / 3, tolerance: 2.5 }`.
+   * See [`MermaidLayoutOptions`](#mermaidlayoutoptions) below.
+   */
+  mermaidLayout?: MermaidLayoutOptions
 }
 ```
 
@@ -224,12 +231,39 @@ interface RenderOptions {
   contrastOptimize?: boolean
   /** Custom Mermaid dark theme variables */
   mermaidDarkTheme?: Record<string, string>
+  /** Per-call mermaid aspect-ratio rebalance overrides. Merged on top of the project config. */
+  mermaidLayout?: MermaidLayoutOptions
   /** Config overrides */
   config?: Partial<DiagramkitConfig>
+  /** Optional logger for non-fatal warnings (e.g. mermaid aspect-ratio rebalance notices) */
+  logger?: Logger
   /** Browser pool instance for isolated runtimes (advanced) */
   pool?: BrowserPool
 }
 ```
+
+### `MermaidLayoutOptions`
+
+```ts
+interface MermaidLayoutOptions {
+  /** Rebalance behaviour. Default: 'warn'. */
+  mode?: 'off' | 'warn' | 'flip' | 'elk' | 'auto'
+  /** Target aspect ratio (width / height). Default: 4 / 3 ≈ 1.333. */
+  targetAspectRatio?: number
+  /** Tolerance factor; ratio is acceptable when inside [target/tolerance, target*tolerance]. Must be > 1. Default: 2.5. */
+  tolerance?: number
+}
+```
+
+| Mode | Behaviour |
+|:-----|:----------|
+| `off` | Never measure or rebalance. |
+| `warn` *(default)* | Measure once and warn when out of band; keep the original render. |
+| `flip` | Swap flowchart direction (`LR ↔ TB`, `RL ↔ BT`); keep whichever is closer to target. |
+| `elk` | Inject `%%{init:{"layout":"elk","elk":{"aspectRatio":target}}}%%`; keep the closer render. Requires the optional `@mermaid-js/layout-elk` plugin to be available. |
+| `auto` | Try `flip` first; fall through to `elk` (and `flip + elk`) if still outside the band; pick the closest of all attempts. |
+
+Only `flowchart`/`graph` diagrams are rebalance-eligible. Sequence, gantt, journey, state, ER, class, mindmap, sankey, gitGraph diagrams degrade to `warn`-only behaviour.
 
 ### `RenderResult`
 
@@ -488,7 +522,10 @@ type SvgIssueCode =
   | 'INVALID_VIEWBOX'
   | 'SVG_TOO_LARGE'
   | 'LOW_CONTRAST_TEXT'
+  | 'ASPECT_RATIO_EXTREME'
 ```
+
+`ASPECT_RATIO_EXTREME` is emitted when the rendered SVG width/height ratio falls outside the readable band (default `[1:1.9, 3.3:1]` against a 4:3 target). Tunable per call via `SvgValidateOptions.aspectRatio` — see below.
 
 ### `SvgIssue`
 
@@ -498,6 +535,24 @@ interface SvgIssue {
   severity: SvgIssueSeverity
   message: string
   suggestion?: string
+}
+```
+
+### `SvgValidateOptions`
+
+```ts
+interface SvgValidateOptions {
+  /** Run the WCAG 2.2 AA contrast scan against rendered text. Default: true. */
+  checkContrast?: boolean
+  /** Effective canvas/page background. Default: inferred from `-light.svg` / `-dark.svg` suffix. */
+  backgroundOverride?: string
+  /**
+   * Aspect-ratio sanity check. When the rendered ratio falls outside
+   * `[target / tolerance, target * tolerance]`, the validator emits
+   * `ASPECT_RATIO_EXTREME`. Pass `false` to skip the check.
+   * Default: `{ target: 4 / 3, tolerance: 2.5 }`.
+   */
+  aspectRatio?: { target: number; tolerance: number } | false
 }
 ```
 

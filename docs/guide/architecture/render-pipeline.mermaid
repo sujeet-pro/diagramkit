@@ -1,7 +1,7 @@
 %% Diagram: Render Pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     source[Source File] --> detect_type{Detect Type}
     detect_type -->|.mermaid .mmd| mermaid[Mermaid]
     detect_type -->|.excalidraw| excalidraw[Excalidraw]

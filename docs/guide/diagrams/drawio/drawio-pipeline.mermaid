@@ -1,7 +1,7 @@
 %% Diagram: Draw.io Rendering Pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     source[".drawio XML"] --> bundle["Bundle IIFE<br/>(rolldown)"]
     bundle --> browser_page["Browser Page<br/>DOMParser"]
     browser_page --> parse_cells["Parse mxCells<br/>vertices + edges"]

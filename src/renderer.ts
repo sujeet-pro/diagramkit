@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
+import { getDefaultMermaidLayout, resolveMermaidLayout } from './config'
 import { getEngineProfile } from './engine-profiles'
 import { engineRenderers } from './render-engines'
 import { getAllExtensions, getDiagramType, getExtensionMap } from './extensions'
@@ -13,6 +14,8 @@ import {
   type DiagramFile,
   type DiagramType,
   type DiagramkitConfig,
+  type Logger,
+  type MermaidLayoutOptions,
   type OutputFormat,
   type OutputMetadata,
   type OutputNamingOptions,
@@ -47,12 +50,15 @@ export async function render(
     // and cause browsers to ignore every rule that references the id.
     const renderId = `g${randomUUID()}`
     const engine = engineRenderers[type]
+    const mermaidLayout = resolveMermaidLayoutForRender(options)
     const { lightSvg, darkSvg } = await engine({
       source,
       theme,
       contrastOptimize,
       renderId,
       mermaidDarkTheme: options.mermaidDarkTheme ?? defaultMermaidDarkTheme,
+      mermaidLayout,
+      warn: pickWarnCallback(options.logger),
       pool: pool ?? undefined,
     })
 
@@ -215,3 +221,25 @@ export async function renderDiagramFileToDisk(
 }
 
 export { defaultMermaidDarkTheme } from './mermaid-theme'
+
+/**
+ * Resolve the effective MermaidLayoutOptions for a single render call:
+ *   1. start from the global defaults,
+ *   2. layer the project config (`options.config?.mermaidLayout`) on top,
+ *   3. layer per-call overrides (`options.mermaidLayout`) last.
+ */
+function resolveMermaidLayoutForRender(options: RenderOptions): Required<MermaidLayoutOptions> {
+  const merged: MermaidLayoutOptions = {
+    ...getDefaultMermaidLayout(),
+    ...options.config?.mermaidLayout,
+    ...options.mermaidLayout,
+  }
+  return resolveMermaidLayout(merged)
+}
+
+function pickWarnCallback(logger?: Logger): (msg: string) => void {
+  if (logger) {
+    return (msg) => logger.warn(msg)
+  }
+  return (msg) => console.warn(msg)
+}

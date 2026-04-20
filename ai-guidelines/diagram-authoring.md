@@ -27,7 +27,9 @@ Use the smallest engine that fits the job.
 
 ## Universal Rules
 
-These rules apply to all engines:
+These rules apply to all engines.
+
+### Authoring
 
 1. **Source alongside output.** The editable source file is always committed next to rendered assets.
 2. **Smallest diagram.** Prefer the minimal diagram that explains the point. Add complexity only when it adds clarity.
@@ -37,6 +39,42 @@ These rules apply to all engines:
 6. **Hex colors only.** Use hex color codes, not named colors like `red` or `blue`.
 7. **Mid-tone palette.** Use mid-tone fills that survive both light and dark renders. Avoid near-white or near-black fills.
 8. **Re-render after edits.** Always re-render from source after changes. Never hand-edit generated SVGs.
+
+### Readability budget (research-backed thresholds)
+
+Every diagram must respect these limits regardless of engine. Rationale: human short-term visual memory holds 3–4 distinct objects; flowcharts are O(n²) in connections; diagrams overflowing typical doc widths (~650–800 px) lose ~39% text legibility when scaled down.
+
+| Dimension                                  | Hard ceiling                                 | Validator code when violated |
+| :----------------------------------------- | :------------------------------------------- | :--------------------------- |
+| Nodes per diagram                          | ≤ 50 dense / ≤ 100 sparse (target ≤ 15)      | — (manual check)             |
+| Connections per diagram                    | ≤ 100                                        | — (manual check)             |
+| Branching width                            | ≤ 8 parallel branches off any node           | — (manual check)             |
+| Comprehension target                       | ≤ 90 s of reader attention                   | — (manual check)             |
+| Aspect ratio (rendered SVG width / height) | inside `[1:1.9, 3.3:1]` against a 4:3 target | `ASPECT_RATIO_EXTREME`       |
+
+When `ASPECT_RATIO_EXTREME` fires, follow the engine SKILL.md escalation ladder: engine-local rebalance → reduce / restructure → split into multiple diagrams → swap engine.
+
+### Visual encoding
+
+- **Consistent shape semantics.** Mixing meaning slows interpretation ~4×. Pick a vocabulary and use it everywhere:
+  - rectangle = process / service / component
+  - rounded rectangle = external boundary / actor
+  - **diamond = decision (only — never decoration)**
+  - cylinder = persistent storage
+  - hexagon = external system / queue / event
+  - parallelogram = input / output / payload
+  - circle = start / end terminator
+- **Never rely on colour alone for meaning.** Pair every colour with a shape, label, or position. ~8% of male engineers have red-green colour-vision deficiency; a colour-only legend is invisible to them.
+- **Reserve red (`#B43A3A`) for errors / alerts.** Don't use it for "primary" or generic emphasis.
+
+### What the renderer + validator already enforce
+
+The renderer (`diagramkit render`) and validator (`diagramkit validate`) already automate the most expensive checks. Treat their findings as must-fix:
+
+- `LOW_CONTRAST_TEXT` — every rendered text/background pair is scanned against WCAG 2.2 AA (4.5:1 normal, 3:1 large).
+- `ASPECT_RATIO_EXTREME` — every rendered SVG's width/height ratio is sanity-checked against `[1:1.9, 3.3:1]`.
+- `CONTAINS_FOREIGN_OBJECT`, `EXTERNAL_RESOURCE`, `CONTAINS_SCRIPT` — embed-safety scans.
+- Mermaid only: `mermaidLayout: { mode: 'auto' }` in `diagramkit.config.json5` will additionally try direction-flip / ELK rebalance during render. Set this once; the agent loop only handles residual cases.
 
 ## Color Palette — Universal
 
@@ -300,6 +338,8 @@ Extensions: `.mermaid`, `.mmd`, `.mmdc`
 ### Flowchart
 
 Directive: `flowchart TD` or `flowchart LR`
+
+> **Choose the direction that fits the destination width.** A wide chain in `flowchart LR` produces a 10:1+ SVG that is unreadable when embedded at 650 px or in mobile docs. As a rule of thumb: pick `LR` when the diagram has at most 4–5 nodes per rank, otherwise prefer `TD`. diagramkit can auto-rebalance via `mermaidLayout: { mode: 'auto' }` in `diagramkit.config.json5` (see `node_modules/diagramkit/REFERENCE.md` → Configuration → `mermaidLayout`) and surfaces an `ASPECT_RATIO_EXTREME` validator warning when a rendered SVG falls outside `[1:1.9, 3.3:1]`. Fixing the source (right direction, ≤ 50 nodes, ≤ 8 parallel branches) is always cheaper than relying on rebalance.
 
 Node shapes:
 
@@ -1245,6 +1285,10 @@ Before finishing a diagram:
 - Is alt text descriptive and specific?
 - Did you re-render after edits?
 - Did you check both light and dark variants?
+- **Did `diagramkit validate` report zero errors AND zero `LOW_CONTRAST_TEXT` AND zero `ASPECT_RATIO_EXTREME`?** A diagram is not finished until all three are clean.
+- Is the diagram inside the readability budget (≤ 50 nodes dense / ≤ 100 sparse, ≤ 100 connections, ≤ 8 parallel branches)?
+- Are shape semantics consistent (rectangles for processes, diamonds only for decisions, cylinders for storage)?
+- Is the colour-coding paired with at least one other cue (shape / label / position)?
 
 ## Anti-Patterns
 
@@ -1257,3 +1301,7 @@ Before finishing a diagram:
 - Hardcoding theme directives instead of letting diagramkit handle themes
 - Using named colors instead of hex values
 - Hand-editing generated SVGs
+- Shipping a diagram with `LOW_CONTRAST_TEXT` or `ASPECT_RATIO_EXTREME` warnings instead of running the iterative fix loop
+- Cramming everything into one diagram instead of splitting into overview + detail when the readability budget is exceeded
+- Using diamond shapes as decoration (they should mean "decision")
+- Relying on colour as the only differentiator between roles (invisible to ~8% of male engineers with red-green CVD)

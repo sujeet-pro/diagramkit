@@ -1,7 +1,7 @@
 %% Diagram: Image Format Pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     source[Diagram Source] --> engine[Engine Render]
     engine --> svg[SVG]
     svg --> raster_check{Raster needed?}

@@ -285,13 +285,41 @@ After rendering, validate the SVG output:
 $DIAGRAMKIT validate path/to/.diagramkit/
 ```
 
-Excalidraw-specific validation errors to watch for:
+Excalidraw-specific validation issues to watch for:
 
-| Error          | Meaning                                                         |
-| -------------- | --------------------------------------------------------------- |
-| Empty SVG      | No visual elements rendered — likely empty `elements` array     |
-| No dimensions  | SVG has zero width/height — check element positions             |
-| Missing visual | SVG has structure but no visible shapes — check element opacity |
+| Code                   | Severity | Meaning                                                                                                                                                                                 |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOW_CONTRAST_TEXT`    | warning  | Shape `backgroundColor` and text `strokeColor` pair fails WCAG 2.2 AA. Swap to the AA palette in [Step 4](#step-4--color-palette).                                                      |
+| `ASPECT_RATIO_EXTREME` | warning  | Bounding box of all elements is too wide / tall (outside `[1:1.9, 3.3:1]`). See [Readability](#readability-budget-and-aspect-ratio) below — excalidraw lets you reflow shapes manually. |
+| `NO_VISUAL_ELEMENTS`   | error    | Empty `elements[]` or every element has `isDeleted: true`. Restore at least one visible shape.                                                                                          |
+| `MISSING_SVG_CLOSE`    | error    | Almost always invalid JSON or a missing required property (see `references/element-reference.md`).                                                                                      |
+
+## Readability budget and aspect ratio
+
+Excalidraw renders the SVG at the exact pixel extent of the rightmost / bottommost element. This means the diagram's overall shape is whatever you draw — apply these limits:
+
+| Dimension                 | Hard ceiling                                     | Why                                                                                                                                                               |
+| :------------------------ | :----------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shapes per file           | **≤ 50 dense / ≤ 100 sparse** (target ≤ 25)      | Past these caps comprehension drops sharply.                                                                                                                      |
+| Arrows per file           | **≤ 100**                                        | Visual graph density past this point exceeds underlying logic density.                                                                                            |
+| Branching width           | **≤ 8 outgoing arrows** from any single shape    | Wider fans force the reader to lose their place.                                                                                                                  |
+| Bounding-box aspect ratio | **inside `[1:1.9, 3.3:1]`** against a 4:3 target | Diagrams overflowing typical doc widths (~650–800 px) get scaled down and lose ~39% text legibility. The validator emits `ASPECT_RATIO_EXTREME` when this breaks. |
+
+### Visual encoding
+
+- **Use shape semantics consistently.** rectangle = process / service, ellipse = external boundary or actor, **diamond is poor in Excalidraw (arrows attach badly) — use a rectangle with a "Decision:" label prefix instead**, cylinder shape is unavailable so use a rectangle with a 📦/🗄 emoji or a "Storage" label.
+- **Never rely on colour alone for meaning.** Pair every fill with a shape, label, or position. ~8% of male engineers have red-green colour-vision deficiency.
+- **Reserve red (`#B43A3A` / `#ffc9c9`) for errors / alerts.** Don't use it for "primary" or generic emphasis.
+
+### When `ASPECT_RATIO_EXTREME` fires
+
+Excalidraw is positional, so the fix is mechanical. Apply the steps in this order — re-render with `--force` after each step and re-validate. Cap at 8 iterations per file.
+
+1. **Reflow the layout.** Compute the current bounding box: `maxX = max(element.x + element.width)`, `minX = min(element.x)`, similarly for Y. If `(maxX − minX) / (maxY − minY)` is too wide, wrap a horizontal row into 2–3 rows; if too tall, do the inverse. The layout grids in [Step 3](#step-3--create-the-diagram) (vertical, horizontal, hub-and-spoke) give you target coordinates.
+2. **Reduce shape count.** Merge low-information shapes; drop labels that aren't load-bearing.
+3. **Split the diagram.** Save as two `.excalidraw` files — `<name>-overview.excalidraw` (the high-level shapes) and `<name>-detail-<N>.excalidraw` (zoomed-in sections). Embed both with `<picture>` in the surrounding markdown.
+4. **Swap engine (last resort).** When the hand-drawn aesthetic isn't the value being added, convert to `.mermaid` (with `mermaidLayout: { mode: 'auto' }` for structured types) or `.dot` (graphviz, with `ratio="0.75"` for algorithmic layout). Follow `../diagramkit-mermaid/SKILL.md` or `../diagramkit-graphviz/SKILL.md` for the rewrite.
+5. **Record residual** in the review report if the loop hasn't cleared the warning.
 
 ## Step 7 — Iterative error correction
 
@@ -383,15 +411,20 @@ Every check is fast and mechanical. Apply the minimum textual fix for each rule 
 9. **Hex colours only** — no named colours.
 10. **Palette / text-colour coupling** — pastel fills (`#a5d8ff`, `#b2f2bb`, `#ffec99`, `#ffc9c9`, …) pair with default dark text (`#1e1e1e`); AA-compliant darker fills (`#2E5A88`, `#1F6E68`, …) pair with `#ffffff` text. Never mix pastel + white text (fails AA).
 11. **No hardcoded background override** — `appState.viewBackgroundColor` should be `#ffffff` (or omitted). Let diagramkit's dark-mode pipeline (`exportWithDarkMode`) handle theming.
+12. **Readability budget** — file has ≤ 50 shapes (dense) / ≤ 100 (sparse), ≤ 100 arrows, ≤ 8 outgoing arrows from any single shape.
+13. **Bounding box aspect ratio in band** — `(maxX − minX) / (maxY − minY)` across all `elements[]` sits inside `[0.53, 3.33]`. If not, reflow shapes per the layout grids in Step 3.
+14. **Shape semantics consistent** — rectangle = process, ellipse = boundary/actor, no diamonds (use rectangle + "Decision:" label prefix because excalidraw's diamond has poor arrow attachment).
+15. **Colour is not the only differentiator** — every colour-coded role also has a shape, label, or position cue.
 
 ### Validation issue → fix mapping
 
-| Code                 | Fix                                                                                                                                                                                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LOW_CONTRAST_TEXT`  | Inspect each shape's fill + the matching text element's `strokeColor`. If shape uses pastel palette, set text `strokeColor: "#1e1e1e"`. If shape uses AA-compliant darker palette, set text `strokeColor: "#ffffff"`. Re-render with `--force`. |
-| `NO_VISUAL_ELEMENTS` | Check for empty `elements[]`, malformed JSON, or every element marked `isDeleted: true`. Restore at least one visible shape.                                                                                                                    |
-| `MISSING_SVG_CLOSE`  | Almost always invalid JSON or a missing required property. Validate the file and add the missing properties listed in `references/element-reference.md`.                                                                                        |
-| `EXTERNAL_RESOURCE`  | Rare in Excalidraw; usually a manually-inserted `image` element with an external URL. Replace with an inlined element or remove.                                                                                                                |
+| Code                   | Fix                                                                                                                                                                                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOW_CONTRAST_TEXT`    | Inspect each shape's fill + the matching text element's `strokeColor`. If shape uses pastel palette, set text `strokeColor: "#1e1e1e"`. If shape uses AA-compliant darker palette, set text `strokeColor: "#ffffff"`. Re-render with `--force`. |
+| `ASPECT_RATIO_EXTREME` | Run the [aspect-ratio escalation ladder](#when-aspect_ratio_extreme-fires): reflow shape positions → reduce shape count → split into multiple `.excalidraw` files → swap to `.mermaid`/`.dot`. Cap at 8 iterations per file.                    |
+| `NO_VISUAL_ELEMENTS`   | Check for empty `elements[]`, malformed JSON, or every element marked `isDeleted: true`. Restore at least one visible shape.                                                                                                                    |
+| `MISSING_SVG_CLOSE`    | Almost always invalid JSON or a missing required property. Validate the file and add the missing properties listed in `references/element-reference.md`.                                                                                        |
+| `EXTERNAL_RESOURCE`    | Rare in Excalidraw; usually a manually-inserted `image` element with an external URL. Replace with an inlined element or remove.                                                                                                                |
 
 ### Single-file repair loop
 

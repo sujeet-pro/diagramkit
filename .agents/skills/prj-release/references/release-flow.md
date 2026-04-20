@@ -37,12 +37,38 @@ gh run list --workflow=cicd.yml --branch=main --limit=5
 
 ## Workflow order (what publish.yml runs)
 
-1. `npm ci`
-2. `npm run cicd` — full gate: check, typecheck, build:all, unit, e2e, validate-build.
-3. `npm version <type> --no-git-tag-version`
-4. Commit + tag `v<version>`, push to `main`.
-5. `npm publish --provenance --access public`
-6. Create a GitHub Release with the CHANGELOG section.
+The workflow runs the same gates as `cicd.yml` but in parallel jobs (no
+single sequential `npm run cicd` step), so a failed gate does not hide
+other failures and the wall-clock release time is roughly the slowest
+gate (`e2e` or `docs-build`) instead of the sum.
+
+1. `prepare` — `npm version <type> --no-git-tag-version`, refresh
+   `package-lock.json`, upload `package.json` + `package-lock.json` as
+   the `release-manifests` artifact (no git commit/tag yet).
+2. Parallel gates, all consuming `release-manifests`:
+   - `lint` — `npm audit --audit-level=moderate` + `npm run check`.
+   - `typecheck` — `npm run typecheck`.
+   - `build-lib` — `npm run build:lib`, uploads the `dist` artifact.
+3. Tier-2 gates that consume the `dist` artifact (parallel):
+   - `lib-pack-check` — `npm pack --dry-run`.
+   - `unit` — `npm run test:unit`.
+   - `e2e` — `npm run test:e2e` (chromium cached).
+   - `docs-build` — render docs via the built CLI, build the pagesmith
+     site, copy llms files, upload `gh-pages` + rendered SVG artifacts.
+4. `validate-build` — runs `scripts/validate-build.ts` against the
+   downloaded `dist`, `gh-pages`, and rendered SVG artifacts.
+5. `publish` — needs every gate above. Downloads `release-manifests` +
+   `dist` and runs `npm publish --provenance --access public --ignore-scripts`
+   (or `--dry-run --ignore-scripts` when `dry_run=true`). `--ignore-scripts`
+   skips the `prepack` rebuild because `build-lib` already produced the
+   exact artifact we publish.
+6. `tag-and-release` — only when `dry_run=false`. Commits the synced
+   manifests as `release: v<version>`, tags `v<version>`, pushes to the
+   workflow's branch with `--follow-tags`, and creates a GitHub Release
+   via `gh release create --generate-notes`.
+7. `summary` — `if: always()`. Aggregates every job result so a single
+   status check surfaces every failure; treats `tag-and-release` as
+   intentionally skipped on dry runs.
 
 ## Finalize CHANGELOG
 

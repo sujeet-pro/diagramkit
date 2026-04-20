@@ -146,12 +146,41 @@ Mermaid rendering uses two persistent browser pages in the pool:
 
 Two pages are needed because `mermaid.initialize()` is global and cannot be reconfigured per-call. Both pages are reused across renders.
 
+## Aspect-ratio rebalance
+
+Mermaid's default Dagre layout has no aspect-ratio knob, so a `flowchart LR` with many sequential nodes can render at extreme ratios like 12:1 — fine in a wide browser, hard to read when embedded at 650 px or in mobile docs. diagramkit can detect this and either warn or transparently re-render to a more readable shape.
+
+The behaviour is controlled by `mermaidLayout` in `diagramkit.config.json5` (or per-call via `RenderOptions.mermaidLayout`). By default the renderer warns when a diagram falls outside a `[1:1.9, 3.3:1]` band; opting into `mode: 'auto'` makes it actively try a flipped direction and (if available) the ELK layout engine, then keep whichever variant lands closest to the target ratio.
+
+```json5
+{
+  mermaidLayout: {
+    mode: 'auto',           // 'off' | 'warn' | 'flip' | 'elk' | 'auto'
+    targetAspectRatio: 4 / 3,
+    tolerance: 2.5,
+  },
+}
+```
+
+| Mode | What happens when the rendered ratio is out of band |
+|:-----|:-----------------------------------------------------|
+| `off` | Nothing — pre-existing behaviour. |
+| `warn` *(default)* | The original render is kept and a warning is logged. |
+| `flip` | The flowchart direction is swapped (`LR ↔ TB`, `RL ↔ BT`) and the closer-to-target render is kept. |
+| `elk` | A `%%{init:{"layout":"elk","elk":{"aspectRatio":...}}}%%` directive is injected and the closer render is kept. Requires the optional `@mermaid-js/layout-elk` plugin to be available; otherwise the attempt is caught and the original render is kept. |
+| `auto` | Tries `flip` first; if still out of band, also tries `elk` (and `flip + elk`). Picks the closest of all attempts. |
+
+Eligibility: only `flowchart` / `graph` diagrams are rebalanced. Sequence, gantt, journey, state, class, ER, pie, mindmap, sankey, gitGraph, and similar diagrams are inherently directional/temporal and degrade to `warn`-only behaviour. If the source already declares `layout` or `flowchart.defaultRenderer` in an `%%{init}%%` block, the ELK injection is skipped — author intent always wins.
+
+For full schema and validation rules see the [Configuration Reference](../../../reference/diagramkit/config/README.md#mermaidlayout).
+
 ## Gotchas
 
 - **Large diagrams** -- Mermaid rendering happens in a headless browser page. Diagrams with hundreds of nodes may be slow or exceed Chromium's rendering budget. Split large diagrams into multiple files.
 - **Custom CSS in mermaid** -- diagramkit uses `securityLevel: 'strict'`, so custom CSS or JavaScript in mermaid directives is blocked.
 - **`mermaid.initialize()` is global** -- diagramkit uses separate browser pages for light and dark themes because the initialization is not per-call. Custom theme variables only apply to the dark page via the API's `mermaidDarkTheme` option.
 - **The contrast optimizer may shift colors** -- fills with high luminance (above 0.4 relative luminance) are darkened to lightness 0.25 while preserving hue. Bright yellows, cyans, and whites are most affected.
+- **ELK layouts need an extra plugin** -- the `mermaidLayout: 'elk' | 'auto'` modes inject an ELK directive but mermaid v11 doesn't ship the layout engine by default. Install `@mermaid-js/layout-elk` if you need ELK to actually run; otherwise `auto` falls back to `flip`-only.
 
 ## Tips
 

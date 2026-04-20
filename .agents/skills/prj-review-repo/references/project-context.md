@@ -39,6 +39,8 @@ The manifest system (SHA-256 content hash + formats array + theme tracking) prev
 
 Config merges in a strict order: defaults → global (`~/.config/diagramkit/config.json5` or `config.json`) → env vars (`DIAGRAMKIT_*`) → local (`diagramkit.config.ts` or `.json5`, walks up) → per-call overrides. Each layer is a partial object spread on top of the previous. Never change this order. Legacy `.diagramkitrc.json` is still supported but deprecated.
 
+Object-valued fields (`extensionMap`, `overrides`, `mermaidLayout`) are deep-merged so a partial override (e.g. `{ mermaidLayout: { mode: 'auto' } }`) keeps the other defaults intact. `mermaidLayout` is additionally validated by `resolveMermaidLayout()` so invalid `mode`/`targetAspectRatio`/`tolerance` values fall back to defaults with a warning (or throw under `strict: true`). Schema mirror lives at `schemas/diagramkit-config.v1.json`.
+
 ### Atomic writes everywhere
 
 All output files are written to `.tmp` then renamed. This prevents partial files from being served by dev servers or committed by watchers that detect changes mid-write.
@@ -175,6 +177,10 @@ getEngineProfile(type)                      // Get profile for a specific diagra
 defaultMermaidDarkTheme                     // Built-in mermaid dark theme variable map
 DiagramkitError                             // Typed error class with DiagramkitErrorCode
 ```
+
+**Mermaid layout pipeline** (`src/render-engines.ts` + `src/mermaid-layout.ts`):
+
+The mermaid renderer measures the output SVG aspect ratio and, depending on `mermaidLayout.mode`, may re-render with a flipped flowchart direction or an injected ELK init directive to bring the ratio closer to `targetAspectRatio`. The fast path (`off`, `warn`) preserves the original parallel light/dark render. The rebalance path (`flip`, `elk`, `auto`) probes one theme first, picks the closest source variant via `pickClosestToTarget()` (log-scale distance), then re-renders the other theme against the chosen source so light and dark match. Failed rebalance attempts are caught and surfaced through the warn callback — they never break a successful initial render. Non-flowchart diagrams degrade to `warn`-only behaviour.
 
 **Utilities** (`diagramkit/utils`):
 

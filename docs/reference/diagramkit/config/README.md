@@ -33,6 +33,13 @@ interface DiagramkitConfig {
   extensionMap?: Record<string, DiagramType>
   inputDirs?: string[]
   overrides?: Record<string, FileOverride>
+  mermaidLayout?: MermaidLayoutOptions
+}
+
+interface MermaidLayoutOptions {
+  mode?: 'off' | 'warn' | 'flip' | 'elk' | 'auto' // Default: 'warn'
+  targetAspectRatio?: number                       // Default: 4 / 3
+  tolerance?: number                               // Default: 2.5
 }
 ```
 
@@ -186,6 +193,50 @@ Per-file render overrides. Keys can be exact filenames, relative paths, or glob 
   },
 }
 ```
+
+---
+
+### `mermaidLayout`
+
+| | |
+|:--|:--|
+| **Type** | `MermaidLayoutOptions` |
+| **Default** | `{ mode: 'warn', targetAspectRatio: 4 / 3, tolerance: 2.5 }` |
+
+Aspect-ratio rebalance options for Mermaid renders. Mermaid's default Dagre layout has no aspect-ratio knob — a `flowchart LR` with many nodes produces a very wide SVG (e.g. 12:1) and a `flowchart TD` with many siblings produces a very tall one. When the rendered ratio falls outside `[targetAspectRatio / tolerance, targetAspectRatio * tolerance]`, diagramkit can warn or transparently re-render the diagram with a different layout to bring it closer to the target.
+
+Only Mermaid renders are affected. Excalidraw, draw.io, and Graphviz outputs are unchanged.
+
+| Field | Type | Default | Notes |
+|:------|:-----|:--------|:------|
+| `mode` | `'off' \| 'warn' \| 'flip' \| 'elk' \| 'auto'` | `'warn'` | See modes below. |
+| `targetAspectRatio` | `number` | `4 / 3` ≈ `1.333` | Used as the picker target and as the `elk.aspectRatio` hint. |
+| `tolerance` | `number` (must be > 1) | `2.5` | Acceptable band around the target. The default accepts ratios from roughly 1:1.9 to 3.3:1. |
+
+**Modes**
+
+| Mode | Behaviour | Cost |
+|:-----|:----------|:-----|
+| `off` | Never measure. Identical to pre-1.x behaviour. | 0 extra renders. |
+| `warn` *(default)* | Measure once and emit a warning when out of band. Keeps the original render. | 0 extra renders. |
+| `flip` | For flowcharts (`flowchart`/`graph`), swap `LR ↔ TB` (and `RL ↔ BT`), re-render once, keep whichever ratio is closer to the target. | 1 extra render when triggered. |
+| `elk` | Re-render with a `%%{init:{"layout":"elk","elk":{"aspectRatio":target}}}%%` directive. Requires the optional `@mermaid-js/layout-elk` plugin to be available; otherwise the attempt is caught and the original render is kept. | 1 extra render when triggered. |
+| `auto` | Try `flip` first; if still outside the band, also try `elk` (and the combined `flip + elk`). Pick the closest of all attempts. | 1–3 extra renders when triggered. |
+
+**Eligibility:**
+
+- Only `flowchart`/`graph` diagrams are eligible for `flip`/`elk`/`auto` rebalances. Sequence, gantt, journey, state, class, ER, pie, mindmap, sankey, and similar inherently-directional diagrams degrade to `warn`-only behaviour.
+- If the source already declares an `%%{init}%%` block that sets `layout`, `elk`, or `flowchart.defaultRenderer`, the `elk` injection is skipped — author intent always wins.
+- Failed rebalance attempts are caught and warned about; the original successful render is always preserved.
+
+```json5
+{
+  // Project-wide opt-in to automatic rebalance.
+  mermaidLayout: { mode: 'auto', targetAspectRatio: 4 / 3, tolerance: 2.5 },
+}
+```
+
+The same options can be passed per render call via `RenderOptions.mermaidLayout`, layered on top of the project config.
 
 ## Environment Variables
 

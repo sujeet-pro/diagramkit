@@ -18,7 +18,7 @@ Usage:
   diagramkit render <file-or-dir> [options]
   diagramkit render [--interactive]         Interactive render wizard (seeded from diagramkit.config.*)
   diagramkit <file-or-dir> [options]        Alias for "diagramkit render"
-  diagramkit validate <file-or-dir> [--recursive] [--json]
+  diagramkit validate <file-or-dir> [--recursive] [--json] [--max-width N | --no-max-width]
   diagramkit warmup
   diagramkit doctor
   diagramkit init [--ts] [--yes]
@@ -61,6 +61,13 @@ Configuration options:
   --log-level <level>                 Logging verbosity: silent,error,warn,info,verbose
   --strict                            Fail with non-zero exit if any diagram fails to render
 
+Validate options:
+  --recursive                         Walk subdirectories when validating a directory
+  --max-width <px>                    Override the SVG_VIEWBOX_TOO_WIDE threshold in pixels (default: 800).
+                                      Calibrated for a ~500px content column with up to 1.5× downscale.
+                                      Raise this for repos with wider columns; lower it for narrower ones.
+  --no-max-width                      Disable the SVG_VIEWBOX_TOO_WIDE check (use for hero banners).
+
 Output options:
   --quiet                             Suppress informational output, only show errors
   --json                              Output results as JSON (for CI/scripting)
@@ -92,6 +99,8 @@ Examples:
   diagramkit validate .diagramkit/                     # Validate all SVGs in dir
   diagramkit validate output.svg                       # Validate a single SVG
   diagramkit validate . --recursive                    # Validate SVGs recursively
+  diagramkit validate . --recursive --max-width 1200   # Wider threshold for a wide-column site
+  diagramkit validate ./hero.svg --no-max-width        # Skip the width check for an intentional banner
 
 Project skills (Claude/Cursor/Codex/Continue/...):
   Skills ship inside the npm package at node_modules/diagramkit/skills/.
@@ -181,6 +190,7 @@ const FLAGS_REQUIRING_VALUE = new Set([
   'config',
   'output-dir',
   'manifest-file',
+  'max-width',
   'output-prefix',
   'output-suffix',
   'max-type-lanes',
@@ -363,6 +373,8 @@ export function warnUnknownFlags(argv: string[] = args) {
     'agent-help',
     'ts',
     'recursive',
+    'max-width',
+    'no-max-width',
   ])
   const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
 
@@ -731,13 +743,22 @@ async function commandValidate() {
 
   const jsonOutput = getFlag('json')
   const recursive = getFlag('recursive')
+  const noMaxWidth = args.includes('--no-max-width')
+  const rawMaxWidth = getFlagValue('max-width')
+  const maxWidthOpt: number | false | undefined = noMaxWidth
+    ? false
+    : rawMaxWidth
+      ? validatePositiveNumber(rawMaxWidth, 'max-width')
+      : undefined
   const { validateSvgFile, validateSvgDirectory, formatValidationResult } =
     await import('../src/validate')
 
+  const validateOptions = maxWidthOpt === undefined ? {} : { maxWidth: maxWidthOpt }
+
   const stat = statSync(resolvedTarget)
   const results = stat.isFile()
-    ? [validateSvgFile(resolvedTarget)]
-    : validateSvgDirectory(resolvedTarget, { recursive })
+    ? [validateSvgFile(resolvedTarget, validateOptions)]
+    : validateSvgDirectory(resolvedTarget, { recursive, ...validateOptions })
 
   if (results.length === 0) {
     if (jsonOutput) {

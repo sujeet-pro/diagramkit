@@ -1,7 +1,7 @@
 %% Diagram: CI/CD Pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     checkout[Checkout Code] --> npm_install[npm ci]
     npm_install --> cache_browser[Cache Playwright<br/>Browser Binary]
     cache_browser --> warmup[npx diagramkit warmup]

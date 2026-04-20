@@ -295,10 +295,14 @@ diagramkit is zero-config by default. If you need custom behavior, create `diagr
   sameFolder: false,
   outputPrefix: '',
   outputSuffix: '',
+  // Mermaid aspect-ratio rebalance — default 'warn' only logs.
+  // Set mode: 'auto' to actively rebalance flowcharts whose ratio
+  // is outside [target/tolerance, target*tolerance].
+  mermaidLayout: { mode: 'warn', targetAspectRatio: 4 / 3, tolerance: 2.5 },
 }
 ```
 
-Config layers (low → high precedence): defaults → `~/.config/diagramkit/config.json5` → `DIAGRAMKIT_*` env vars → local `diagramkit.config.{json5,ts}` (walks up) → per-call overrides.
+Config layers (low → high precedence): defaults → `~/.config/diagramkit/config.json5` → `DIAGRAMKIT_*` env vars → local `diagramkit.config.{json5,ts}` (walks up) → per-call overrides. Object-valued fields (`extensionMap`, `overrides`, `mermaidLayout`) are deep-merged so partial overrides keep the other defaults intact.
 
 JSON schemas exported from the npm package:
 

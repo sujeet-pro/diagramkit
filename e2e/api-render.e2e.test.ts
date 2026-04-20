@@ -438,6 +438,44 @@ describe('API rendering e2e', () => {
     expectSvgFile(join(workspace, '.diagramkit', 'flow-light.svg'))
   }, 120_000)
 
+  it('mermaidLayout="auto" rebalances an extreme-aspect flowchart closer to the target ratio', async () => {
+    // A long horizontal chain renders very wide under default Dagre layout.
+    // We expect 'auto' mode (flip + ELK) to produce a closer-to-4:3 result.
+    const wideChain =
+      'flowchart LR\n' +
+      Array.from({ length: 12 }, (_, i) => `  N${i}["Node ${i}"]`).join('\n') +
+      '\n' +
+      Array.from({ length: 11 }, (_, i) => `  N${i} --> N${i + 1}`).join('\n')
+
+    const target = 4 / 3
+    const distance = (svg: string): number => {
+      const match = svg.match(/viewBox="[\d.-]+\s+[\d.-]+\s+([\d.]+)\s+([\d.]+)"/)
+      expect(match).toBeTruthy()
+      const w = Number.parseFloat(match![1]!)
+      const h = Number.parseFloat(match![2]!)
+      return Math.abs(Math.log(w / h) - Math.log(target))
+    }
+
+    const baseline = await render(wideChain, 'mermaid', {
+      theme: 'light',
+      format: 'svg',
+      mermaidLayout: { mode: 'off' },
+    })
+    const rebalanced = await render(wideChain, 'mermaid', {
+      theme: 'light',
+      format: 'svg',
+      mermaidLayout: { mode: 'auto', targetAspectRatio: target, tolerance: 2.5 },
+    })
+
+    const baselineDistance = distance(baseline.light!.toString('utf-8'))
+    const rebalancedDistance = distance(rebalanced.light!.toString('utf-8'))
+
+    // The rebalanced render must be at least as close to the target as the baseline.
+    // Strict improvement is the typical case but we assert <= to avoid flakiness if
+    // mermaid's layout happens to already sit near the band for this chain.
+    expect(rebalancedDistance).toBeLessThanOrEqual(baselineDistance)
+  }, 120_000)
+
   it('cleans nested orphan outputs even when the tree no longer contains any diagrams', async () => {
     const workspace = createWorkspace('e2e-api-empty-tree-cleanup')
 

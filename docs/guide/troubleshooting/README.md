@@ -152,6 +152,56 @@ When an AI agent is driving renders, verify these first:
 3. **Config validation fallback** -- invalid config values are reset to defaults with warnings; check logs for warnings about `outputDir`, `manifestFile`, or `defaultFormats`.
 4. **Retry behavior in watch mode** -- after a render failure, fix the source diagram and save again to re-trigger rendering.
 
+## Diagram Is Too Wide or Too Tall (`ASPECT_RATIO_EXTREME`)
+
+**Symptom:** `diagramkit validate` emits an `ASPECT_RATIO_EXTREME` warning, or your `flowchart LR` renders at 12:1 and is unreadable when embedded at 650 px, or a Drawio diagram scales to 10% of native size in the docs viewport.
+
+Diagrams that overflow typical doc widths (~650–800 px) get auto-scaled by the browser and lose ~39% of text legibility. The validator surfaces this as a warning so the agent loop can rebalance, split, or swap engine before shipping.
+
+The fix is engine-specific but follows the same escalation ladder. Apply steps in order; advance only when the current step doesn't bring the rendered SVG inside `[1:1.9, 3.3:1]`. Re-render with `--force` after each step.
+
+### Step 1 — Engine-local rebalance (try this first)
+
+| Engine | Tactic |
+|:-------|:-------|
+| Mermaid | Flip the directive (`flowchart LR` ↔ `flowchart TB`); set `mermaidLayout: { mode: 'auto' }` in `diagramkit.config.json5`. |
+| Drawio | Reflow `<mxGeometry>` rows / columns so the bounding box becomes more square. |
+| Graphviz | Add `ratio="0.75"` to the `graph [...]` defaults block; flip `rankdir`; add `{rank=same; …}` constraints. |
+| Excalidraw | Reflow shape positions per the layout grids in [Excalidraw skill > Step 3](https://github.com/sujeet-pro/diagramkit/blob/main/skills/diagramkit-excalidraw/SKILL.md). |
+
+For Mermaid specifically, the project default lives in `diagramkit.config.json5`:
+
+```json5
+{
+  mermaidLayout: { mode: 'auto', targetAspectRatio: 4 / 3, tolerance: 2.5 },
+}
+```
+
+`mode: 'warn'` (default) only logs; `'flip'` / `'elk'` / `'auto'` actively rebalance. See [Mermaid > Aspect-ratio rebalance](../diagrams/mermaid/README.md#aspect-ratio-rebalance) for the full mode table.
+
+### Step 2 — Reduce / restructure
+
+Merge low-information nodes; pull subgraphs into separate diagrams; cap branching width at 8 children per parent. Hard ceiling per diagram: ≤ 50 nodes (dense) / ≤ 100 (sparse), ≤ 100 connections, ≤ 8 parallel branches.
+
+### Step 3 — Split into multiple diagrams
+
+Save as `<name>-overview.<ext>` + `<name>-detail-<N>.<ext>`. Embed both with `<picture>` blocks in the surrounding markdown. Splitting beats cramming whenever the diagram covers two unrelated concerns.
+
+### Step 4 — Swap engine (last resort)
+
+When the engine itself is fighting the layout, convert the source to a different engine. The tradeoff: a textual rewrite in the new engine's syntax.
+
+| Currently using | Why it can't fit | Swap to |
+|:----------------|:-----------------|:--------|
+| Mermaid (Dagre) | No aspect-ratio knob; ELK plugin missing | Graphviz (`ratio="0.75"` is direct); or Drawio for icon-heavy / precision layouts |
+| Drawio | Shape catalog isn't the value | Graphviz (algorithmic) or Mermaid (text-first structured types) |
+| Graphviz | Shape is naturally a structured Mermaid type | Mermaid (sequence, ER, gantt, …) |
+| Excalidraw | Hand-drawn aesthetic isn't the value | Mermaid or Graphviz |
+
+**Note on ELK:** the `mermaidLayout: { mode: 'elk' | 'auto' }` modes inject an ELK directive but mermaid v11 doesn't ship the layout engine by default. Install `@mermaid-js/layout-elk` if you need ELK to actually run; otherwise `auto` falls back to `flip`-only.
+
+**Eligibility for rebalance:** only `flowchart`/`graph` diagrams in Mermaid can be rebalanced via direction flip. Sequence, gantt, journey, state, ER, class, mindmap, sankey, gitGraph diagrams are inherently directional — fix those by reducing or splitting at the source level.
+
 ## Render Fails with Out-of-Memory
 
 Large diagrams at high scale factors consume significant memory. Reduce the scale:

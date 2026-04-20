@@ -132,6 +132,30 @@ await dispose()
 - Use the `<picture>` embedding pattern for theme-aware markdown.
 - Re-render after every source change.
 
+## Mermaid aspect-ratio rebalance
+
+Mermaid's default Dagre layout has no aspect-ratio knob. A `flowchart LR` with a long sequential chain produces a very wide SVG (e.g. 12:1) and a `flowchart TD` with many siblings produces a very tall one — both are hard to read when embedded at 650 px or in narrow docs. diagramkit can detect this and either warn or transparently re-render closer to a target aspect ratio.
+
+Configure once in `diagramkit.config.json5`:
+
+```json5
+{
+  mermaidLayout: {
+    mode: 'auto',           // 'off' | 'warn' | 'flip' | 'elk' | 'auto'
+    targetAspectRatio: 4 / 3,
+    tolerance: 2.5,
+  },
+}
+```
+
+- Default is `'warn'` — diagramkit measures every Mermaid render and warns when the ratio falls outside `[1:1.9, 3.3:1]`. Existing outputs are unchanged.
+- `'flip'` swaps `flowchart LR ↔ TB` (and `RL ↔ BT`) and keeps the closer-to-target render. Cheap, semantic-preserving for most graphs.
+- `'elk'` injects a `%%{init:{"layout":"elk","elk":{"aspectRatio":...}}}%%` directive. Requires the optional `@mermaid-js/layout-elk` plugin to be available; otherwise the attempt is caught and the original render is kept.
+- `'auto'` tries `flip` first, then `elk` (and `flip + elk`), and picks the closest result.
+- Only `flowchart`/`graph` diagrams are rebalanced. Sequence, gantt, journey, state, class, ER, pie, mindmap, sankey, gitGraph degrade to `warn`-only behaviour.
+
+Same options can be passed per render call via `RenderOptions.mermaidLayout`. Full schema and trade-offs: `node_modules/diagramkit/REFERENCE.md` → Configuration → `mermaidLayout`.
+
 ## Package files reference
 
 | File                                                            | Purpose                                                                                          |

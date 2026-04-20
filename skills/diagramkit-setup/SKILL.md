@@ -71,27 +71,45 @@ Add these to the repo's `package.json` `scripts` (only those that are not presen
 
 Use the repo's existing naming convention if it has one (e.g. `diagrams:build` instead of `render:diagrams`).
 
-### 4. Project config (only if non-default behavior is needed)
+### 4. Project config
 
-Ask the user if they need any of:
+**Always create `diagramkit.config.json5` when the repo has (or will have) any `.mermaid` / `.mmd` source.** The file is small but the `mermaidLayout: { mode: 'auto' }` setting is what lets the renderer auto-flip `LR ↔ TB` and try ELK when a diagram's aspect ratio drifts wide or tall — without it, every `ASPECT_RATIO_EXTREME` warning has to be fixed source-by-source. The contributor skills (`diagramkit-review` audit-checklist, `diagramkit-mermaid` Review Mode) treat this setting as a project default.
 
-- Custom output directory (default: `.diagramkit/` next to each source).
-- Custom default formats (default: `['svg']`).
-- Custom default theme (default: `'both'`).
-- Output prefix/suffix on filenames.
-- A single output folder for all diagrams (`outputDir: './build/images'`).
-
-If yes, create `diagramkit.config.json5`:
+Bootstrap:
 
 ```bash
 npx diagramkit init --yes
 ```
 
-Or, for users who need programmatic config (function overrides):
+Or for programmatic config (function overrides):
 
 ```bash
 npx diagramkit init --ts
 ```
+
+If the file already exists, ensure it includes at least:
+
+```json5
+{
+  $schema: './node_modules/diagramkit/schemas/diagramkit-config.v1.json',
+  mermaidLayout: {
+    mode: 'auto',
+    targetAspectRatio: 4 / 3,
+    tolerance: 2.5,
+  },
+}
+```
+
+Layer additional non-default settings only when the user actually needs them:
+
+- Custom output directory (default: `.diagramkit/` next to each source).
+- `sameFolder: true` to keep generated `-light` / `-dark` SVGs beside the source instead of in a `.diagramkit/` subfolder.
+- Custom default formats (default: `['svg']`).
+- Custom default theme (default: `'both'`).
+- Output prefix/suffix on filenames.
+- A single output folder for all diagrams (`outputDir: './build/images'`).
+
+If the project is Graphviz-only (no `.mermaid` sources), the `mermaidLayout` block is harmless but unnecessary; the rest of the config is still recommended for explicit format/theme selection.
 
 ### 5. Install project skills as local pointers into `node_modules`
 

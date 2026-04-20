@@ -5,6 +5,20 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    ignore:
+      # @excalidraw/excalidraw 0.18.x lists React 19 in its peer-dep range
+      # (^17.0.2 || ^18.2.0 || ^19.0.0), but its runtime use of `react-dom`
+      # internals is incompatible with React 19. Hold the React line at 18.x
+      # until @excalidraw/excalidraw publishes a release with verified
+      # React 19 support, then drop these ignore entries.
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react-dom'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:

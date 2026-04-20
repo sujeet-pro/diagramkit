@@ -299,5 +299,29 @@ describe('cli/bin helpers', () => {
     it('detects boolean negation flags with --no- prefix', () => {
       expect(getFlag('no-contrast', ['render', '.', '--no-contrast'])).toBe(true)
     })
+
+    it('parses --max-width <px> as a positive number for the validate command', () => {
+      expect(getFlagValue('max-width', ['validate', '.', '--max-width', '1200'], false)).toBe(
+        '1200',
+      )
+      expect(validatePositiveNumber('1200', 'max-width', false)).toBe(1200)
+    })
+
+    it('parses --no-max-width as a boolean opt-out for the validate command', () => {
+      expect(getFlag('no-max-width', ['validate', '.', '--no-max-width'])).toBe(true)
+    })
+
+    it('does not flag --max-width / --no-max-width as unknown', () => {
+      const calls: string[] = []
+      const origWarn = console.warn
+      console.warn = (msg: string) => calls.push(msg)
+      try {
+        warnUnknownFlags(['validate', '.', '--max-width', '1200'])
+        warnUnknownFlags(['validate', '.', '--no-max-width'])
+      } finally {
+        console.warn = origWarn
+      }
+      expect(calls.filter((m) => /unknown flag/.test(m))).toEqual([])
+    })
   })
 })

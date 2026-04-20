@@ -238,6 +238,172 @@ describe('validateSvg — additional edge cases', () => {
   })
 })
 
+/**
+ * Aspect-ratio readability check. Mirrors the in-renderer mermaidLayout band so
+ * the validator and the renderer agree on what counts as "extreme". Surfaces a
+ * warning so the agent loop can flip / split / swap engine before the diagram
+ * is shipped at an unreadable scale.
+ */
+describe('validateSvg ASPECT_RATIO_EXTREME', () => {
+  const wideSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 100"><rect/></svg>'
+  const tallSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 1200"><rect/></svg>'
+  const balancedSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect/></svg>'
+
+  it('warns when ratio is far above the band (12:1 wide flowchart)', () => {
+    const issue = validateSvg(wideSvg).issues.find((i) => i.code === 'ASPECT_RATIO_EXTREME')
+    expect(issue?.severity).toBe('warning')
+    expect(issue?.message).toMatch(/12\.00:1/)
+    expect(issue?.message).toMatch(/outside the readable band/)
+    expect(issue?.suggestion).toMatch(/flip the directive/)
+  })
+
+  it('warns when ratio is far below the band (1:12 tall flowchart)', () => {
+    const issue = validateSvg(tallSvg).issues.find((i) => i.code === 'ASPECT_RATIO_EXTREME')
+    expect(issue?.severity).toBe('warning')
+    expect(issue?.message).toMatch(/1:12\.00/)
+  })
+
+  it('does not warn for a balanced 4:3-ish diagram', () => {
+    const issue = validateSvg(balancedSvg).issues.find((i) => i.code === 'ASPECT_RATIO_EXTREME')
+    expect(issue).toBeUndefined()
+  })
+
+  it('does not warn when the SVG has no measurable viewBox', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect/></svg>'
+    const issue = validateSvg(svg).issues.find((i) => i.code === 'ASPECT_RATIO_EXTREME')
+    expect(issue).toBeUndefined()
+  })
+
+  it('respects a custom band passed via SvgValidateOptions', () => {
+    // Tighter band (target 1:1, tolerance 1.5) means even a 1.6:1 SVG fails.
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect/></svg>'
+    const issue = validateSvg(svg, undefined, {
+      aspectRatio: { target: 1, tolerance: 1.5 },
+    }).issues.find((i) => i.code === 'ASPECT_RATIO_EXTREME')
+    expect(issue?.severity).toBe('warning')
+  })
+
+  it('skips the check entirely when aspectRatio is false (deliberate banner SVGs)', () => {
+    const issue = validateSvg(wideSvg, undefined, { aspectRatio: false }).issues.find(
+      (i) => i.code === 'ASPECT_RATIO_EXTREME',
+    )
+    expect(issue).toBeUndefined()
+  })
+
+  it('treats the warning as non-fatal (valid: true with only this warning)', () => {
+    // Add a passing text element so contrast doesn't also fire.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 100">
+      <rect width="1200" height="100" fill="#ffffff"/>
+      <text fill="#222222">x</text>
+    </svg>`
+    const r = validateSvg(svg)
+    expect(r.valid).toBe(true)
+    expect(r.issues.some((i) => i.code === 'ASPECT_RATIO_EXTREME')).toBe(true)
+  })
+})
+
+describe('SVG_VIEWBOX_TOO_WIDE', () => {
+  // Helper: build an SVG with a passing-contrast text node so only the width
+  // / aspect-ratio checks can fire.
+  function svgWith(viewBox: string): string {
+    const [, , w, h] = viewBox.split(/\s+/)
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
+      <rect width="${w}" height="${h}" fill="#ffffff"/>
+      <text fill="#222222">label</text>
+    </svg>`
+  }
+
+  it('warns when viewBox width exceeds the default 800px threshold', () => {
+    // A near-square 1200x900 SVG passes ASPECT_RATIO_EXTREME (~1.33:1, dead-on
+    // target) but fails the absolute-width check — this is exactly the case
+    // the new code exists for.
+    const svg = svgWith('0 0 1200 900')
+    const r = validateSvg(svg)
+    const widthIssue = r.issues.find((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')
+    const ratioIssue = r.issues.find((i) => i.code === 'ASPECT_RATIO_EXTREME')
+    expect(widthIssue?.severity).toBe('warning')
+    expect(widthIssue?.message).toContain('1200px')
+    expect(widthIssue?.message).toContain('800px')
+    expect(ratioIssue).toBeUndefined()
+  })
+
+  it('also fires alongside ASPECT_RATIO_EXTREME for the wide-and-flat case', () => {
+    // 2200x700 = 3.14:1 (just inside the default ratio band). Width still > 800.
+    const svg = svgWith('0 0 2200 700')
+    const r = validateSvg(svg)
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(true)
+  })
+
+  it('does not fire for SVGs at or below the default threshold', () => {
+    const svg = svgWith('0 0 700 525')
+    const r = validateSvg(svg)
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(false)
+  })
+
+  it('does not fire exactly at the default threshold (boundary inclusive)', () => {
+    const svg = svgWith('0 0 800 600')
+    const r = validateSvg(svg)
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(false)
+  })
+
+  it('respects a custom higher maxWidth threshold (wider-column site)', () => {
+    const svg = svgWith('0 0 1100 825')
+    const r = validateSvg(svg, undefined, { maxWidth: 1200 })
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(false)
+  })
+
+  it('respects a custom lower maxWidth threshold (narrower-column site)', () => {
+    const svg = svgWith('0 0 700 525')
+    const r = validateSvg(svg, undefined, { maxWidth: 600 })
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(true)
+  })
+
+  it('reports the downscale percentage against a 500px reference column', () => {
+    const svg = svgWith('0 0 1500 1000')
+    const issue = validateSvg(svg).issues.find((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')
+    // 1500 / 500 = 3.0× downscale → ~33% of native text size.
+    expect(issue?.message).toMatch(/3\.0×/)
+    expect(issue?.message).toMatch(/33% of native/)
+  })
+
+  it('skips the check entirely when maxWidth is false (deliberate hero banners)', () => {
+    const svg = svgWith('0 0 4000 600')
+    const r = validateSvg(svg, undefined, { maxWidth: false })
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(false)
+  })
+
+  it('falls back to width/height attributes when viewBox is missing', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1500">
+      <rect width="2000" height="1500" fill="#ffffff"/>
+      <text fill="#222222">label</text>
+    </svg>`
+    const r = validateSvg(svg)
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(true)
+  })
+
+  it('does not warn when neither viewBox nor width/height is parseable', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'
+    const r = validateSvg(svg)
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(false)
+  })
+
+  it('treats the warning as non-fatal (valid: true with only this warning)', () => {
+    const svg = svgWith('0 0 1100 825')
+    const r = validateSvg(svg)
+    expect(r.valid).toBe(true)
+    expect(r.issues.some((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')).toBe(true)
+  })
+
+  it('includes an actionable suggestion that names the per-engine fix tactics', () => {
+    const svg = svgWith('0 0 1500 1000')
+    const issue = validateSvg(svg).issues.find((i) => i.code === 'SVG_VIEWBOX_TOO_WIDE')
+    expect(issue?.suggestion).toMatch(/Mermaid/)
+    expect(issue?.suggestion).toMatch(/Graphviz/)
+    expect(issue?.suggestion).toMatch(/maxWidth: false/)
+    expect(issue?.suggestion).toMatch(/--max-width <px>/)
+  })
+})
+
 describe('validateSvgFile / validateSvgDirectory', () => {
   const tempDirs: string[] = []
 

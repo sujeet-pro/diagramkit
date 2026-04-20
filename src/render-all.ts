@@ -139,7 +139,15 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
           scale: fileOverride?.scale ?? opts.scale,
           contrastOptimize: fileOverride?.contrastOptimize ?? opts.contrastOptimize,
           mermaidDarkTheme: opts.mermaidDarkTheme,
+          mermaidLayout: opts.mermaidLayout,
           config,
+          // Funnel non-fatal warnings (e.g. mermaid aspect-ratio rebalance notices) into
+          // the batch logger so they appear alongside per-file progress output.
+          logger: {
+            log: (msg: string) => logger.info(`  ${basename(file.path)}: ${msg}`),
+            warn: (msg: string) => logger.warn(`  ${basename(file.path)}: ${msg}`),
+            error: (msg: string) => logger.error(`  ${basename(file.path)}: ${msg}`),
+          },
           pool: opts.pool,
         }
         try {

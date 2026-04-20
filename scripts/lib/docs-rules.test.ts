@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { findDiagramAssetReferences, findLinkStyleViolations, stripCodeForScan } from './docs-rules'
+import {
+  detectMermaidLayoutConfig,
+  findDiagramAssetReferences,
+  findLinkStyleViolations,
+  hasMermaidYamlFrontmatter,
+  stripCodeForScan,
+} from './docs-rules'
 
 describe('stripCodeForScan', () => {
   it('strips fenced code blocks at column 0', () => {
@@ -217,5 +223,102 @@ describe('findDiagramAssetReferences', () => {
       '.diagramkit/foo-dark.svg',
       '.diagramkit/foo-light.svg',
     ])
+  })
+})
+
+describe('hasMermaidYamlFrontmatter', () => {
+  it('detects a leading YAML frontmatter block', () => {
+    const src = `---
+title: Theme architecture
+---
+flowchart LR
+  A --> B
+`
+    expect(hasMermaidYamlFrontmatter(src)).toBe(true)
+  })
+
+  it('detects a frontmatter block with multiple keys', () => {
+    const src = `---
+title: My diagram
+description: shows the flow
+---
+%%{init: {'htmlLabels': false}}%%
+flowchart TB
+  A --> B
+`
+    expect(hasMermaidYamlFrontmatter(src)).toBe(true)
+  })
+
+  it('tolerates a UTF-8 BOM before the frontmatter', () => {
+    const src = `\uFEFF---\ntitle: x\n---\nflowchart LR\n  A --> B\n`
+    expect(hasMermaidYamlFrontmatter(src)).toBe(true)
+  })
+
+  it('does not flag a clean source with %% comments', () => {
+    const src = `%% Diagram: theme architecture
+%% Type: flowchart
+%%{init: {'htmlLabels': false}}%%
+flowchart LR
+  A --> B
+`
+    expect(hasMermaidYamlFrontmatter(src)).toBe(false)
+  })
+
+  it('does not flag a `---` that appears later in the file', () => {
+    const src = `flowchart LR
+  A["before --- after"] --> B
+`
+    expect(hasMermaidYamlFrontmatter(src)).toBe(false)
+  })
+
+  it('does not flag an unclosed leading triple-dash', () => {
+    const src = `---\ntitle: oops never closed\nflowchart LR\n  A --> B\n`
+    expect(hasMermaidYamlFrontmatter(src)).toBe(false)
+  })
+})
+
+describe('detectMermaidLayoutConfig', () => {
+  it('returns "no-config" when no source is passed', () => {
+    expect(detectMermaidLayoutConfig(null)).toBe('no-config')
+  })
+
+  it('returns "absent" when config has no mermaidLayout', () => {
+    const cfg = `{ sameFolder: true, defaultFormats: ["svg"] }`
+    expect(detectMermaidLayoutConfig(cfg)).toBe('absent')
+  })
+
+  it('returns "present-auto" for mode: \'auto\'', () => {
+    const cfg = `{
+  mermaidLayout: {
+    mode: 'auto',
+    targetAspectRatio: 4 / 3,
+  },
+}`
+    expect(detectMermaidLayoutConfig(cfg)).toBe('present-auto')
+  })
+
+  it('returns "present-auto" for double-quoted "auto"', () => {
+    const cfg = `{ mermaidLayout: { mode: "auto" } }`
+    expect(detectMermaidLayoutConfig(cfg)).toBe('present-auto')
+  })
+
+  it('returns "present-other" for mode: \'fixed\'', () => {
+    const cfg = `{ mermaidLayout: { mode: 'fixed' } }`
+    expect(detectMermaidLayoutConfig(cfg)).toBe('present-other')
+  })
+
+  it('returns "present-other" when mermaidLayout exists but has no mode', () => {
+    const cfg = `{ mermaidLayout: { targetAspectRatio: 1.5 } }`
+    expect(detectMermaidLayoutConfig(cfg)).toBe('present-other')
+  })
+
+  it('tolerates whitespace and trailing commas in the block', () => {
+    const cfg = `{
+      mermaidLayout : {
+        mode :   'auto' ,
+        tolerance: 2.5,
+      } ,
+    }`
+    expect(detectMermaidLayoutConfig(cfg)).toBe('present-auto')
   })
 })

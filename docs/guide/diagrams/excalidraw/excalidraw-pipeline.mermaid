@@ -1,7 +1,7 @@
 %% Diagram: Excalidraw Rendering Pipeline
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     source[".excalidraw JSON"] --> bundle["Bundle IIFE<br/>(rolldown)"]
     bundle --> browser_page["Browser Page<br/>__renderExcalidraw()"]
     browser_page -->|darkMode: false| light_svg[Light SVG]

@@ -1,7 +1,7 @@
 %% Diagram: Getting Started Flow
 %% Type: flowchart
 %%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}}}%%
-flowchart LR
+flowchart TB
     install[Install<br/>npm add diagramkit] --> warmup[Warmup<br/>npx diagramkit warmup]
     warmup --> create[Create Diagram<br/>.mermaid .excalidraw<br/>.drawio .dot]
     create --> render[Render<br/>npx diagramkit render]

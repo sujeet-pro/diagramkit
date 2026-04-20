@@ -63,6 +63,45 @@ Errors block the review from completing. Phase 5 must report zero errors before 
   - **Graphviz**: update `fillcolor=` and pair `fontcolor="#ffffff"` (AA palette) or `fontcolor="#1a1a1a"` (pastel palette). Never pair white text with the pastel palette.
 - **Always re-validate after a swap** — palette changes can cascade if `classDef`/`style` is reused across diagrams.
 
+### `SVG_VIEWBOX_TOO_WIDE`
+
+- **Means**: the rendered SVG's _absolute_ viewBox width exceeds the readable threshold (default 1600 px). The aspect-ratio check passes when ratio is fine, but a near-square 2400×2200 SVG still forces a ~3× downscale when inlined into a typical 700–800 px doc column, dropping text to ~33% of native size and harming legibility just as much as a wrong-direction flowchart.
+- **Why it's a separate code from `ASPECT_RATIO_EXTREME`**: a 1300×400 SVG fails `ASPECT_RATIO_EXTREME` but passes `SVG_VIEWBOX_TOO_WIDE`. A 2400×2200 SVG passes `ASPECT_RATIO_EXTREME` (~1.1:1 ratio) but fails `SVG_VIEWBOX_TOO_WIDE` (2400 > 1600 px). They catch independent failure modes; do not deduplicate.
+- **Engine-specific fix tactics** (in order — apply earlier ones first; they're cheaper):
+  - **Mermaid** — see [Width-reduction patterns](../../diagramkit-mermaid/SKILL.md#width-reduction-patterns-for-svg_viewbox_too_wide) in the mermaid SKILL.md for the full empirically-validated table. Headlines:
+    1. Outer `flowchart LR` → `flowchart TB` (cheap, only helps for linear pipelines).
+    2. **COLLAPSE REPLICAS** for `N×M` cross-subgraph fan (`GW1 & GW2 & GW3 --> RLS1 & RLS2 & RLS3` becomes one `GW` node feeding one `RLS` node) — single most powerful fix, 60-80% width reduction.
+    3. **SPLIT** when the diagram has 6+ subgraphs or 25+ nodes — group by concern (ingress vs delivery, data path vs side concerns).
+    4. Last resort: swap to `.dot` if the structure is purely a DAG.
+  - **Drawio**: reflow `<mxGeometry>` rows into columns; the bounding-box width is mechanical to shrink in drawio.
+  - **Graphviz**: flip `rankdir` from `LR` to `TB` first (cheapest, most effective for linear pipelines). `ratio="0.75"` is **only useful when the natural layout is wider than ~4:3** — for diagrams that already lay out vertically with `rankdir=TB`, `ratio=` can FORCE them WIDE again to hit the 0.75 target. Validated: removing `ratio="0.75"` from a `rankdir=TB` markdown-pipeline diagram dropped its width from 1808 → 308 px. **Always try `rankdir` flip alone first; add `ratio=` only if the result is tall-and-thin and you want to force squarer dimensions.**
+  - **Excalidraw**: reposition shapes so the rightmost element doesn't dictate a wide canvas.
+- **Suppression**: pass `--no-max-width` (CLI), `maxWidth: false` (API), or raise the threshold via `--max-width <px>` for sites with wider columns. Record any suppression in the review report.
+- **Anti-patterns that don't reduce width** (skip these — they waste an iteration):
+  - Replacing `<br/>` with `\n` alone — cosmetic, same layout.
+  - Adding `direction TB` to subgraphs whose horizontal layout is driven by cross-subgraph edges (the most common case for "wide architecture" diagrams).
+  - Re-enabling `mermaidLayout: { mode: 'auto' }` when it's already on — the renderer already tried flip + ELK during render.
+
+### `ASPECT_RATIO_EXTREME`
+
+- **Means**: rendered SVG width/height ratio is outside the readable band (default `[1:1.9, 3.3:1]` against a 4:3 target). Diagrams that overflow typical doc widths (~650–800 px) lose ~39% text legibility when scaled down — fixing this is part of accessibility, not aesthetics.
+- **Engine-specific fix tactics** (apply in this order — escalate only if the previous step doesn't bring the SVG inside the band):
+
+  | Step                         | Mermaid                                                                                                                           | Drawio                                                                                           | Graphviz                                                                                                                                                     | Excalidraw                                                                                              |
+  | :--------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
+  | 1. Tweak directive           | Flip `flowchart LR` ↔ `TB` (or `RL` ↔ `BT`); set `mermaidLayout: { mode: 'auto' }` so the renderer also tries ELK                 | Reflow rows / columns so the bounding box of every `<mxGeometry>` becomes more square            | Add `ratio="compress"` or `ratio="0.75"` to the `graph [...]` block; flip `rankdir` (`LR` ↔ `TB`); add `{rank=same; …}` constraints to balance the long axis | Reflow shape positions so width / height is closer to 1.3:1; switch a horizontal grid to a 2-row layout |
+  | 2. Reduce complexity         | Merge low-information nodes; extract subgraphs into separate diagrams                                                             | Move secondary detail into another `<diagram>` page (drawio multi-page)                          | Cluster wide fans under a synthetic parent; reduce `nodesep`/`ranksep`                                                                                       | Drop labels that aren't load-bearing; combine adjacent shapes                                           |
+  | 3. Split the diagram         | Two diagrams (overview + detail) usually beats one wide one — keeps the engine, restores readability                              | Use multi-page (`<diagram name="Overview"/>` + `<diagram name="Detail-1"/>`); link from overview | Split into one `.dot` per concern; cross-reference in surrounding markdown                                                                                   | Save as two `.excalidraw` files; embed both with `<picture>`                                            |
+  | 4. Swap engine (last resort) | Convert to `.drawio` (when icon density / precision is the issue) or `.dot` (when graph structure is the only thing that matters) | —                                                                                                | —                                                                                                                                                            | Convert to `.mermaid` (for structured types) or `.dot` (for pure graphs)                                |
+  | 5. Record residual           | If steps 1–4 still leave the SVG outside the band, mark it in the Phase 5 report and surface to the user — don't infinite-loop    | Same                                                                                             | Same                                                                                                                                                         | Same                                                                                                    |
+
+- **Decision shortcuts**:
+  - **Mermaid + flowchart**: step 1 (flip / `mode: 'auto'`) fixes ~70% of cases. Try it first, render, re-check.
+  - **Mermaid + sequence/gantt/journey/state/class/ER**: these are inherently directional — flipping does not apply. Go straight to step 2 (reduce) or step 3 (split).
+  - **Graphviz**: step 1 (`ratio=`) is the most powerful single knob — graphviz honours it directly, unlike mermaid.
+  - **Drawio / Excalidraw**: step 1 (reflow) is mostly a positioning edit. Use the layout grids in their engine SKILL.md.
+- **Re-render with `--force` after every source edit** — the manifest hashes the source, so an unchanged-on-disk fix will be skipped without `--force`.
+
 ### Severity policy
 
 Warnings are fixed by default in this review (matches the dominant `<img>`-embed case). Only suppress when the user explicitly confirms outputs are consumed only by SVG-aware viewers; record the suppression in the Phase 5 report.
