@@ -242,8 +242,10 @@ describe('config loading', () => {
     mkdirSync(join(home, '.config', 'diagramkit'), { recursive: true })
     writeFileSync(join(home, '.config', 'diagramkit', 'config.json'), '{invalid json!!!')
 
-    // Malformed global config should be ignored — defaults still apply
-    const config = loadConfig(undefined, '/nonexistent/path')
+    // Malformed global config should be ignored — defaults still apply.
+    // Pass a no-op `warn` so the expected "failed to parse" notice doesn't
+    // pollute the test runner's stderr while we assert the fallback behavior.
+    const config = loadConfig(undefined, '/nonexistent/path', undefined, { warn: () => {} })
     expect(config.outputDir).toBe('.diagramkit')
     expect(config.manifestFile).toBe('manifest.json')
   })
@@ -254,8 +256,10 @@ describe('config loading', () => {
 
     writeFileSync(join(root, '.diagramkitrc.json'), 'not valid json {{{')
 
-    // Malformed local config should be ignored — defaults still apply
-    const config = loadConfig(undefined, root)
+    // Malformed local config should be ignored — defaults still apply.
+    // Pass a no-op `warn` so the expected "failed to parse" notice doesn't
+    // pollute the test runner's stderr while we assert the fallback behavior.
+    const config = loadConfig(undefined, root, undefined, { warn: () => {} })
     expect(config.outputDir).toBe('.diagramkit')
     expect(config.manifestFile).toBe('manifest.json')
   })

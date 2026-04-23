@@ -2,7 +2,19 @@
 title: diagramkit
 tagline: Diagram files to images, with dark mode
 description: Render .mermaid, .excalidraw, .drawio, and Graphviz .dot/.gv files to SVG/PNG/JPEG/WebP/AVIF with automatic light and dark theme variants.
-install: 'npm add diagramkit'
+install:
+  title: Install
+  frame: terminal
+  lang: bash
+  code: |
+    # Install the package
+    npm add diagramkit
+
+    # Install the browser engine (once per environment)
+    npx diagramkit warmup
+
+    # Render every diagram in the current directory
+    npx diagramkit render .
 actions:
   - text: Get Started
     link: /guide/getting-started
@@ -69,18 +81,7 @@ See [AI Agents](./guide/ai-agents/README.md) for more prompt recipes (generate a
 
 Need a setup playbook? See [AI Agents](./guide/ai-agents/README.md) and [Getting Started](./guide/getting-started/README.md).
 
-## Quick Start (Manual)
-
-```bash
-# Install
-npm add diagramkit
-
-# Install the browser engine (once per environment)
-npx diagramkit warmup
-
-# Render all diagrams in the current directory
-npx diagramkit render .
-```
+## Output Layout
 
 Output goes to a `.diagramkit/` folder next to each source file:
 

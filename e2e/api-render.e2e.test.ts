@@ -18,6 +18,7 @@ import {
   fixturesDir,
   readJson,
   removeWorkspace,
+  silentLogger,
 } from './test-utils'
 
 describe('API rendering e2e', () => {
@@ -39,7 +40,7 @@ describe('API rendering e2e', () => {
   it('renders all types to SVG with both themes and records manifest', async () => {
     const workspace = createWorkspace('e2e-api-default')
 
-    await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'both', logLevel: 'error' })
 
     const outDir = join(workspace, '.diagramkit')
     const archLight = expectSvgFile(join(outDir, 'architecture-light.svg'))
@@ -75,6 +76,7 @@ describe('API rendering e2e', () => {
       dir: workspace,
       format: 'png',
       theme: 'light',
+      logLevel: 'error',
       config: { outputDir: '_renders', manifestFile: 'custom.manifest.json' },
     })
 
@@ -104,6 +106,7 @@ describe('API rendering e2e', () => {
       dir: workspace,
       formats: ['svg', 'png'],
       theme: 'light',
+      logLevel: 'error',
     })
 
     const outDir = join(workspace, '.diagramkit')
@@ -126,6 +129,7 @@ describe('API rendering e2e', () => {
       dir: workspace,
       format: 'svg',
       theme: 'dark',
+      logLevel: 'error',
       config: { sameFolder: true, useManifest: false },
     })
 
@@ -150,7 +154,7 @@ describe('API rendering e2e', () => {
     const outDir = join(workspace, '.diagramkit')
 
     // Initial render
-    await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'both', logLevel: 'error' })
 
     const trackedFiles = {
       archLight: join(outDir, 'architecture-light.svg'),
@@ -164,7 +168,7 @@ describe('API rendering e2e', () => {
     )
 
     // Re-render unchanged — should skip all
-    await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'both', logLevel: 'error' })
 
     const mtimes2 = Object.fromEntries(
       Object.entries(trackedFiles).map(([k, p]) => [k, statSync(p).mtimeMs]),
@@ -179,7 +183,7 @@ describe('API rendering e2e', () => {
     )
 
     // Re-render — architecture should update, whiteboard unchanged
-    await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'both', logLevel: 'error' })
 
     expect(statSync(trackedFiles.archLight).mtimeMs).toBeGreaterThan(mtimes1.archLight)
     expect(statSync(trackedFiles.archDark).mtimeMs).toBeGreaterThan(mtimes1.archDark)
@@ -188,7 +192,7 @@ describe('API rendering e2e', () => {
 
     // Delete whiteboard source — orphan cleanup
     rmSync(join(workspace, 'whiteboard.excalidraw'))
-    await renderAll({ dir: workspace, format: 'svg', theme: 'both' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'both', logLevel: 'error' })
 
     expectNotExists(join(outDir, 'whiteboard-light.svg'))
     expectNotExists(join(outDir, 'whiteboard-dark.svg'))
@@ -203,7 +207,13 @@ describe('API rendering e2e', () => {
   it('filters by diagram type (mermaid only)', async () => {
     const workspace = createWorkspace('e2e-api-filter')
 
-    await renderAll({ dir: workspace, format: 'svg', theme: 'both', type: 'mermaid' })
+    await renderAll({
+      dir: workspace,
+      format: 'svg',
+      theme: 'both',
+      type: 'mermaid',
+      logLevel: 'error',
+    })
 
     const outDir = join(workspace, '.diagramkit')
     expectSvgFile(join(outDir, 'architecture-light.svg'))
@@ -215,7 +225,7 @@ describe('API rendering e2e', () => {
   it('renders JPEG output format with correct magic bytes', async () => {
     const workspace = createWorkspace('e2e-api-jpeg')
 
-    await renderAll({ dir: workspace, format: 'jpeg', theme: 'light' })
+    await renderAll({ dir: workspace, format: 'jpeg', theme: 'light', logLevel: 'error' })
 
     const outDir = join(workspace, '.diagramkit')
     expectRasterFile(join(outDir, 'architecture-light.jpeg'), 'jpeg')
@@ -229,7 +239,7 @@ describe('API rendering e2e', () => {
   it('renders WebP output format with RIFF/WEBP header', async () => {
     const workspace = createWorkspace('e2e-api-webp')
 
-    await renderAll({ dir: workspace, format: 'webp', theme: 'light' })
+    await renderAll({ dir: workspace, format: 'webp', theme: 'light', logLevel: 'error' })
 
     const outDir = join(workspace, '.diagramkit')
     expectRasterFile(join(outDir, 'architecture-light.webp'), 'webp')
@@ -245,7 +255,7 @@ describe('API rendering e2e', () => {
   it('renders AVIF output format with ftypavif header', async () => {
     const workspace = createWorkspace('e2e-api-avif')
 
-    await renderAll({ dir: workspace, format: 'avif', theme: 'light' })
+    await renderAll({ dir: workspace, format: 'avif', theme: 'light', logLevel: 'error' })
 
     const outDir = join(workspace, '.diagramkit')
     expectRasterFile(join(outDir, 'architecture-light.avif'), 'avif')
@@ -255,7 +265,11 @@ describe('API rendering e2e', () => {
   }, 120_000)
 
   it('render() string API returns light and dark SVG buffers', async () => {
-    const result = await render('graph LR; A-->B', 'mermaid', { theme: 'both', format: 'svg' })
+    const result = await render('graph LR; A-->B', 'mermaid', {
+      theme: 'both',
+      format: 'svg',
+      logger: silentLogger,
+    })
 
     expect(result.light).toBeDefined()
     expect(result.dark).toBeDefined()
@@ -272,7 +286,11 @@ describe('API rendering e2e', () => {
   }, 120_000)
 
   it('render() supports graphviz DOT source strings', async () => {
-    const result = await render('digraph { A -> B }', 'graphviz', { theme: 'both', format: 'svg' })
+    const result = await render('digraph { A -> B }', 'graphviz', {
+      theme: 'both',
+      format: 'svg',
+      logger: silentLogger,
+    })
 
     expect(result.light).toBeDefined()
     expect(result.dark).toBeDefined()
@@ -287,7 +305,11 @@ describe('API rendering e2e', () => {
 
   it('renderFile() supports graphviz files', async () => {
     const filePath = join(fixturesDir, 'dependency.dot')
-    const result = await renderFile(filePath, { format: 'svg', theme: 'both' })
+    const result = await renderFile(filePath, {
+      format: 'svg',
+      theme: 'both',
+      logger: silentLogger,
+    })
 
     expect(result.format).toBe('svg')
     expect(result.light).toBeDefined()
@@ -298,7 +320,11 @@ describe('API rendering e2e', () => {
 
   it('renderFile() returns RenderResult with SVG buffers', async () => {
     const filePath = join(fixturesDir, 'architecture.mmd')
-    const result = await renderFile(filePath, { format: 'svg', theme: 'both' })
+    const result = await renderFile(filePath, {
+      format: 'svg',
+      theme: 'both',
+      logger: silentLogger,
+    })
 
     expect(result.format).toBe('svg')
     expect(result.light).toBeDefined()
@@ -317,7 +343,9 @@ describe('API rendering e2e', () => {
   }, 120_000)
 
   it('rejects invalid mermaid content', async () => {
-    await expect(render('this is not valid mermaid', 'mermaid')).rejects.toThrow()
+    await expect(
+      render('this is not valid mermaid', 'mermaid', { logger: silentLogger }),
+    ).rejects.toThrow()
   }, 120_000)
 
   it('rejects renderFile with unsupported extension', async () => {
@@ -332,7 +360,12 @@ describe('API rendering e2e', () => {
     const workspace = createWorkspace('e2e-api-result')
 
     // First render: all files should be rendered, none skipped
-    const result1 = await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
+    const result1 = await renderAll({
+      dir: workspace,
+      format: 'svg',
+      theme: 'light',
+      logLevel: 'error',
+    })
 
     expect(result1.rendered).toHaveLength(4)
     expect(result1.skipped).toHaveLength(0)
@@ -344,7 +377,12 @@ describe('API rendering e2e', () => {
     }
 
     // Second render: all files should be skipped (manifest cached)
-    const result2 = await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
+    const result2 = await renderAll({
+      dir: workspace,
+      format: 'svg',
+      theme: 'light',
+      logLevel: 'error',
+    })
 
     expect(result2.rendered).toHaveLength(0)
     expect(result2.skipped).toHaveLength(4)
@@ -353,7 +391,11 @@ describe('API rendering e2e', () => {
 
   it('render() excalidraw string returns valid SVG', async () => {
     const json = readFileSync(join(fixturesDir, 'whiteboard.excalidraw'), 'utf-8')
-    const result = await render(json, 'excalidraw', { theme: 'both', format: 'svg' })
+    const result = await render(json, 'excalidraw', {
+      theme: 'both',
+      format: 'svg',
+      logger: silentLogger,
+    })
 
     expect(result.light).toBeDefined()
     expect(result.dark).toBeDefined()
@@ -364,7 +406,11 @@ describe('API rendering e2e', () => {
 
   it('render() drawio string returns valid SVG', async () => {
     const xml = readFileSync(join(fixturesDir, 'system.drawio.xml'), 'utf-8')
-    const result = await render(xml, 'drawio', { theme: 'light', format: 'svg' })
+    const result = await render(xml, 'drawio', {
+      theme: 'light',
+      format: 'svg',
+      logger: silentLogger,
+    })
 
     expect(result.light).toBeDefined()
     expect(result.dark).toBeUndefined()
@@ -376,6 +422,7 @@ describe('API rendering e2e', () => {
     const result = await renderFile(join(fixturesDir, 'whiteboard.excalidraw'), {
       format: 'svg',
       theme: 'dark',
+      logger: silentLogger,
     })
 
     expect(result.dark).toBeDefined()
@@ -387,6 +434,7 @@ describe('API rendering e2e', () => {
     const result = await renderFile(join(fixturesDir, 'system.drawio.xml'), {
       format: 'svg',
       theme: 'both',
+      logger: silentLogger,
     })
 
     expect(result.light).toBeDefined()
@@ -409,6 +457,7 @@ describe('API rendering e2e', () => {
       dir: workspace,
       format: 'svg',
       theme: 'light',
+      logLevel: 'error',
       config: { useManifest: false },
     })
 
@@ -429,6 +478,7 @@ describe('API rendering e2e', () => {
       dir: workspace,
       format: 'svg',
       theme: 'light',
+      logLevel: 'error',
       config: {
         useManifest: false,
         extensionMap: { '.custom-diagram': 'mermaid' },
@@ -460,11 +510,13 @@ describe('API rendering e2e', () => {
       theme: 'light',
       format: 'svg',
       mermaidLayout: { mode: 'off' },
+      logger: silentLogger,
     })
     const rebalanced = await render(wideChain, 'mermaid', {
       theme: 'light',
       format: 'svg',
       mermaidLayout: { mode: 'auto', targetAspectRatio: target, tolerance: 2.5 },
+      logger: silentLogger,
     })
 
     const baselineDistance = distance(baseline.light!.toString('utf-8'))
@@ -487,11 +539,11 @@ describe('API rendering e2e', () => {
     mkdirSync(nestedDir, { recursive: true })
     writeFileSync(join(nestedDir, 'flow.mermaid'), 'graph TD; A-->B')
 
-    await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'light', logLevel: 'error' })
     expectSvgFile(join(nestedDir, '.diagramkit', 'flow-light.svg'))
 
     rmSync(join(nestedDir, 'flow.mermaid'))
-    await renderAll({ dir: workspace, format: 'svg', theme: 'light' })
+    await renderAll({ dir: workspace, format: 'svg', theme: 'light', logLevel: 'error' })
 
     expectNotExists(join(nestedDir, '.diagramkit', 'flow-light.svg'))
     expectNotExists(join(nestedDir, '.diagramkit', 'manifest.json'))

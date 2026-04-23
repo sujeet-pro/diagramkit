@@ -76,7 +76,16 @@ vi.mock('./extensions', () => ({
 }))
 
 describe('watchDiagrams', () => {
-  let watchDiagrams: typeof import('./watch').watchDiagrams
+  let rawWatchDiagrams: typeof import('./watch').watchDiagrams
+  // Wrapper that defaults `logLevel` to 'silent'. The renderer is fully
+  // mocked in this file, so any logger output (the routine "Watching for
+  // diagram changes..." line, or the safe-mode "Render failed: ..." line
+  // emitted on a deliberately mocked render rejection) is just the unit
+  // under test exercising its logging contract — not a real failure
+  // signal — and only adds noise to the test runner. Individual tests that
+  // assert on logger behavior can still override `logLevel`/`logger`.
+  const watchDiagrams: typeof import('./watch').watchDiagrams = (opts) =>
+    rawWatchDiagrams({ logLevel: 'silent', ...opts })
 
   beforeEach(async () => {
     vi.useFakeTimers()
@@ -86,7 +95,7 @@ describe('watchDiagrams', () => {
     mockClose.mockClear()
 
     const mod = await import('./watch')
-    watchDiagrams = mod.watchDiagrams
+    rawWatchDiagrams = mod.watchDiagrams
   })
 
   afterEach(() => {

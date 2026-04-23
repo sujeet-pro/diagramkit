@@ -18,6 +18,22 @@ export const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 export const fixturesDir = join(repoRoot, 'e2e/fixtures/mixed-diagrams')
 export const distCliPath = join(repoRoot, 'dist/cli/bin.mjs')
 
+/**
+ * Quiet logger used by e2e tests to silence the library's normal info/warn
+ * output (e.g. "Rendered 4/4 diagrams to svg" or the mermaid aspect-ratio
+ * notice triggered by the fixture) while keeping real errors visible so a
+ * failing render is never hidden from the test runner. Production defaults
+ * stay informative; the tests just don't need the routine noise to interleave
+ * with the runner output.
+ */
+export const silentLogger = {
+  log: () => {},
+  warn: () => {},
+  error: (message: string, ...args: unknown[]) => {
+    console.error(message, ...args)
+  },
+} as const
+
 /* -- Workspace helpers -- */
 
 export function createFixtureWorkspace(prefix: string): string {

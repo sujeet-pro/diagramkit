@@ -120,24 +120,25 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "@excalidraw/excalidraw": "^0.18.0",
-    "@viz-js/viz": "^3.25.0",
+    "@excalidraw/excalidraw": "^0.18.1",
+    "@viz-js/viz": "^3.26.0",
     "chokidar": "^5.0.0",
     "jiti": "^2.6.1",
     "json5": "^2.2.3",
     "mermaid": "^11.14.0",
     "playwright": "^1.59.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "rolldown": "^1.0.0-rc.13"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "rolldown": "^1.0.0-rc.17"
   },
   "devDependencies": {
-    "@pagesmith/docs": "^0.9.9",
-    "@types/node": "^25.5.2",
-    "@vitest/coverage-v8": "^4.1.2",
+    "@pagesmith/docs": "^0.10.0",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "4.1.4",
     "sharp": "^0.34.5",
-    "typescript": "^6.0.2",
-    "vite-plus": "^0.1.15"
+    "typescript": "^6.0.3",
+    "vite-plus": "^0.1.19",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.19"
   },
   "peerDependencies": {
     "sharp": "^0.34.5"
@@ -153,13 +154,14 @@
     "lodash-es": ">=4.18.1",
     "nanoid": ">=3.3.8",
     "picomatch": ">=4.0.2",
-    "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.15",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.15"
+    "uuid": ">=14.0.0",
+    "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.19",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.19"
   },
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "npm@11.12.1",
+  "packageManager": "npm@11.13.0",
   "ai": {
     "context": "./llms.txt",
     "fullContext": "./llms-full.txt",
