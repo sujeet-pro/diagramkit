@@ -235,6 +235,13 @@ export interface OutputMetadata {
 
 /* ── Render options ── */
 
+/**
+ * Mermaid `themeVariables` map. Most keys are flat color strings; a few Mermaid
+ * theme sections (e.g. `xyChart`) are nested objects of color strings, so values
+ * may be either a string or a `Record<string, string>`.
+ */
+export type MermaidThemeVariables = Record<string, string | Record<string, string>>
+
 export interface RenderOptions {
   /** Output format (single format for low-level render API). Default: 'svg' */
   format?: OutputFormat
@@ -247,7 +254,9 @@ export interface RenderOptions {
   /** Apply dark SVG color contrast optimization. Default: true */
   contrastOptimize?: boolean
   /** Custom dark theme variables for mermaid. Uses built-in palette if omitted. */
-  mermaidDarkTheme?: Record<string, string>
+  mermaidDarkTheme?: MermaidThemeVariables
+  /** Custom light theme variables for mermaid. Uses built-in overrides if omitted. */
+  mermaidLightTheme?: MermaidThemeVariables
   /**
    * Mermaid aspect-ratio rebalance overrides for this render call. Merged on top of the
    * resolved config defaults.

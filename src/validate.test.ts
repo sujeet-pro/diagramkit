@@ -191,6 +191,90 @@ describe('validateSvg — WCAG contrast checks', () => {
   })
 })
 
+describe('validateSvg — contrast background resolution for Mermaid layouts', () => {
+  const low = (svg: string, file: string) =>
+    validateSvg(svg, file).issues.filter((i) => i.code === 'LOW_CONTRAST_TEXT')
+
+  it('resolves gantt off-bar labels against the canvas, not the last task rect', () => {
+    // All task rects, then all labels, are flat siblings in one <g>. The
+    // section title (x=10) and outside/milestone labels sit on the light
+    // canvas, not on the trailing dark task bar the walker last saw.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+      <style>#s .task0{fill:#1f6e68}#s .sectionTitle0{fill:#333}#s .taskTextOutsideRight{fill:#000}#s .titleText{fill:#333}</style>
+      <g>
+        <rect class="task task0" x="75" y="50" width="343" height="20"/>
+        <text class="sectionTitle sectionTitle0" x="10" y="86">HTML parser</text>
+        <text class="taskTextOutsideRight" x="90" y="111">DOMContentLoaded</text>
+        <text class="titleText" x="400" y="25">Chart title</text>
+      </g>
+    </svg>`
+    expect(low(svg, 'gantt-light.svg')).toHaveLength(0)
+  })
+
+  it('still flags gantt in-bar text that genuinely fails against its bar', () => {
+    // A taskText (inside the bar) is NOT redirected to the canvas — white on a
+    // too-light bar must still surface.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+      <style>#s .task0{fill:#dddddd}#s .taskText0{fill:#ffffff}</style>
+      <g>
+        <rect class="task task0" x="75" y="50" width="343" height="20"/>
+        <text class="taskText taskText0" x="240" y="63">Parse head</text>
+      </g>
+    </svg>`
+    expect(low(svg, 'gantt-light.svg')).toHaveLength(1)
+  })
+
+  it('resolves a timeline label against its section block in a sibling subtree', () => {
+    // `.section--1 rect` paints the node block inside a nested <g>; the label is
+    // a sibling *after* that <g>, so the stack-local heuristic would see only
+    // the canvas. The ancestor-block fallback supplies the block colour.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+      <style>#s .section--1 rect{fill:#2e5a88}#s .section--1 text{fill:#fff}</style>
+      <g class="timeline-node section--1">
+        <g><rect x="0" y="0" width="100" height="40"/></g>
+        <text x="50" y="20">2016</text>
+      </g>
+    </svg>`
+    expect(low(svg, 'timeline-light.svg')).toHaveLength(0)
+  })
+
+  it('flags a timeline label when its resolved section block is genuinely too light', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+      <style>#s .section--1 rect{fill:#eeeeee}#s .section--1 text{fill:#fff}</style>
+      <g class="timeline-node section--1">
+        <g><rect x="0" y="0" width="100" height="40"/></g>
+        <text x="50" y="20">2016</text>
+      </g>
+    </svg>`
+    expect(low(svg, 'timeline-light.svg')).toHaveLength(1)
+  })
+
+  it('resolves ER edge labels via multi-ancestor descendant CSS (no grey self-match)', () => {
+    // `.edgeLabel .label text` / `.edgeLabel .label rect` are three-compound
+    // selectors; the label text and its backing rect must resolve to those, not
+    // collapse onto the less-specific `.edgeLabel .label` grey.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+      <style>#s .edgeLabel .label rect{fill:#1e1e1e}#s .edgeLabel .label text{fill:#e5e5e5}#s .edgeLabel .label{fill:#555555}</style>
+      <g class="edgeLabels"><g class="edgeLabel"><g class="label"><g><rect class="background"/></g>
+        <text><tspan class="row"><tspan>owns</tspan></tspan></text></g></g></g>
+    </svg>`
+    expect(low(svg, 'er-dark.svg')).toHaveLength(0)
+  })
+
+  it('does not leak a scoped `.edgeLabel .label` fill onto unrelated `.label` groups', () => {
+    // ER entity attribute rows are `.label` groups NOT inside `.edgeLabel`; they
+    // must keep the default text colour on the `.node` block, never inherit the
+    // edge-label grey and self-match.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200">
+      <style>#s .edgeLabel .label{fill:#555555}#s .node rect{fill:#2d2d2d}</style>
+      <g class="node default"><g class="outer-path"><path d="M0 0 L100 0 L100 60 L0 60" fill="#2d2d2d"/></g>
+        <g class="label name"><g><rect class="background"/></g>
+          <text><tspan class="row"><tspan>CALENDARS</tspan></tspan></text></g></g>
+    </svg>`
+    expect(low(svg, 'er-dark.svg')).toHaveLength(0)
+  })
+})
+
 describe('validateSvg — additional edge cases', () => {
   it('warns about missing xmlns', () => {
     const svg = `<svg width="10" height="10"><rect/></svg>`

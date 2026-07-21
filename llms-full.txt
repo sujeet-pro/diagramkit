@@ -347,10 +347,17 @@ import { ENGINE_PROFILES, getEngineProfile, defaultMermaidDarkTheme } from 'diag
   getEngineProfile(type: DiagramType): EngineProfile
     Lookup helper for a single engine.
 
-  defaultMermaidDarkTheme: Record<string, string>
+  defaultMermaidDarkTheme: MermaidThemeVariables
     Built-in Mermaid `themeVariables` map used for the default `-dark` SVG.
     Re-exported so consumers customizing Mermaid via `mermaidConfig` can
-    extend (rather than replace) the theme.
+    extend (rather than replace) the theme. Includes WCAG-AA sequence
+    `autonumber` and xychart-beta axis text colors.
+
+  defaultMermaidLightTheme: MermaidThemeVariables
+    Built-in Mermaid `themeVariables` overrides layered on the `default`
+    theme for the `-light` SVG (currently the WCAG-AA sequence `autonumber`
+    digit color). MermaidThemeVariables = Record<string, string |
+    Record<string, string>> (nested for sections like `xyChart`).
 
 ### Errors
 
@@ -500,7 +507,8 @@ interface RenderOptions {
   quality?: number                // JPEG/WebP/AVIF quality 1-100. Default: 90
   scale?: number                  // Scale for raster output. Default: 2
   contrastOptimize?: boolean      // Dark SVG contrast fix. Default: true
-  mermaidDarkTheme?: Record<string, string>  // Custom dark theme variables
+  mermaidDarkTheme?: MermaidThemeVariables   // Custom dark theme variables
+  mermaidLightTheme?: MermaidThemeVariables  // Custom light theme variables
   mermaidLayout?: MermaidLayoutOptions       // Per-call mermaid aspect-ratio rebalance
   config?: Partial<DiagramkitConfig>
   logger?: Logger             // Optional logger for non-fatal warnings

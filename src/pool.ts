@@ -12,7 +12,7 @@ import {
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, BrowserContext, Page } from 'playwright'
-import { DiagramkitError, type Logger } from './types'
+import { DiagramkitError, type Logger, type MermaidThemeVariables } from './types'
 
 const IDLE_TIMEOUT_MS = 5_000
 const DEBUG_LOG_ENABLED = process.env.DIAGRAMKIT_DEBUG === '1'
@@ -59,6 +59,7 @@ export class BrowserPool {
   private launching: Promise<void> | null = null
 
   private mermaidDarkThemeVars: string | null = null
+  private mermaidLightThemeVars: string | null = null
 
   // Cached IIFE bundles
   private excalidrawBundle: string | null = null
@@ -144,6 +145,7 @@ export class BrowserPool {
     this.excalidrawPageInit = null
     this.drawioPageInit = null
     this.mermaidDarkThemeVars = null
+    this.mermaidLightThemeVars = null
     this.context = null
     if (this.browser) {
       const b = this.browser
@@ -207,15 +209,24 @@ export class BrowserPool {
 
   /* ── Mermaid pages ── */
 
-  async getMermaidLightPage(): Promise<Page> {
+  async getMermaidLightPage(themeVariables?: MermaidThemeVariables): Promise<Page> {
     if (!this.context) throw createPoolStateError()
-    if (!this.mermaidLightPage || this.mermaidLightPage.isClosed()) {
-      this.mermaidLightPage = await this.createMermaidPage('default')
+    const varsKey = themeVariables ? JSON.stringify(themeVariables) : null
+    if (
+      !this.mermaidLightPage ||
+      this.mermaidLightPage.isClosed() ||
+      this.mermaidLightThemeVars !== varsKey
+    ) {
+      if (this.mermaidLightPage && !this.mermaidLightPage.isClosed()) {
+        await this.mermaidLightPage.close()
+      }
+      this.mermaidLightPage = await this.createMermaidPage('default', themeVariables)
+      this.mermaidLightThemeVars = varsKey
     }
     return this.mermaidLightPage
   }
 
-  async getMermaidDarkPage(themeVariables: Record<string, string>): Promise<Page> {
+  async getMermaidDarkPage(themeVariables: MermaidThemeVariables): Promise<Page> {
     if (!this.context) throw createPoolStateError()
     const varsKey = JSON.stringify(themeVariables)
     if (
@@ -234,7 +245,7 @@ export class BrowserPool {
 
   private async createMermaidPage(
     theme: string,
-    themeVariables?: Record<string, string>,
+    themeVariables?: MermaidThemeVariables,
   ): Promise<Page> {
     const page = await this.context!.newPage()
     await page.setContent(

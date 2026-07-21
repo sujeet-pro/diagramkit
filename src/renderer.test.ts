@@ -100,7 +100,13 @@ vi.mock('./manifest', () => ({
   readManifest: vi.fn(() => ({ version: 2, entries: {} })),
 }))
 
-import { render, renderFile, renderDiagramFileToDisk, defaultMermaidDarkTheme } from './renderer'
+import {
+  render,
+  renderFile,
+  renderDiagramFileToDisk,
+  defaultMermaidDarkTheme,
+  defaultMermaidLightTheme,
+} from './renderer'
 import { renderAll } from './render-all'
 import { renderGraphviz } from './graphviz'
 
@@ -381,13 +387,19 @@ describe('renderAll', () => {
 /* ── defaultMermaidDarkTheme ── */
 
 describe('defaultMermaidDarkTheme', () => {
-  it('is a non-empty record of string key-value pairs', () => {
+  it('is a non-empty record of string or nested-object values', () => {
     expect(typeof defaultMermaidDarkTheme).toBe('object')
     expect(Object.keys(defaultMermaidDarkTheme).length).toBeGreaterThan(0)
 
     for (const [key, value] of Object.entries(defaultMermaidDarkTheme)) {
       expect(typeof key).toBe('string')
-      expect(typeof value).toBe('string')
+      // Most keys are flat color strings; a few (e.g. `xyChart`) are nested
+      // records of color strings.
+      if (typeof value === 'object' && value !== null) {
+        for (const nested of Object.values(value)) expect(typeof nested).toBe('string')
+      } else {
+        expect(typeof value).toBe('string')
+      }
     }
   })
 
@@ -396,5 +408,19 @@ describe('defaultMermaidDarkTheme', () => {
     expect(defaultMermaidDarkTheme).toHaveProperty('primaryColor')
     expect(defaultMermaidDarkTheme).toHaveProperty('textColor')
     expect(defaultMermaidDarkTheme).toHaveProperty('lineColor')
+  })
+
+  it('pins accessible sequence-autonumber and xychart text colors', () => {
+    expect(defaultMermaidDarkTheme.sequenceNumberColor).toBe('#e5e5e5')
+    expect(defaultMermaidDarkTheme.xyChart).toMatchObject({
+      xAxisLabelColor: '#e5e5e5',
+      yAxisLabelColor: '#e5e5e5',
+    })
+  })
+})
+
+describe('defaultMermaidLightTheme', () => {
+  it('pins an accessible sequence-autonumber color', () => {
+    expect(defaultMermaidLightTheme.sequenceNumberColor).toBe('#333333')
   })
 })

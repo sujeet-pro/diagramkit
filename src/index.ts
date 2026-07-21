@@ -9,7 +9,13 @@
 
 /* ── Core API ── */
 
-export { render, renderFile, renderDiagramFileToDisk, defaultMermaidDarkTheme } from './renderer'
+export {
+  render,
+  renderFile,
+  renderDiagramFileToDisk,
+  defaultMermaidDarkTheme,
+  defaultMermaidLightTheme,
+} from './renderer'
 export { renderAll } from './render-all'
 export { dispose, warmup } from './pool'
 export { createRendererRuntime } from './runtime'
@@ -37,6 +43,7 @@ export type {
   FileOverride,
   Logger,
   LogLevel,
+  MermaidThemeVariables,
   OptimizeOptions,
   PngEncoderOptions,
   WebpEncoderOptions,

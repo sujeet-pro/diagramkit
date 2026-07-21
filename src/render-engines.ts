@@ -9,17 +9,18 @@ import {
   parseSvgViewBoxRatio,
   pickClosestToTarget,
 } from './mermaid-layout'
-import { defaultMermaidDarkTheme } from './mermaid-theme'
+import { defaultMermaidDarkTheme, defaultMermaidLightTheme } from './mermaid-theme'
 import type { BrowserPool } from './pool'
 import { DiagramkitError } from './types'
-import type { DiagramType, MermaidLayoutOptions, Theme } from './types'
+import type { DiagramType, MermaidLayoutOptions, MermaidThemeVariables, Theme } from './types'
 
 export interface SvgRenderContext {
   source: string
   theme: Theme
   contrastOptimize: boolean
   renderId: string
-  mermaidDarkTheme?: Record<string, string>
+  mermaidDarkTheme?: MermaidThemeVariables
+  mermaidLightTheme?: MermaidThemeVariables
   /** Resolved mermaid layout options. The renderer treats `undefined` as `{ mode: 'off' }`. */
   mermaidLayout?: Required<MermaidLayoutOptions>
   /** Optional warn callback used for non-fatal layout messages (e.g. ratio out of band). */
@@ -126,7 +127,8 @@ async function renderMermaidForTheme(
 ): Promise<string> {
   const pool = ctx.pool!
   if (themeKind === 'light') {
-    const page = await pool.getMermaidLightPage()
+    const lightTheme = ctx.mermaidLightTheme ?? defaultMermaidLightTheme
+    const page = await pool.getMermaidLightPage(lightTheme)
     return withPageRenderLock(pool, 'mermaid-light', () =>
       renderMermaidPage(page, source, `${ctx.renderId}-${idSuffix}`),
     )

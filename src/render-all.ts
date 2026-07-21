@@ -166,6 +166,7 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
           scale: fileOverride?.scale ?? opts.scale,
           contrastOptimize: fileOverride?.contrastOptimize ?? opts.contrastOptimize,
           mermaidDarkTheme: opts.mermaidDarkTheme,
+          mermaidLightTheme: opts.mermaidLightTheme,
           mermaidLayout: opts.mermaidLayout,
           config,
           // Funnel non-fatal warnings (e.g. mermaid aspect-ratio rebalance notices) into

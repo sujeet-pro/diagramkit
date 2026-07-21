@@ -6,7 +6,7 @@ import { getEngineProfile } from './engine-profiles'
 import { engineRenderers } from './render-engines'
 import { getAllExtensions, getDiagramType, getExtensionMap } from './extensions'
 import { ensureDiagramsDir } from './manifest'
-import { defaultMermaidDarkTheme } from './mermaid-theme'
+import { defaultMermaidDarkTheme, defaultMermaidLightTheme } from './mermaid-theme'
 import { optimizeSvg } from './optimize'
 import { writeRenderResult } from './output'
 import { getPool } from './pool'
@@ -58,6 +58,7 @@ export async function render(
       contrastOptimize,
       renderId,
       mermaidDarkTheme: options.mermaidDarkTheme ?? defaultMermaidDarkTheme,
+      mermaidLightTheme: options.mermaidLightTheme ?? defaultMermaidLightTheme,
       mermaidLayout,
       warn: pickWarnCallback(options.logger),
       pool: pool ?? undefined,
@@ -242,7 +243,7 @@ export async function renderDiagramFileToDisk(
   return allWritten
 }
 
-export { defaultMermaidDarkTheme } from './mermaid-theme'
+export { defaultMermaidDarkTheme, defaultMermaidLightTheme } from './mermaid-theme'
 
 /**
  * Resolve the effective MermaidLayoutOptions for a single render call:

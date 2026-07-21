@@ -272,6 +272,7 @@ import {
   ENGINE_PROFILES,
   getEngineProfile,
   defaultMermaidDarkTheme,
+  defaultMermaidLightTheme,
   // errors
   DiagramkitError,
   type DiagramkitErrorCode,

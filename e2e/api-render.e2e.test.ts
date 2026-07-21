@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { dispose, render, renderAll, renderFile } from '../src/index'
+import { findSvgContrastIssues } from '../src/color/wcag'
 import { readManifest } from '../src/manifest'
 import {
   createFixtureWorkspace,
@@ -526,6 +527,57 @@ describe('API rendering e2e', () => {
     // Strict improvement is the typical case but we assert <= to avoid flakiness if
     // mermaid's layout happens to already sit near the band for this chain.
     expect(rebalancedDistance).toBeLessThanOrEqual(baselineDistance)
+  }, 120_000)
+
+  it('renders sequenceDiagram autonumber badges with WCAG-AA text in both themes', async () => {
+    const seq =
+      'sequenceDiagram\n' +
+      '  autonumber\n' +
+      '  Alice->>Bob: Authenticate\n' +
+      '  Bob->>Alice: Token\n' +
+      '  Alice->>Bob: Fetch data'
+
+    const result = await render(seq, 'mermaid', {
+      theme: 'both',
+      format: 'svg',
+      logger: silentLogger,
+    })
+
+    const light = result.light!.toString('utf-8')
+    const dark = result.dark!.toString('utf-8')
+
+    // The autonumber digit must actually be emitted (regression guard).
+    expect(light).toContain('class="sequenceNumber"')
+    expect(dark).toContain('class="sequenceNumber"')
+
+    const lightIssues = findSvgContrastIssues(light, { defaultBackground: '#ffffff' })
+    const darkIssues = findSvgContrastIssues(dark, { defaultBackground: '#111111' })
+    expect(lightIssues).toEqual([])
+    expect(darkIssues).toEqual([])
+  }, 120_000)
+
+  it('renders xychart-beta axis labels with WCAG-AA text in both themes', async () => {
+    const xy =
+      'xychart-beta\n' +
+      '  title "Quarterly Revenue"\n' +
+      '  x-axis [jan, feb, mar, apr]\n' +
+      '  y-axis "Revenue (k)" 0 --> 100\n' +
+      '  bar [30, 60, 90, 45]\n' +
+      '  line [30, 60, 90, 45]'
+
+    const result = await render(xy, 'mermaid', {
+      theme: 'both',
+      format: 'svg',
+      logger: silentLogger,
+    })
+
+    const light = result.light!.toString('utf-8')
+    const dark = result.dark!.toString('utf-8')
+
+    const lightIssues = findSvgContrastIssues(light, { defaultBackground: '#ffffff' })
+    const darkIssues = findSvgContrastIssues(dark, { defaultBackground: '#111111' })
+    expect(lightIssues).toEqual([])
+    expect(darkIssues).toEqual([])
   }, 120_000)
 
   it('cleans nested orphan outputs even when the tree no longer contains any diagrams', async () => {

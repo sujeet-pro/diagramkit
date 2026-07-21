@@ -244,8 +244,16 @@ export function hashFile(filePath: string): string {
  * - 1: pre-optimization baseline (entries written before optimization existed
  *   carry no `optimizeKey`, so they always read as pipeline-stale on upgrade).
  * - 2: SVGO + Mermaid CSS pruning pipeline (`optimize.svg`, encoder tuning).
+ * - 3: WCAG-AA theme-contrast fixes — injected mermaid sequence-autonumber and
+ *   xychart-beta text colors (light + dark), and dark post-processing no longer
+ *   darkens `<text>`/`<tspan>` glyph fills. Forces a one-time re-render so
+ *   existing consumers pick up the accessible colors.
+ * - 4: dark post-processing now also *lightens* near-black `<text>`/`<tspan>`
+ *   glyph fills (luminance < 0.15). Fixes Mermaid gantt/timeline axis-tick
+ *   labels, which hardcode `fill="#000"` (no theme variable overrides them) and
+ *   were invisible on the dark canvas.
  */
-const RENDER_PIPELINE_VERSION = 2
+const RENDER_PIPELINE_VERSION = 4
 
 /**
  * Derive a stable signature for the effective optimization profile so that a

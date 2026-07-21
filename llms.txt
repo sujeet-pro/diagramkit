@@ -284,7 +284,7 @@ import {
   warmup, dispose, createRendererRuntime,
   defineConfig, loadConfig, getDefaultConfig, getFileOverrides,
   convertSvg,
-  ENGINE_PROFILES, getEngineProfile, defaultMermaidDarkTheme,
+  ENGINE_PROFILES, getEngineProfile, defaultMermaidDarkTheme, defaultMermaidLightTheme,
   DiagramkitError, type DiagramkitErrorCode,
 } from 'diagramkit'
 ```

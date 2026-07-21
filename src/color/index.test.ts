@@ -166,4 +166,60 @@ describe('postProcessDarkSvg', () => {
     // #xyz does not match the hex regex pattern so it stays unchanged
     expect(result).toBe(svg)
   })
+
+  it('never darkens a light <text> glyph fill (attribute form)', () => {
+    // xychart-beta emits axis labels as light inline fills; darkening them would
+    // wipe out contrast on the dark canvas.
+    const svg = '<g><text fill="#e5e5e5" font-size="14">jan</text></g>'
+    const result = postProcessDarkSvg(svg)
+    expect(result).toBe(svg)
+    expect(result).toContain('fill="#e5e5e5"')
+  })
+
+  it('never darkens a light <tspan> glyph fill (style form)', () => {
+    const svg = "<text><tspan style='fill:#ffffff'>Label</tspan></text>"
+    const result = postProcessDarkSvg(svg)
+    expect(result).toContain('#ffffff')
+  })
+
+  it('still darkens a light shape fill that sits next to text', () => {
+    const svg = '<g><rect fill="#ffffff" /><text fill="#e5e5e5">n</text></g>'
+    const result = postProcessDarkSvg(svg)
+    // rect background darkened, text glyph preserved
+    expect(result).not.toContain('fill="#ffffff"')
+    expect(result).toContain('fill="#e5e5e5"')
+  })
+
+  it('preserves self-closing shape tags while clamping their fill', () => {
+    const svg = '<rect fill="#ffffff"/>'
+    const result = postProcessDarkSvg(svg)
+    expect(result).not.toContain('#ffffff')
+    expect(result).toMatch(/\/>$/)
+  })
+
+  it('lightens a near-black <text> glyph fill (attribute form)', () => {
+    // Mermaid hardcodes fill="#000" on gantt/timeline axis-tick labels, which no
+    // theme variable overrides; black digits would vanish on the dark canvas.
+    const svg = '<g><text fill="#000000" font-size="10">0</text></g>'
+    const result = postProcessDarkSvg(svg)
+    expect(result).not.toContain('fill="#000000"')
+    // Lightened to a high-luminance gray that reads on the dark canvas.
+    const match = result.match(/fill="(#[0-9a-f]{6})"/)
+    expect(match).not.toBeNull()
+    const [r, g, b] = hexToRgb(match![1])!
+    expect(relativeLuminance(r, g, b)).toBeGreaterThan(0.4)
+  })
+
+  it('lightens a near-black <tspan> glyph fill (style form)', () => {
+    const svg = "<text><tspan style='fill:#333'>5</tspan></text>"
+    const result = postProcessDarkSvg(svg)
+    expect(result).not.toContain('#333')
+  })
+
+  it('never lightens a near-black shape fill (only glyph fills are lightened)', () => {
+    // A dark shape background must stay dark; lightening is glyph-only.
+    const svg = '<rect fill="#000000"/>'
+    const result = postProcessDarkSvg(svg)
+    expect(result).toContain('fill="#000000"')
+  })
 })

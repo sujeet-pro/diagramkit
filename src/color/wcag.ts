@@ -133,6 +133,27 @@ interface ParsedCss {
    * when one of its ancestors carries `ancestorClass`.
    */
   tagInClass: Map<string, CssRule>
+  /**
+   * Multi-ancestor descendant rules with a bare-tag final compound and *two or
+   * more* ancestor compounds that each carry a class, e.g.
+   * `.edgeLabel .label text { fill: #e5e5e5 }`. The contrast walker tracks the
+   * full accumulated ancestor-class set along the stack, so — unlike the
+   * single-ancestor `tagInClass` map — we CAN require *all* listed ancestor
+   * classes to be present before applying the rule, which keeps the match
+   * precise. Mermaid uses this shape for ER/state edge labels (both the label
+   * `text` fill and its backing `rect` fill), which the older parser skipped
+   * entirely and thus mis-resolved as a self-referential fallback.
+   */
+  descendantTags: { ancestors: string[]; tag: string; rule: CssRule }[]
+  /**
+   * Descendant rules whose *final* compound is a class (not a bare tag) and
+   * that carry one or more ancestor compounds, e.g. `.edgeLabel .label { … }`.
+   * These MUST stay scoped: recording them in the global `classes` map (as the
+   * older parser did) leaks a scoped edge-label fill onto every unrelated
+   * element that merely shares the final class — e.g. ER entity `.label`
+   * groups inheriting the `.edgeLabel .label` grey and self-matching.
+   */
+  descendantClasses: { ancestors: string[]; classes: string[]; rule: CssRule }[]
   /** Plain tag-only fill defaults (e.g. `text { fill: #333 }`). */
   tags: Map<string, CssRule>
 }
@@ -140,19 +161,26 @@ interface ParsedCss {
 /**
  * Parse `<style>...</style>` blocks. Mermaid emits scoped selectors like
  * `#abc-light .cluster rect { fill: ... }`. We strip the `#scope` prefix and
- * record three kinds of mappings so contrast resolution stays accurate:
+ * record five kinds of mappings so contrast resolution stays accurate:
  *
- * 1. `.foo { fill: X }` → classes["foo"]
- * 2. `.foo bar { fill: X }` → tagInClass["foo>bar"]
- * 3. `bar { fill: X }` → tags["bar"]
+ * 1. `.foo { fill: X }` (no ancestor)        → classes["foo"]
+ * 2. `.foo bar { fill: X }` (one ancestor)   → tagInClass["foo>bar"]
+ * 3. `bar { fill: X }`                        → tags["bar"]
+ * 4. `.foo .bar baz { fill: X }` (2+ ancestors, bare-tag final)  → descendantTags
+ * 5. `.foo .bar { fill: X }` (2+ compounds, pure-class final)    → descendantClasses
  *
- * Anything more elaborate (combinator chains, attribute selectors, pseudo
- * classes) is intentionally skipped — those rarely change diagram contrast and
- * trying to interpret them with regexes leads to false positives.
+ * Kinds 4 and 5 stay *scoped*: they require every listed ancestor class to be
+ * present before applying, so a rule like `.edgeLabel .label` never leaks onto
+ * an unrelated `.label` elsewhere. Anything more elaborate (attribute
+ * selectors, pseudo classes, ids) is intentionally skipped — those rarely
+ * change diagram contrast and interpreting them with regexes invites false
+ * positives.
  */
 function parseStyleClasses(svg: string): ParsedCss {
   const classes = new Map<string, CssRule>()
   const tagInClass = new Map<string, CssRule>()
+  const descendantTags: { ancestors: string[]; tag: string; rule: CssRule }[] = []
+  const descendantClasses: { ancestors: string[]; classes: string[]; rule: CssRule }[] = []
   const tags = new Map<string, CssRule>()
   const styleBlocks = svg.match(/<style[^>]*>([\s\S]*?)<\/style>/g) ?? []
   for (const block of styleBlocks) {
@@ -209,12 +237,35 @@ function parseStyleClasses(svg: string): ParsedCss {
         const finalClasses = compoundClasses(final)
         const finalTag = compoundTag(final)
 
-        // (a) Pure class selector `.foo` (or compound `.foo.bar`) — apply to
-        //     any element with all of those classes; we approximate by keying
-        //     each class to the same rule (hits when any one matches).
-        if (!finalTag && finalClasses.length > 0) {
+        // (a) Global pure class selector `.foo` (or compound `.foo.bar`) with
+        //     no ancestor compound — apply to any element with those classes;
+        //     we approximate by keying each class to the same rule (hits when
+        //     any one matches).
+        if (!finalTag && finalClasses.length > 0 && parts.length === 1) {
           for (const cls of finalClasses) {
             classes.set(cls, { ...classes.get(cls), ...decls })
+          }
+          continue
+        }
+
+        // (a2) Scoped pure-class final with one or more ancestor compounds
+        //      (e.g. `.edgeLabel .label`). Record it as a descendant-class rule
+        //      requiring every ancestor class to be present, rather than
+        //      leaking the fill onto the global `.label` map where unrelated
+        //      elements (ER entity `.label` groups) would wrongly inherit it.
+        if (!finalTag && finalClasses.length > 0 && parts.length >= 2) {
+          const ancestors: string[] = []
+          let everyAncestorHasClass = true
+          for (let k = 0; k < parts.length - 1; k++) {
+            const cs = compoundClasses(parts[k]!)
+            if (cs.length === 0) {
+              everyAncestorHasClass = false
+              break
+            }
+            ancestors.push(...cs)
+          }
+          if (everyAncestorHasClass && ancestors.length > 0) {
+            descendantClasses.push({ ancestors, classes: finalClasses, rule: decls })
           }
           continue
         }
@@ -238,9 +289,7 @@ function parseStyleClasses(svg: string): ParsedCss {
         // (d) Tag-only final compound with EXACTLY ONE ancestor compound that
         //     contains at least one class (e.g. `.layer rect` or `text.actor
         //     tspan`). The ancestor *may* also have a tag — we only need its
-        //     classes to key the rule. We deliberately skip multi-ancestor
-        //     chains like `.icon-shape .label rect`: the stack model can't
-        //     enforce that *both* ancestors are present, so we'd over-match.
+        //     classes to key the rule.
         if (finalTag && finalClasses.length === 0 && parts.length === 2) {
           const ancestorClasses = compoundClasses(parts[0]!)
           if (ancestorClasses.length > 0) {
@@ -251,10 +300,36 @@ function parseStyleClasses(svg: string): ParsedCss {
           }
           continue
         }
+
+        // (e) Tag-only final compound with TWO OR MORE ancestor compounds that
+        //     each carry at least one class (e.g. `.edgeLabel .label text` or
+        //     `.edgeLabel .label rect`). The walker accumulates the full
+        //     ancestor-class set, so we record *all* required classes and only
+        //     apply the rule when every one is present — no over-match. This is
+        //     the shape Mermaid emits for ER/state edge labels; skipping it made
+        //     the scanner fall back to the less-specific `.edgeLabel .label`
+        //     rule for BOTH the text fill and its backing rect, producing a
+        //     bogus grey-on-grey / colour-on-itself self-match.
+        if (finalTag && finalClasses.length === 0 && parts.length >= 3) {
+          const ancestors: string[] = []
+          let everyAncestorHasClass = true
+          for (let k = 0; k < parts.length - 1; k++) {
+            const cs = compoundClasses(parts[k]!)
+            if (cs.length === 0) {
+              everyAncestorHasClass = false
+              break
+            }
+            ancestors.push(...cs)
+          }
+          if (everyAncestorHasClass && ancestors.length > 0) {
+            descendantTags.push({ ancestors, tag: finalTag, rule: decls })
+          }
+          continue
+        }
       }
     }
   }
-  return { classes, tagInClass, tags }
+  return { classes, tagInClass, descendantTags, descendantClasses, tags }
 }
 
 /* ── Internal: color resolution ── */
@@ -359,6 +434,23 @@ function resolveFill(
   }
   if (attrs.fill !== undefined) return { color: normalizeColor(attrs.fill), source: 'attr' }
   const ownClasses = attrs.class ? attrs.class.split(/\s+/).filter(Boolean) : []
+  const ownClassSet = new Set(ownClasses)
+  // Scoped descendant-class rules (`.edgeLabel .label`) are more specific than a
+  // bare `.label`, so honour them first — but only when every required ancestor
+  // class is present, so the fill never leaks onto same-named elements outside
+  // the scope. Prefer the match with the most required classes.
+  let bestScoped: { fill: string; n: number } | null = null
+  for (const d of parsed.descendantClasses) {
+    if (!d.rule.fill) continue
+    if (!d.classes.every((c) => ownClassSet.has(c))) continue
+    if (!d.ancestors.every((c) => ancestorClasses.has(c))) continue
+    const specificity = d.ancestors.length + d.classes.length
+    if (bestScoped === null || specificity > bestScoped.n) {
+      const c = normalizeColor(d.rule.fill)
+      if (c) bestScoped = { fill: c, n: specificity }
+    }
+  }
+  if (bestScoped) return { color: bestScoped.fill, source: 'class' }
   for (const cls of ownClasses) {
     const rule = parsed.classes.get(cls)
     if (rule?.fill) {
@@ -367,6 +459,19 @@ function resolveFill(
     }
   }
   const tagLower = tag.toLowerCase()
+  // Multi-ancestor descendant rules (`.edgeLabel .label text`) are more
+  // specific than single-ancestor ones, so honour them first and prefer the
+  // match with the most required ancestor classes present.
+  let bestMulti: { fill: string; n: number } | null = null
+  for (const d of parsed.descendantTags) {
+    if (d.tag !== tagLower || !d.rule.fill) continue
+    if (!d.ancestors.every((c) => ancestorClasses.has(c))) continue
+    if (bestMulti === null || d.ancestors.length > bestMulti.n) {
+      const c = normalizeColor(d.rule.fill)
+      if (c) bestMulti = { fill: c, n: d.ancestors.length }
+    }
+  }
+  if (bestMulti) return { color: bestMulti.fill, source: 'tagInClass' }
   const ancestorList = [...ancestorClasses]
   for (let i = ancestorList.length - 1; i >= 0; i--) {
     const ancestor = ancestorList[i]!
@@ -382,6 +487,57 @@ function resolveFill(
     if (c) return { color: c, source: 'tag' }
   }
   return { color: null, source: null }
+}
+
+/** Shape tags whose fill can act as the painted block behind descendant text. */
+const BLOCK_SHAPE_TAGS = ['rect', 'path', 'circle', 'ellipse', 'polygon'] as const
+
+/**
+ * Resolve the fill of the "block" an element sits inside when that block is
+ * painted by an ancestor-scoped descendant rule (e.g. Mermaid's timeline
+ * emits `.section--1 rect { fill: #2e5a88 }` for the node block *and*
+ * `.section--1 text { fill: #fff }` for its label). The block shape and the
+ * label live in *separate* sibling subtrees under the same section `<g>`, so
+ * the stack-local "nearest preceding sibling shape" heuristic never sees the
+ * block fill and would fall back to the page canvas — a false white-on-white.
+ *
+ * We look up each ancestor class (nearest first) for a `${class} <shape>` fill
+ * rule and return the first hit. Callers apply this only when no genuine
+ * sibling shape has painted the current frame, so a real inner background still
+ * wins.
+ */
+function ancestorBlockFill(ancestorClasses: ReadonlySet<string>, parsed: ParsedCss): string | null {
+  const ordered = [...ancestorClasses].reverse()
+  for (const cls of ordered) {
+    for (const shape of BLOCK_SHAPE_TAGS) {
+      const rule = parsed.tagInClass.get(`${cls}>${shape}`)
+      if (rule?.fill) {
+        const c = normalizeColor(rule.fill)
+        if (c) return c
+      }
+    }
+  }
+  return null
+}
+
+/** Gantt text classes that are rendered *outside* any task bar (on the section
+ * band / page canvas), not on the bar fill: labels that don't fit inside their
+ * bar (`taskTextOutside*`), the left-margin section labels (`sectionTitle*`),
+ * and milestone captions (`milestoneText`). Mermaid emits every task rect and
+ * then every label as flat siblings in one `<g>`, so the walker's
+ * last-sibling-shape heuristic wrongly attributes these to the final (dark)
+ * task bar; they are really drawn on the light canvas. */
+function isGanttOffBarText(ancestorClasses: ReadonlySet<string>): boolean {
+  for (const cls of ancestorClasses) {
+    if (
+      cls.startsWith('taskTextOutside') ||
+      cls.startsWith('sectionTitle') ||
+      cls === 'milestoneText' ||
+      cls === 'titleText'
+    )
+      return true
+  }
+  return false
 }
 
 function resolveFontSize(attrs: Record<string, string>): number | null {
@@ -448,9 +604,18 @@ function collectDirectText(tokens: Tag[], startIdx: number, endIdx: number): str
  * Scan an SVG for text elements whose computed contrast against their effective
  * background fails WCAG 2.2 AA. Returns one issue per failing text node.
  *
- * The scanner walks tags as a stack and keeps a `currentBackground` resolved from
- * the nearest ancestor that has a non-transparent fill (rect, g, or path with a
- * solid fill). When no ancestor sets a fill, `defaultBackground` is used.
+ * The scanner walks tags as a stack and resolves each text node's background
+ * from the most recent opaque sibling shape (rect/path/circle/…) in its frame,
+ * falling back to `defaultBackground`. Three refinements keep flat-sibling and
+ * separated-subtree Mermaid layouts from producing false positives:
+ *   - Gantt labels drawn outside their bar (`taskTextOutside*`, `sectionTitle*`,
+ *     `milestoneText`) resolve against the page canvas, not the last task rect.
+ *   - When nothing has painted a background in the text's subtree, an
+ *     ancestor-scoped `.section rect { fill }`-style rule supplies the block
+ *     colour (timeline sections paint the block and label in sibling subtrees).
+ *   - Multi-ancestor descendant CSS (`.edgeLabel .label text/rect`) is parsed so
+ *     ER/state edge labels resolve their real text and backing-rect fills
+ *     instead of collapsing onto a less-specific self-matching rule.
  */
 export function findSvgContrastIssues(
   svg: string,
@@ -479,6 +644,13 @@ export function findSvgContrastIssues(
     localBg: string
     /** True when localBg was set by an explicit own-fill (inline/attr/class). */
     localBgExplicit: boolean
+    /**
+     * True when localBg reflects an actual painted surface (a sibling shape's
+     * fill or a container's own fill) rather than the inherited page/canvas
+     * default. Gates the ancestor-block background fallback so it only fires
+     * for text drawn straight onto the canvas.
+     */
+    localBgPainted: boolean
     inheritedText: string | null
     fontSize: number | null
     fontWeight: number | null
@@ -492,6 +664,7 @@ export function findSvgContrastIssues(
     {
       localBg: initialBg,
       localBgExplicit: false,
+      localBgPainted: false,
       inheritedText: initialText,
       fontSize: null,
       fontWeight: null,
@@ -544,8 +717,10 @@ export function findSvgContrastIssues(
         if (ownFillExplicit) {
           parent.localBg = ownFill
           parent.localBgExplicit = true
+          parent.localBgPainted = true
         } else if (!parent.localBgExplicit) {
           parent.localBg = ownFill
+          parent.localBgPainted = true
         }
       }
 
@@ -563,7 +738,19 @@ export function findSvgContrastIssues(
           const textColor = ownFill ?? parent.inheritedText
           const effectiveSize = ownFontSize ?? parent.fontSize
           const effectiveWeight = ownFontWeight ?? parent.fontWeight
-          const bgColor = parent.localBg
+          let bgColor = parent.localBg
+          // Mechanism G: gantt labels drawn outside their bar sit on the page
+          // canvas, not on the last flat-sibling task rect the walker saw.
+          if (isGanttOffBarText(ancestorClasses)) {
+            bgColor = initialBg
+          } else if (!parent.localBgPainted) {
+            // Mechanism T: nothing has painted a background in this subtree, so
+            // the text is on the canvas — unless it sits inside a block that an
+            // ancestor-scoped descendant rule fills (e.g. a timeline section
+            // node whose block and label live in separate sibling subtrees).
+            const blockFill = ancestorBlockFill(ancestorClasses, parsed)
+            if (blockFill) bgColor = blockFill
+          }
           const ratio = textColor ? contrastRatioHex(textColor, bgColor) : null
           if (textColor && ratio !== null) {
             const large = isLarge(effectiveSize, effectiveWeight, opts)
@@ -593,6 +780,7 @@ export function findSvgContrastIssues(
           // Container with an own fill establishes its own bg; otherwise inherit.
           localBg: containerHasExplicitFill ? ownFill : parent.localBg,
           localBgExplicit: containerHasExplicitFill ? true : false,
+          localBgPainted: containerHasExplicitFill ? true : parent.localBgPainted,
           inheritedText:
             t.name === 'text' || t.name === 'tspan'
               ? (ownFill ?? parent.inheritedText)
