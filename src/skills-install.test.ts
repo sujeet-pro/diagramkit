@@ -1,6 +1,15 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   POINTER_MARKER_TOKEN,
@@ -8,6 +17,7 @@ import {
   discoverSkills,
   installSkills,
   readFrontmatter,
+  resolveDiagramkitPackageRoot,
   type SkillsInstallResult,
 } from '../cli/skills-install'
 
@@ -60,6 +70,43 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+/* ── resolveDiagramkitPackageRoot (consumer-dir scoping) ── */
+
+describe('resolveDiagramkitPackageRoot', () => {
+  // A module URL under a throwaway dir with no diagramkit ancestor, so the
+  // in-repo walk-up fallback (branch 2) cannot mask branch-1 (consumer
+  // node_modules) resolution.
+  function neutralModuleUrl(): string {
+    return pathToFileURL(join(tmp('dk-mod-'), 'cli', 'skills-install.js')).href
+  }
+
+  function installDiagramkit(consumer: string, version: string): string {
+    const root = join(consumer, 'node_modules', 'diagramkit')
+    mkdirSync(root, { recursive: true })
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'diagramkit', version }))
+    return root
+  }
+
+  it('resolves diagramkit from a consumer dir that has its OWN copy', () => {
+    const consumer = makeCwd()
+    writeFileSync(join(consumer, 'package.json'), JSON.stringify({ name: 'consumer' }))
+    const root = installDiagramkit(consumer, '9.9.9')
+    const resolved = resolveDiagramkitPackageRoot(consumer, neutralModuleUrl())
+    expect(realpathSync(resolved)).toBe(realpathSync(root))
+  })
+
+  it('throws for a consumer dir that lacks diagramkit — never leaks to the CLI install', () => {
+    const consumer = makeCwd()
+    writeFileSync(join(consumer, 'package.json'), JSON.stringify({ name: 'consumer' }))
+    // The buggy `import.meta.resolve(spec, base)` ignored `base` and would
+    // resolve diagramkit from the CLI's own install location; the fixed
+    // `createRequire(<cwd>/…)` scoped to this diagramkit-less consumer must not.
+    expect(() => resolveDiagramkitPackageRoot(consumer, neutralModuleUrl())).toThrow(
+      /Could not resolve the diagramkit package root/,
+    )
+  })
 })
 
 /* ── readFrontmatter / discoverSkills ── */

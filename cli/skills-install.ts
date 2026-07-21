@@ -25,8 +25,9 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 /* ── Public types ── */
 
@@ -139,11 +140,15 @@ export function resolveDiagramkitPackageRoot(
   cwd: string,
   moduleUrl: string = import.meta.url,
 ): string {
-  // 1. Consumer node_modules (npx path).
+  // 1. Consumer node_modules (npx path). Resolution MUST be anchored on `cwd`,
+  //    not on this module. `import.meta.resolve(spec, base)` cannot do that on
+  //    stable Node: the `base` argument is ignored without
+  //    --experimental-import-meta-resolve, so it resolves relative to this
+  //    module (the CLI's own install location) and silently ignores `cwd`.
+  //    `createRequire(<cwd>/package.json)` walks the consumer's node_modules.
   try {
-    const base = pathToFileURL(join(resolve(cwd), 'package.json')).href
-    const resolved = import.meta.resolve('diagramkit/package.json', base)
-    const pkgPath = fileURLToPath(resolved)
+    const requireFromCwd = createRequire(join(resolve(cwd), 'package.json'))
+    const pkgPath = requireFromCwd.resolve('diagramkit/package.json')
     if (existsSync(pkgPath) && readPackageName(pkgPath) === 'diagramkit') {
       return dirname(pkgPath)
     }
