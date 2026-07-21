@@ -60,7 +60,7 @@ npm run validate:pagesmith:full    # adds opt-in strict checks (raster modern fo
 
 Docs validation covers both `.md` content and the built HTML output under `gh-pages/`. `npm run cicd` runs:
 
-1. `scripts/validate-build.ts` — SKILL.md frontmatter + mirror checks, package.json `files`/`exports`, schemas, gh-pages broken-link spot-check, docs SVG WCAG 2.2 AA contrast scan.
+1. `scripts/validate-build.ts` — SKILL.md frontmatter + mirror checks, package.json `files`/`exports`, schemas, gh-pages broken-link spot-check, docs SVG WCAG 2.2 AA contrast scan, cross-file "skills install" consistency (`llms.txt`/`llms-full.txt`/`README.md`/`REFERENCE.md`), `package.json` version ↔ `CHANGELOG.md` heading discipline, and a fixture-consumer `diagramkit skills install --check` end-to-end test.
 2. `npm run validate:pagesmith` — calls upstream `@pagesmith/docs` `validateDocs`, which validates markdown frontmatter/links/images/alt-text/theme-variants **and** the rendered HTML output (link integrity, in-page anchors, asset hashes, SVG renderability, required output files like `favicon.svg`, `sitemap.xml`, `robots.txt`, `llms.txt`, `llms-full.txt`). Plus the diagramkit-specific cross-reference (`.diagramkit/` source must exist) and link-style (`./path/README.md`) rules from `scripts/validate-pagesmith.ts`.
 
 <!-- pagesmith-ai:codex-memory:start -->

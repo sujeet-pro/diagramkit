@@ -1,6 +1,7 @@
 ---
 name: diagramkit-setup
 description: Install and configure diagramkit in a repository. Adds the package, runs Playwright warmup, wires package.json scripts, optionally creates diagramkit.config.json5, and installs project skills. Use when the user asks to set up, add, install, or bootstrap diagramkit in their repo.
+allowed-tools: Bash(npx diagramkit *)
 ---
 
 # diagramkit Setup
@@ -111,9 +112,9 @@ Layer additional non-default settings only when the user actually needs them:
 
 If the project is Graphviz-only (no `.mermaid` sources), the `mermaidLayout` block is harmless but unnecessary; the rest of the config is still recommended for explicit format/theme selection.
 
-### 5. Install project skills as local pointers into `node_modules`
+### 5. Install project skills
 
-diagramkit ships every skill inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The recommended install is to write **thin pointer SKILL.md files** in this repo that defer to the version-pinned originals — that way every agent reads exactly the skill that matches the installed CLI/API, with no separate fetch step.
+diagramkit ships every skill inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. Every install path writes **thin pointer SKILL.md files** in this repo that defer to the version-pinned originals — that way every agent reads exactly the skill that matches the installed CLI/API, with no separate fetch step.
 
 **Skill set to install** (all live under `node_modules/diagramkit/skills/`):
 
@@ -126,6 +127,29 @@ diagramkit ships every skill inside the npm package at `node_modules/diagramkit/
 | `diagramkit-draw-io`    | Authoring + image generation (vector + raster) — Draw.io                    |
 | `diagramkit-graphviz`   | Authoring + image generation (vector + raster) — Graphviz                   |
 | `diagramkit-review`     | Validation (SVG structure, `<img>`-embed safety) **+ WCAG 2.2 AA contrast** |
+
+#### 5, primary: run the CLI installer
+
+Run the `skills install` subcommand — it is idempotent, auto-detects which harness folders exist, and reports `created`/`updated`/`unchanged`/`removed` per stub:
+
+```bash
+npx diagramkit skills install
+```
+
+This does exactly what the manual procedure below (5a–5d) describes, in one deterministic pass: writes the canonical pointer at `.agents/skills/<name>/SKILL.md` for every skill in the table above, mirrors it into each detected harness (`.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`), and sweeps any stub left behind by a skill that no longer ships. Useful flags:
+
+```bash
+npx diagramkit skills install --harness claude,cursor   # explicit harness set (skip auto-detect)
+npx diagramkit skills install --only mermaid --only review   # restrict to specific skills
+npx diagramkit skills install --dry-run                 # preview created/updated/removed, write nothing
+npx diagramkit skills install --check --json            # CI drift gate, machine-readable
+```
+
+Prefer this over the manual steps below unless you are in a context where the CLI cannot run (e.g. authoring guidance for a non-CLI harness, or hand-verifying the pointer format). Commit the resulting pointer files with any `package.json` / config changes.
+
+#### Fallback: write the pointers by hand (non-CLI contexts)
+
+Use this prose procedure only when `npx diagramkit skills install` is unavailable. It produces byte-for-byte the same stub shape the CLI writes.
 
 #### 5a. Detect target harness folders
 
@@ -272,4 +296,4 @@ All of these ship inside `node_modules/diagramkit/skills/` and are surfaced into
 - Do not install `sharp` unless raster output is required.
 - Do not run `warmup` if the project is Graphviz-only (WASM, no browser needed).
 - Commit diagram source files (`.mermaid`, etc.) alongside rendered outputs. Never hand-edit SVGs in `.diagramkit/`.
-- Default skill-install mechanism is **local pointers** into `node_modules/diagramkit/skills/` (step 5). Only fall back to `npx skills add sujeet-pro/diagramkit` (step 5e) when the user explicitly wants skills that update independently of the installed `diagramkit` package. Never mix both in the same repo.
+- Default skill-install mechanism is **`npx diagramkit skills install`** (step 5, primary), which writes local pointers into `node_modules/diagramkit/skills/`. Fall back to the manual pointer procedure (5a–5d) only in non-CLI contexts. Only use `npx skills add sujeet-pro/diagramkit` (step 5e) when the user explicitly wants skills that update independently of the installed `diagramkit` package. Never mix mechanisms in the same repo.

@@ -7,6 +7,7 @@ import {
   type FileOverride,
   type MermaidLayoutMode,
   type MermaidLayoutOptions,
+  type OptimizeOptions,
   type OutputFormat,
   type Theme,
 } from './types'
@@ -32,7 +33,54 @@ export function getDefaultConfig(): DiagramkitConfig {
     outputPrefix: '',
     outputSuffix: '',
     mermaidLayout: getDefaultMermaidLayout(),
+    optimize: getDefaultOptimize(),
   }
+}
+
+/** Resolved output-optimization defaults. SVG optimization is on; encoders use tuned defaults. */
+function getDefaultOptimize(): OptimizeOptions {
+  return { svg: true }
+}
+
+/**
+ * Validate and resolve a partial OptimizeOptions against the defaults. Invalid values
+ * fall back to defaults with a warning (or throw under strict mode).
+ */
+function resolveOptimize(
+  input: OptimizeOptions | undefined,
+  runtime: ConfigLoadRuntime = {},
+): OptimizeOptions {
+  const defaults = getDefaultOptimize()
+  if (!input || typeof input !== 'object') return { ...defaults }
+
+  const resolved: OptimizeOptions = { ...defaults }
+
+  if (input.svg !== undefined) {
+    if (typeof input.svg === 'boolean') {
+      resolved.svg = input.svg
+    } else {
+      warnOrThrow(
+        `Warning: invalid optimize.svg (${String(input.svg)}). Must be a boolean. ` +
+          `Using default ${String(defaults.svg)}.`,
+        runtime,
+      )
+    }
+  }
+
+  for (const key of ['png', 'webp', 'avif'] as const) {
+    const value = input[key]
+    if (value === undefined) continue
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      resolved[key] = value
+    } else {
+      warnOrThrow(
+        `Warning: invalid optimize.${key} (${String(value)}). Must be an object. Ignoring.`,
+        runtime,
+      )
+    }
+  }
+
+  return resolved
 }
 
 /** Resolved mermaid layout defaults. Exported for use by the renderer pipeline. */
@@ -354,6 +402,19 @@ export function loadConfig(
       ...env.mermaidLayout,
       ...local?.mermaidLayout,
       ...overrides?.mermaidLayout,
+    },
+    runtime,
+  )
+
+  // Deep-merge optimize so a partial override (just `svg`, or just `png`) keeps the rest,
+  // and validate each layer so malformed entries fall back to defaults.
+  merged.optimize = resolveOptimize(
+    {
+      ...defaults.optimize,
+      ...global?.optimize,
+      ...env.optimize,
+      ...local?.optimize,
+      ...overrides?.optimize,
     },
     runtime,
   )

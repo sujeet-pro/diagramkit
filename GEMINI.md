@@ -1,8 +1,4 @@
-# Gemini Context for diagramkit
-
-This file intentionally mirrors [`AGENTS.md`](AGENTS.md) as a single source of truth.
-
-Read [`AGENTS.md`](AGENTS.md) for contributor guidance, the `prj-*` skill catalog, non-negotiables (including the `.temp/` convention), and validation commands. Do not duplicate content here; edit `AGENTS.md` instead.
+@AGENTS.md
 
 <!-- pagesmith-ai:gemini-memory:start -->
 

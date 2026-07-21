@@ -78,6 +78,79 @@ export interface MermaidLayoutOptions {
   tolerance?: number
 }
 
+/* ── Output optimization ── */
+
+/**
+ * Sharp PNG encoder overrides, merged on top of diagramkit's tuned defaults
+ * (`{ compressionLevel: 9, effort: 10 }`). Any option accepted by
+ * `sharp(...).png()` is forwarded; the fields below are the common knobs.
+ */
+export interface PngEncoderOptions {
+  /** zlib compression level, 0 (fastest/largest) – 9 (slowest/smallest). Default: 9. */
+  compressionLevel?: number
+  /** CPU effort, 1 (fastest) – 10 (slowest/smallest). Default: 10. */
+  effort?: number
+  /** Use adaptive row filtering. */
+  adaptiveFiltering?: boolean
+  /** Quantise to a palette (lossy) to shrink flat-colour PNGs. */
+  palette?: boolean
+  /** Palette quality when `palette` is enabled, 1–100. */
+  quality?: number
+}
+
+/**
+ * Sharp WebP encoder overrides, merged on top of diagramkit's tuned defaults
+ * (`{ effort: 6 }`; `quality` follows the render `quality` option).
+ */
+export interface WebpEncoderOptions {
+  /** CPU effort, 0 (fastest) – 6 (slowest/smallest). Default: 6. */
+  effort?: number
+  /** Quality, 1–100. Defaults to the render `quality` option. */
+  quality?: number
+  /** Encode losslessly. */
+  lossless?: boolean
+  /** Encode near-losslessly. */
+  nearLossless?: boolean
+}
+
+/**
+ * Sharp AVIF encoder overrides, merged on top of diagramkit's tuned defaults
+ * (`{ effort: 6 }`; `quality` follows the render `quality` option).
+ */
+export interface AvifEncoderOptions {
+  /** CPU effort, 0 (fastest) – 9 (slowest/smallest). Default: 6. */
+  effort?: number
+  /** Quality, 1–100. Defaults to the render `quality` option. */
+  quality?: number
+  /** Encode losslessly. */
+  lossless?: boolean
+}
+
+/**
+ * Output optimization options.
+ *
+ * `svg` runs SVGO with an accessibility-preserving, deterministic configuration on
+ * every rendered SVG before it is written to disk (and before it is rasterised),
+ * and additionally prunes unused CSS rules from Mermaid `<style>` blocks. The
+ * `png`/`webp`/`avif` objects tune the sharp encoders used by the raster
+ * conversion path.
+ */
+export interface OptimizeOptions {
+  /**
+   * Run SVGO + Mermaid CSS pruning on every rendered SVG before it is written.
+   * Preserves `viewBox`, `width`/`height`, `role`/`aria-*`/`<title>`/`<desc>`,
+   * used `<style>` rules, and IDs referenced by `url(#…)`/CSS selectors/`<use>`.
+   * Deterministic: identical input yields byte-identical output. Default: `true`.
+   */
+  svg?: boolean
+  /** Sharp PNG encoder overrides, merged on top of `{ compressionLevel: 9, effort: 10 }`. */
+  png?: PngEncoderOptions
+  /** Sharp WebP encoder overrides, merged on top of `{ effort: 6 }`. */
+  webp?: WebpEncoderOptions
+  /** Sharp AVIF encoder overrides, merged on top of `{ effort: 6 }`. */
+  avif?: AvifEncoderOptions
+}
+
 /** Per-file render overrides */
 export interface FileOverride {
   /** Output formats for this file */
@@ -120,6 +193,11 @@ export interface DiagramkitConfig {
    * Default: `{ mode: 'warn', targetAspectRatio: 4 / 3, tolerance: 2.5 }`.
    */
   mermaidLayout?: MermaidLayoutOptions
+  /**
+   * Output optimization options: SVGO + Mermaid CSS pruning for SVG output, and
+   * sharp encoder tuning for raster output. Default: `{ svg: true }`.
+   */
+  optimize?: OptimizeOptions
 }
 
 /* ── File types ── */
@@ -209,6 +287,13 @@ export interface BatchOptions extends RenderOptions {
   force?: boolean
   /** Filter to specific diagram type */
   type?: DiagramType
+  /**
+   * Only render sources that live under a directory segment named this (e.g.
+   * `diagrams`), skipping diagram sources elsewhere in the tree. Segment match,
+   * not substring — mirrors `diagramkit validate --scope-dir`. Orphan cleanup
+   * still runs against the full discovered set so out-of-scope outputs are kept.
+   */
+  scopeDir?: string
   /** Multiple output formats. Overrides `format` when set. Accumulates with manifest-tracked formats. */
   formats?: OutputFormat[]
   /** Optional logger for library consumers to control output */
@@ -286,4 +371,10 @@ export interface ConvertOptions {
   scale?: number
   /** JPEG/WebP/AVIF quality (1-100). Default: 90 */
   quality?: number
+  /** Sharp PNG encoder overrides, merged on top of the tuned defaults (`{ compressionLevel: 9, effort: 10 }`). */
+  png?: PngEncoderOptions
+  /** Sharp WebP encoder overrides, merged on top of the tuned defaults (`{ effort: 6 }`). */
+  webp?: WebpEncoderOptions
+  /** Sharp AVIF encoder overrides, merged on top of the tuned defaults (`{ effort: 6 }`). */
+  avif?: AvifEncoderOptions
 }

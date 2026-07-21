@@ -57,6 +57,13 @@ export type ManifestEntry = {
   theme?: Theme
   mtimeMs?: number
   size?: number
+  /**
+   * Signature of the render pipeline (SVGO/optimize config + a version counter).
+   * A mismatch means the output was produced by a different optimization profile
+   * (or a pre-optimization diagramkit) and must be re-rendered even when the
+   * source content, theme, and formats are unchanged. See {@link computeOptimizeKey}.
+   */
+  optimizeKey?: string
 }
 
 export type Manifest = {
@@ -226,6 +233,39 @@ export function hashFile(filePath: string): string {
   return 'sha256:' + createHash('sha256').update(content).digest('hex').slice(0, 16)
 }
 
+/**
+ * Version counter for the render/optimization pipeline. Bump this whenever the
+ * optimization behavior in `src/optimize.ts` (SVGO config, Mermaid CSS pruning)
+ * changes in a way that should force existing consumers to re-render even though
+ * their sources are unchanged. Combined with the resolved `optimize` options
+ * into a per-entry {@link computeOptimizeKey} stored on each ManifestEntry.
+ *
+ * History:
+ * - 1: pre-optimization baseline (entries written before optimization existed
+ *   carry no `optimizeKey`, so they always read as pipeline-stale on upgrade).
+ * - 2: SVGO + Mermaid CSS pruning pipeline (`optimize.svg`, encoder tuning).
+ */
+const RENDER_PIPELINE_VERSION = 2
+
+/**
+ * Derive a stable signature for the effective optimization profile so that a
+ * change to the optimize config (or a pipeline-version bump) marks previously
+ * rendered outputs as stale. Normalizes so that "no optimize config" and an
+ * explicit `{ svg: true }` produce the same key.
+ */
+export function computeOptimizeKey(config?: Partial<DiagramkitConfig>): string {
+  const opt = config?.optimize
+  const normalized = {
+    v: RENDER_PIPELINE_VERSION,
+    // svg optimization defaults to on
+    svg: opt?.svg !== false,
+    png: opt?.png ?? null,
+    webp: opt?.webp ?? null,
+    avif: opt?.avif ?? null,
+  }
+  return 'opt:' + createHash('sha256').update(JSON.stringify(normalized)).digest('hex').slice(0, 12)
+}
+
 type FileFingerprint = {
   mtimeMs: number
   size: number
@@ -251,6 +291,7 @@ export type StaleReasonCode =
   | 'manifest_disabled'
   | 'no_manifest_entry'
   | 'theme_changed'
+  | 'pipeline_changed'
   | 'missing_outputs'
   | 'content_changed'
 
@@ -259,6 +300,7 @@ export type StaleReason =
   | { code: 'manifest_disabled' }
   | { code: 'no_manifest_entry' }
   | { code: 'theme_changed'; requestedTheme: Theme; manifestTheme?: Theme }
+  | { code: 'pipeline_changed'; previousKey?: string; currentKey: string }
   | { code: 'missing_outputs'; files: string[] }
   | { code: 'content_changed'; previousHash: string; currentHash: string }
 
@@ -288,6 +330,10 @@ export function isStale(
 
   // Theme change triggers re-render
   if (theme && entry.theme !== theme) return true
+
+  // Optimization/pipeline change triggers re-render (e.g. upgrading into the
+  // optimize pipeline, or changing optimize config) even when content is unchanged.
+  if (entry.optimizeKey !== computeOptimizeKey(config)) return true
 
   // Compute effective formats (accumulate with manifest)
   const requestedFormats = formats ?? ['svg']
@@ -357,6 +403,13 @@ export function filterStaleFiles(
 
     // Theme changed — re-render
     if (theme && entry.theme !== theme) {
+      result.push({ ...f, _effectiveFormats: effectiveFormats })
+      return result
+    }
+
+    // Optimization/pipeline change — re-render (upgrading into the optimize
+    // pipeline, or a changed optimize config, invalidates existing outputs).
+    if (entry.optimizeKey !== computeOptimizeKey(config)) {
       result.push({ ...f, _effectiveFormats: effectiveFormats })
       return result
     }
@@ -450,6 +503,17 @@ export function planStaleFiles(
       continue
     }
 
+    const currentOptimizeKey = computeOptimizeKey(config)
+    if (entry.optimizeKey !== currentOptimizeKey) {
+      reasons.push({
+        code: 'pipeline_changed',
+        previousKey: entry.optimizeKey,
+        currentKey: currentOptimizeKey,
+      })
+      plans.push({ path: f.path, effectiveFormats, reasons })
+      continue
+    }
+
     const outDir = getDiagramsDir(f.dir, config)
     const expectedOutputs = getExpectedOutputNamesMulti(
       f.name,
@@ -533,6 +597,7 @@ export function updateManifest(
         theme,
         mtimeMs: fingerprint.mtimeMs,
         size: fingerprint.size,
+        optimizeKey: computeOptimizeKey(config),
       }
     }
 

@@ -31,9 +31,21 @@
  *    every ASPECT_RATIO_EXTREME warning has to be fixed source-by-source.
  *    Surfaced as a warning (not a failure) so projects that genuinely opt
  *    out can keep the build green.
+ * 10. Cross-file "skills install" consistency — llms.txt, llms-full.txt,
+ *    README.md, and REFERENCE.md must all mention the `skills install` command
+ *    so the primary install path is documented everywhere it should be.
+ * 11. CHANGELOG discipline — CHANGELOG.md must carry either an `## Unreleased`
+ *    section or a heading matching the current `package.json` version. Passes
+ *    both before a release (Unreleased pending) and after the release flow
+ *    bumps `package.json` (Unreleased still present, later renamed by hand).
+ * 12. skills-install end-to-end fixture — in a throwaway temp dir, the built
+ *    CLI (`dist/cli/bin.mjs`) installs skill stubs, `--check` passes, and after
+ *    a stub is deleted `--check` exits nonzero. Skipped if dist/ is absent.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { extname, join, relative, resolve } from 'node:path'
 import { detectMermaidLayoutConfig, hasMermaidYamlFrontmatter } from './lib/docs-rules.ts'
 
@@ -176,6 +188,7 @@ function validatePackageJson(): void {
 
 const REQUIRED_SCHEMAS = [
   'schemas/diagramkit-cli-render.v1.json',
+  'schemas/diagramkit-cli-validate.v1.json',
   'schemas/diagramkit-config.v1.json',
 ] as const
 
@@ -354,6 +367,125 @@ function validateMermaidLayoutConfig(): void {
   )
 }
 
+/* ── Cross-file "skills install" consistency ── */
+
+const SKILLS_INSTALL_DOC_FILES = ['llms.txt', 'llms-full.txt', 'README.md', 'REFERENCE.md'] as const
+
+function validateSkillsInstallMentions(): void {
+  const missing: string[] = []
+  for (const rel of SKILLS_INSTALL_DOC_FILES) {
+    const abs = resolve(root, rel)
+    if (!existsSync(abs)) {
+      fail(`skills-install consistency: expected doc file is missing: ${rel}`)
+      continue
+    }
+    if (!/skills install/i.test(readFileSync(abs, 'utf-8'))) {
+      missing.push(rel)
+    }
+  }
+  if (missing.length > 0) {
+    fail(
+      `"skills install" is not documented in: ${missing.join(', ')}. ` +
+        `All of ${SKILLS_INSTALL_DOC_FILES.join(', ')} must mention the primary install command.`,
+    )
+  } else {
+    info(
+      `skills-install consistency: all ${SKILLS_INSTALL_DOC_FILES.length} doc file(s) mention "skills install"`,
+    )
+  }
+}
+
+/* ── CHANGELOG discipline ── */
+
+function validateChangelogDiscipline(): void {
+  const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf-8')) as {
+    version?: string
+  }
+  const version = pkg.version ?? ''
+  const changelogPath = resolve(root, 'CHANGELOG.md')
+  if (!existsSync(changelogPath)) {
+    fail('CHANGELOG discipline: CHANGELOG.md is missing')
+    return
+  }
+  const content = readFileSync(changelogPath, 'utf-8')
+  const hasUnreleased = /^##\s+\[?unreleased\]?/im.test(content)
+  const versionEscaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Match a heading for the current version whether bracketed (`## [0.4.0]`) or
+  // bare (`## v0.4.0` / `## 0.4.0`), with or without a trailing date.
+  const hasVersionHeading =
+    versionEscaped !== '' && new RegExp(`^##\\s+\\[?v?${versionEscaped}\\]?`, 'im').test(content)
+  if (!hasUnreleased && !hasVersionHeading) {
+    fail(
+      `CHANGELOG discipline: CHANGELOG.md has neither an "## Unreleased" section nor a heading ` +
+        `for the current package.json version (${version}). Add one before release.`,
+    )
+  } else {
+    info(
+      `CHANGELOG discipline: ${
+        hasUnreleased ? 'Unreleased section present' : `heading for ${version} present`
+      }`,
+    )
+  }
+}
+
+/* ── skills-install end-to-end fixture ── */
+
+function validateSkillsInstallFixture(): void {
+  const binPath = resolve(root, 'dist/cli/bin.mjs')
+  if (!existsSync(binPath)) {
+    info('dist/cli/bin.mjs not present — skipping skills-install fixture (run build:lib first)')
+    return
+  }
+  const tmp = mkdtempSync(join(tmpdir(), 'diagramkit-skills-fixture-'))
+  const run = (extra: string[]) =>
+    spawnSync(
+      process.execPath,
+      [binPath, 'skills', 'install', '--dir', tmp, '--harness', 'claude', ...extra],
+      { encoding: 'utf-8' },
+    )
+  try {
+    const install = run([])
+    if (install.status !== 0) {
+      fail(
+        `skills-install fixture: install exited ${install.status}. ${(install.stderr ?? '').trim()}`,
+      )
+      return
+    }
+    const check = run(['--check'])
+    if (check.status !== 0) {
+      fail(
+        `skills-install fixture: --check should exit 0 immediately after install but exited ` +
+          `${check.status}. ${(check.stderr ?? '').trim()}`,
+      )
+      return
+    }
+    // Delete one installed canonical stub and confirm --check now fails.
+    const agentsSkills = join(tmp, '.agents', 'skills')
+    const stubDirs = existsSync(agentsSkills)
+      ? readdirSync(agentsSkills).filter((n) => n.startsWith('diagramkit-'))
+      : []
+    if (stubDirs.length === 0) {
+      fail('skills-install fixture: install wrote no .agents/skills/diagramkit-* stubs')
+      return
+    }
+    const victim = join(agentsSkills, stubDirs[0]!, 'SKILL.md')
+    rmSync(victim, { force: true })
+    const recheck = run(['--check'])
+    if (recheck.status === 0) {
+      fail(
+        `skills-install fixture: --check should exit nonzero after deleting ${stubDirs[0]}/SKILL.md ` +
+          `but exited 0`,
+      )
+      return
+    }
+    info(
+      'skills-install fixture: install → --check (0) → delete stub → --check (nonzero) behaved correctly',
+    )
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
 /* ── Run ── */
 
 info('Validating SKILL.md frontmatter under .agents/skills/')
@@ -383,6 +515,15 @@ validateMermaidSources()
 
 info('Checking project-level mermaidLayout config')
 validateMermaidLayoutConfig()
+
+info('Checking cross-file "skills install" consistency')
+validateSkillsInstallMentions()
+
+info('Checking CHANGELOG discipline (Unreleased or current-version heading)')
+validateChangelogDiscipline()
+
+info('Running skills-install --check end-to-end fixture')
+validateSkillsInstallFixture()
 
 if (failures > 0) {
   console.error(`\n[validate-build] ${failures} check(s) failed`)

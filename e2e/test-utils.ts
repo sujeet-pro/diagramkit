@@ -19,6 +19,16 @@ export const fixturesDir = join(repoRoot, 'e2e/fixtures/mixed-diagrams')
 export const distCliPath = join(repoRoot, 'dist/cli/bin.mjs')
 
 /**
+ * Hard wall-clock cap for every CLI child process spawned by the e2e suite.
+ * `execFileSync` runs synchronously, so vitest's per-test timeout cannot preempt
+ * a child that blocks (e.g. `playwright install` stalling on a network fetch that
+ * never resolves). Without an explicit `timeout` the whole run wedges until the
+ * outer CI cap SIGKILLs it. This kills a stuck child and surfaces it as a failed
+ * command instead. Kept just under the 120s per-test budget the specs declare.
+ */
+const CLI_TIMEOUT_MS = 110_000
+
+/**
  * Quiet logger used by e2e tests to silence the library's normal info/warn
  * output (e.g. "Rendered 4/4 diagrams to svg" or the mermaid aspect-ratio
  * notice triggered by the fixture) while keeping real errors visible so a
@@ -116,6 +126,7 @@ export function runCli(args: string[], cwd = repoRoot): string {
     cwd,
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: CLI_TIMEOUT_MS,
   })
 }
 
@@ -132,6 +143,7 @@ export function runCliSafe(args: string[], cwd = repoRoot): CliResult {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: CLI_TIMEOUT_MS,
     })
     return { stdout, stderr: '', exitCode: 0 }
   } catch (err: any) {
@@ -148,6 +160,7 @@ export function runCliViaBin(args: string[], cwd = repoRoot): string {
     cwd,
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: CLI_TIMEOUT_MS,
   })
 }
 
@@ -156,6 +169,7 @@ export function runCliViaRelativeBin(args: string[], cwd = repoRoot): string {
     cwd,
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: CLI_TIMEOUT_MS,
   })
 }
 
@@ -164,6 +178,7 @@ export function runCliAsExecutableViaBin(args: string[], cwd = repoRoot): string
     cwd,
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: CLI_TIMEOUT_MS,
   })
 }
 
@@ -173,6 +188,7 @@ export function runCliViaBinSafe(args: string[], cwd = repoRoot): CliResult {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: CLI_TIMEOUT_MS,
     })
     return { stdout, stderr: '', exitCode: 0 }
   } catch (err: any) {
@@ -190,6 +206,7 @@ export function runCliViaRelativeBinSafe(args: string[], cwd = repoRoot): CliRes
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: CLI_TIMEOUT_MS,
     })
     return { stdout, stderr: '', exitCode: 0 }
   } catch (err: any) {
@@ -207,6 +224,7 @@ export function runCliAsExecutableViaBinSafe(args: string[], cwd = repoRoot): Cl
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: CLI_TIMEOUT_MS,
     })
     return { stdout, stderr: '', exitCode: 0 }
   } catch (err: any) {

@@ -37,11 +37,12 @@ Install the latest diagramkit in this repo and configure its agent skills:
    version-pinned CLI/API contract for the release you just installed.
    Do NOT rely on a globally installed diagramkit or on training data.
 
-3. Follow node_modules/diagramkit/skills/diagramkit-setup/SKILL.md end to
-   end. It will run `npx diagramkit warmup` (skip if Graphviz-only), wire
-   a `render:diagrams` script into package.json, optionally create
+3. Run `npx diagramkit warmup` (skip if Graphviz-only), wire a
+   `render:diagrams` script into package.json, optionally create
    diagramkit.config.json5 (`npx diagramkit init --yes`), render any
-   existing diagrams, and write thin pointer SKILL.md files at:
+   existing diagrams, and install the agent skills:
+     npx diagramkit skills install
+   It writes thin pointer SKILL.md files at:
      .agents/skills/diagramkit-<name>/SKILL.md    (always)
      .claude/skills/diagramkit-<name>/SKILL.md    (if .claude/ exists)
      .cursor/skills/diagramkit-<name>/SKILL.md    (if .cursor/ exists)
@@ -49,7 +50,8 @@ Install the latest diagramkit in this repo and configure its agent skills:
      .continue/skills/diagramkit-<name>/SKILL.md  (if .continue/ exists)
    Each pointer defers to
    node_modules/diagramkit/skills/diagramkit-<name>/SKILL.md — so every
-   `npm install diagramkit` upgrade automatically refreshes every skill.
+   `npm install diagramkit` upgrade automatically refreshes every skill,
+   and the command is idempotent to re-run.
    Skills installed: setup, auto, mermaid, excalidraw, draw-io, graphviz,
    review (validation + WCAG 2.2 AA contrast).
 
@@ -87,18 +89,32 @@ Every skill listed below is **shipped inside the npm package** at `node_modules/
 
 ### Install the skills into your repo
 
-The skills ship with the package, so the simplest install is to write **thin local pointers** that defer to `node_modules/diagramkit/skills/<name>/SKILL.md`. This keeps every skill version-pinned to the installed `diagramkit` and works for any agent (Claude Code, Cursor, Codex, Continue, OpenCode, …) without an extra dependency.
+The default install path is the CLI itself:
 
-The `diagramkit-setup` skill writes these pointers automatically. The canonical layout it produces:
+```bash
+npx diagramkit skills install
+```
+
+It writes **thin local pointers** at `.agents/skills/diagramkit-<name>/SKILL.md` (with mirrors under each detected or `--harness`-selected harness) that defer to `node_modules/diagramkit/skills/<name>/SKILL.md`. This keeps every skill version-pinned to the installed `diagramkit` and works for any agent (Claude Code, Cursor, Codex, Continue, OpenCode, …) without an extra dependency. The canonical layout it produces:
 
 ```text
 .agents/skills/diagramkit-<name>/SKILL.md   # source of truth pointer (always created)
 .claude/skills/diagramkit-<name>/SKILL.md   # harness pointer → .agents/skills/...
 .cursor/skills/diagramkit-<name>/SKILL.md   # harness pointer → .agents/skills/...
 .codex/skills/diagramkit-<name>/SKILL.md    # harness pointer → .agents/skills/...
+.continue/skills/diagramkit-<name>/SKILL.md # harness pointer → .agents/skills/...
 ```
 
-Each pointer is a tiny markdown file with frontmatter and a one-line "follow `node_modules/diagramkit/skills/diagramkit-<name>/SKILL.md`" instruction. They are safe to commit — they regenerate when you upgrade `diagramkit` (the pointer text is stable; the linked content tracks the package version).
+Each pointer is a tiny markdown file with frontmatter and a one-line "follow `node_modules/diagramkit/skills/diagramkit-<name>/SKILL.md`" instruction, plus an HTML-comment version marker so drift is detectable. They are safe to commit — re-running the command regenerates them when you upgrade `diagramkit` (`created`/`updated`/`unchanged` per stub; stubs left by a removed skill are swept from the `diagramkit-*` namespace only).
+
+```bash
+npx diagramkit skills install --harness claude,cursor   # explicit harness set
+npx diagramkit skills install --only mermaid --only review
+npx diagramkit skills install --dry-run                 # preview, write nothing
+npx diagramkit skills install --check --json             # CI drift gate, machine-readable
+```
+
+The `diagramkit-setup` skill documents the same pointer format as a prose fallback for contexts where the CLI can't run.
 
 If you'd rather pull skills from GitHub (e.g. so they advance independently of the installed `diagramkit`), the standalone [`skills`](https://github.com/vercel-labs/skills) CLI also works:
 
@@ -108,7 +124,7 @@ npx skills add sujeet-pro/diagramkit -a claude-code -a cursor
 npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-review
 ```
 
-Pick **one** mechanism per repo (local pointers OR `npx skills`) so skills don't drift against each other.
+Pick **one** mechanism per repo (`diagramkit skills install` OR `npx skills`) so skills don't drift against each other.
 
 ## Sample agent prompts
 
@@ -184,8 +200,9 @@ After `npm update diagramkit`:
 2. The `.agents/skills/diagramkit-*` thin pointers don't need rewriting —
    they always defer to `node_modules/diagramkit/skills/<name>/SKILL.md`,
    which is updated by the npm install. If new skills were added in this
-   release, re-run `node_modules/diagramkit/skills/diagramkit-setup/SKILL.md`
-   to write the missing pointers.
+   release, re-run `npx diagramkit skills install` to write the missing
+   pointers (or `npx diagramkit skills install --check` to see what's stale
+   first).
 3. If the repo uses `npx skills` instead of local pointers, run
    `npx skills update sujeet-pro/diagramkit`.
 ```
@@ -211,6 +228,11 @@ diagramkit validate .diagramkit/         # Validate top-level SVGs in a folder
 diagramkit validate .diagramkit/ -r      # (or --recursive) recurse into subfolders
 diagramkit validate output.svg           # Single file
 diagramkit validate . --recursive --json # JSON report for CI
+diagramkit validate . -r --scope-dir diagrams          # Only SVGs under diagrams/ folders
+diagramkit validate . -r --fail-on LOW_CONTRAST_TEXT   # Promote a warning code to fatal
+diagramkit validate . -r --fail-on-severity warn       # Fail on any warning or error
+diagramkit skills install                # Install/refresh skill pointers
+diagramkit skills install --check --json # CI drift gate, machine-readable
 diagramkit warmup                        # Install Playwright Chromium
 diagramkit doctor                        # Check environment and config
 diagramkit doctor --json                 # JSON diagnostics
@@ -221,7 +243,7 @@ diagramkit --no-interactive              # Disable wizard (CI / agents)
 diagramkit --agent-help                  # Full reference (same as llms-full.txt)
 ```
 
-> Skill installation is handled by `diagramkit-setup` (writes local pointers into `.agents/skills/diagramkit-*` and the matching harness folders). See [Packed agent skills](#packed-agent-skills).
+> Skill installation defaults to `npx diagramkit skills install` (writes local pointers into `.agents/skills/diagramkit-*` and the matching harness folders). See [Install the skills into your repo](#install-the-skills-into-your-repo).
 
 ## Quick API reference
 
@@ -299,15 +321,24 @@ diagramkit is zero-config by default. If you need custom behavior, create `diagr
   // Set mode: 'auto' to actively rebalance flowcharts whose ratio
   // is outside [target/tolerance, target*tolerance].
   mermaidLayout: { mode: 'warn', targetAspectRatio: 4 / 3, tolerance: 2.5 },
+  // Output optimization — SVGO + Mermaid CSS pruning (default: on) and
+  // sharp encoder tuning for raster output.
+  optimize: {
+    svg: true,
+    png: { compressionLevel: 9, effort: 10 },
+    webp: { effort: 6 },
+    avif: { effort: 6 },
+  },
 }
 ```
 
-Config layers (low → high precedence): defaults → `~/.config/diagramkit/config.json5` → `DIAGRAMKIT_*` env vars → local `diagramkit.config.{json5,ts}` (walks up) → per-call overrides. Object-valued fields (`extensionMap`, `overrides`, `mermaidLayout`) are deep-merged so partial overrides keep the other defaults intact.
+Config layers (low → high precedence): defaults → `~/.config/diagramkit/config.json5` → `DIAGRAMKIT_*` env vars → local `diagramkit.config.{json5,ts}` (walks up) → per-call overrides. Object-valued fields (`extensionMap`, `overrides`, `mermaidLayout`, `optimize`) are deep-merged so partial overrides keep the other defaults intact.
 
 JSON schemas exported from the npm package:
 
 - `diagramkit/schemas/diagramkit-config.v1.json` — `diagramkit.config.{json5,json}` config file
 - `diagramkit/schemas/diagramkit-cli-render.v1.json` — `diagramkit render --json` output envelope
+- `diagramkit/schemas/diagramkit-cli-validate.v1.json` — `diagramkit validate --json` output envelope
 
 `npx diagramkit init` writes a config file with the `$schema` reference already wired up so editors offer autocomplete out of the box.
 

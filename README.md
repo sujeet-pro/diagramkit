@@ -101,11 +101,12 @@ Install the latest diagramkit in this repo and configure its agent skills:
    version-pinned CLI/API contract for the release you just installed.
    Do NOT rely on a globally installed diagramkit or on training data.
 
-3. Follow node_modules/diagramkit/skills/diagramkit-setup/SKILL.md end to
-   end. It will run `npx diagramkit warmup` (skip if Graphviz-only), wire
-   a `render:diagrams` script into package.json, optionally create
+3. Run `npx diagramkit warmup` (skip if Graphviz-only), wire a
+   `render:diagrams` script into package.json, optionally create
    diagramkit.config.json5 (`npx diagramkit init --yes`), render any
-   existing diagrams, and write thin pointer SKILL.md files at:
+   existing diagrams, and install the agent skills:
+     npx diagramkit skills install
+   It writes thin pointer SKILL.md files at:
      .agents/skills/diagramkit-<name>/SKILL.md    (always)
      .claude/skills/diagramkit-<name>/SKILL.md    (if .claude/ exists)
      .cursor/skills/diagramkit-<name>/SKILL.md    (if .cursor/ exists)
@@ -113,7 +114,8 @@ Install the latest diagramkit in this repo and configure its agent skills:
      .continue/skills/diagramkit-<name>/SKILL.md  (if .continue/ exists)
    Each pointer defers to
    node_modules/diagramkit/skills/diagramkit-<name>/SKILL.md — so every
-   `npm install diagramkit` upgrade automatically refreshes every skill.
+   `npm install diagramkit` upgrade automatically refreshes every skill,
+   and re-running the command is idempotent.
    Skills installed: setup, auto, mermaid, excalidraw, draw-io, graphviz,
    review (validation + WCAG 2.2 AA contrast).
 
@@ -152,13 +154,20 @@ foreignObject, etc.) back to the matching engine skill's "Review Mode".
 
 ### How skills are installed
 
-The recommended path is **local pointers into `node_modules/diagramkit/skills/`**, written by the `diagramkit-setup` skill. Each pointer is a tiny SKILL.md (frontmatter + a one-line "follow `node_modules/diagramkit/skills/<name>/SKILL.md`" instruction) committed at `.agents/skills/diagramkit-<name>/SKILL.md` (with mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/` for the harnesses the repo uses). Benefits:
+The default install path is the CLI itself:
+
+```bash
+npx diagramkit skills install
+```
+
+It writes **thin pointer SKILL.md files** into `.agents/skills/diagramkit-<name>/SKILL.md` (with mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/` for auto-detected or `--harness`-selected harnesses) that defer to the version-pinned originals at `node_modules/diagramkit/skills/<name>/SKILL.md`. Re-runs are idempotent (`created`/`updated`/`unchanged`), and stubs left behind by a removed skill are swept. Useful flags: `--dir <path>`, `--harness <list>`, `--only <name>...`, `--check` (CI drift gate, no writes), `--dry-run`, `--json`. Benefits:
 
 - **Version-pinned** — the linked SKILL.md is the exact one bundled with the installed `diagramkit`, so agents never read guidance that's ahead of or behind the CLI they're calling.
 - **Zero extra dependency** — the skills already ship in the npm package; no separate fetch step.
 - **Git-friendly** — pointers are stable across upgrades; the linked content tracks the package.
+- **CI-checkable** — `npx diagramkit skills install --check` fails the build if any stub is missing, stale, or orphaned.
 
-The standalone [`skills`](https://github.com/vercel-labs/skills) CLI is also supported (`npx skills add sujeet-pro/diagramkit`) when you specifically want skills that update independently of the installed `diagramkit`. Pick **one** mechanism per repo so they don't drift.
+The `diagramkit-setup` skill documents the same pointer format as a manual fallback for contexts where the CLI can't run. The standalone [`skills`](https://github.com/vercel-labs/skills) CLI is also supported (`npx skills add sujeet-pro/diagramkit`) when you specifically want skills that update independently of the installed `diagramkit`. Pick **one** mechanism per repo so they don't drift.
 
 ### Shipped agent skills
 
@@ -243,6 +252,19 @@ Create a config file with `diagramkit init` (JSON5) or `diagramkit init --ts` (T
   outputDir: '.diagramkit',
   defaultFormats: ['svg'],
   defaultTheme: 'both',
+}
+```
+
+Output is optimized by default: every rendered SVG runs through an accessibility-preserving SVGO pass plus Mermaid `<style>` pruning before it's written, and raster conversions use tuned `sharp` encoder defaults. Tune or disable via `optimize`:
+
+```json5
+{
+  optimize: {
+    svg: true, // set false to skip SVGO/pruning for byte-exact hand-authored sources
+    png: { compressionLevel: 9, effort: 10 },
+    webp: { effort: 6 },
+    avif: { effort: 6 },
+  },
 }
 ```
 

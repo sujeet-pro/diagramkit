@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://diagramkit.dev/schemas/diagramkit-cli-validate.v1.json",
+  "title": "diagramkit CLI validate envelope v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "command",
+    "target",
+    "files",
+    "valid",
+    "invalid",
+    "policy",
+    "promoted",
+    "failed",
+    "results"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "command": {
+      "type": "string",
+      "const": "validate"
+    },
+    "target": {
+      "type": "object",
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "enum": ["file", "directory"] },
+        "path": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "files": { "type": "integer", "minimum": 0 },
+    "valid": { "type": "integer", "minimum": 0 },
+    "invalid": { "type": "integer", "minimum": 0 },
+    "policy": {
+      "type": "object",
+      "description": "The effective scoping + severity policy applied to this run.",
+      "required": ["scopeDir", "failOnCodes", "failOnSeverity"],
+      "properties": {
+        "scopeDir": {
+          "type": ["string", "null"],
+          "description": "Only SVGs under a directory named this were considered (null = no scoping)."
+        },
+        "failOnCodes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Issue codes promoted to fatal by --fail-on."
+        },
+        "failOnSeverity": {
+          "type": ["string", "null"],
+          "enum": ["warn", "error", null],
+          "description": "Fail if any issue at or above this severity exists (--fail-on-severity)."
+        }
+      },
+      "additionalProperties": true
+    },
+    "promoted": {
+      "type": "array",
+      "description": "Warning-severity issues elevated to fatal by the policy.",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "count"],
+        "properties": {
+          "code": { "type": "string" },
+          "severity": { "enum": ["warning", "error"] },
+          "count": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "failed": {
+      "type": "boolean",
+      "description": "Whether the invocation exits nonzero under the effective policy."
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string" },
+          "valid": { "type": "boolean" },
+          "issues": { "type": "array" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

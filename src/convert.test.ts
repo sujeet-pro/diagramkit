@@ -142,3 +142,64 @@ describe('convertSvg', () => {
     expect(result.length).toBeGreaterThan(0)
   })
 })
+
+describe('convertSvg sharp encoder tuning', () => {
+  /**
+   * Capture the options passed to each sharp encoder without touching the real codec,
+   * so we can assert the tuned defaults and that caller overrides win.
+   */
+  async function captureEncoderCall(
+    options: Parameters<typeof convertSvg>[1],
+  ): Promise<Record<string, unknown>> {
+    const calls: Record<string, unknown> = {}
+    const pipeline: Record<string, (o?: unknown) => unknown> = {
+      png: (o) => ((calls.png = o), pipeline),
+      jpeg: (o) => ((calls.jpeg = o), pipeline),
+      webp: (o) => ((calls.webp = o), pipeline),
+      avif: (o) => ((calls.avif = o), pipeline),
+      toBuffer: async () => Buffer.from([0]),
+    }
+    vi.doMock('sharp', () => ({ default: () => pipeline }))
+    try {
+      const { convertSvg: convert } = await import('./convert')
+      await convert(minimalSvg, options)
+    } finally {
+      vi.doUnmock('sharp')
+    }
+    return calls
+  }
+
+  it('applies tuned PNG defaults (compressionLevel 9, effort 10)', async () => {
+    const calls = await captureEncoderCall({ format: 'png' })
+    expect(calls.png).toEqual({ compressionLevel: 9, effort: 10 })
+  })
+
+  it('lets caller PNG overrides win over the tuned defaults', async () => {
+    const calls = await captureEncoderCall({ format: 'png', png: { compressionLevel: 3 } })
+    expect(calls.png).toEqual({ compressionLevel: 3, effort: 10 })
+  })
+
+  it('applies tuned WebP defaults (effort 6) and forwards quality', async () => {
+    const calls = await captureEncoderCall({ format: 'webp', quality: 80 })
+    expect(calls.webp).toEqual({ quality: 80, effort: 6 })
+  })
+
+  it('lets caller WebP overrides win', async () => {
+    const calls = await captureEncoderCall({
+      format: 'webp',
+      quality: 80,
+      webp: { effort: 3, lossless: true },
+    })
+    expect(calls.webp).toEqual({ quality: 80, effort: 3, lossless: true })
+  })
+
+  it('applies tuned AVIF defaults (effort 6) and forwards quality', async () => {
+    const calls = await captureEncoderCall({ format: 'avif', quality: 50 })
+    expect(calls.avif).toEqual({ quality: 50, effort: 6 })
+  })
+
+  it('lets caller AVIF overrides win', async () => {
+    const calls = await captureEncoderCall({ format: 'avif', quality: 50, avif: { effort: 2 } })
+    expect(calls.avif).toEqual({ quality: 50, effort: 2 })
+  })
+})

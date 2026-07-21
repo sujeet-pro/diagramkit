@@ -88,6 +88,10 @@
     "mermaidLayout": {
       "$ref": "#/$defs/mermaidLayout",
       "description": "Mermaid aspect-ratio rebalance options. Controls whether diagramkit measures the rendered SVG aspect ratio and warns or auto-rebalances flowcharts that fall outside the tolerance band. Only affects mermaid renders."
+    },
+    "optimize": {
+      "$ref": "#/$defs/optimize",
+      "description": "Output optimization options: SVGO + Mermaid CSS pruning for SVG output, and sharp encoder tuning for raster output. Default: { svg: true }."
     }
   },
   "$defs": {
@@ -155,6 +159,110 @@
           "exclusiveMinimum": 1,
           "default": 2.5,
           "description": "Tolerance factor — the rendered ratio is acceptable when inside [target/tolerance, target*tolerance]. Default: 2.5."
+        }
+      }
+    },
+    "optimize": {
+      "type": "object",
+      "description": "Output optimization options.",
+      "additionalProperties": false,
+      "properties": {
+        "svg": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run SVGO + Mermaid CSS pruning on every rendered SVG before it is written to disk. Preserves viewBox, width/height, role/aria-*/title/desc, used <style> rules, and IDs referenced by url(#…)/CSS/<use>. Deterministic. Default: true."
+        },
+        "png": {
+          "$ref": "#/$defs/pngEncoderOptions",
+          "description": "Sharp PNG encoder overrides, merged on top of the tuned defaults { compressionLevel: 9, effort: 10 }."
+        },
+        "webp": {
+          "$ref": "#/$defs/webpEncoderOptions",
+          "description": "Sharp WebP encoder overrides, merged on top of the tuned defaults { effort: 6 }."
+        },
+        "avif": {
+          "$ref": "#/$defs/avifEncoderOptions",
+          "description": "Sharp AVIF encoder overrides, merged on top of the tuned defaults { effort: 6 }."
+        }
+      }
+    },
+    "pngEncoderOptions": {
+      "type": "object",
+      "description": "Sharp PNG encoder overrides. Any option accepted by sharp(...).png() is forwarded; the listed fields are the common knobs.",
+      "properties": {
+        "compressionLevel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "zlib compression level, 0 (fastest/largest) to 9 (slowest/smallest). Default: 9."
+        },
+        "effort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "CPU effort, 1 (fastest) to 10 (slowest/smallest). Default: 10."
+        },
+        "adaptiveFiltering": {
+          "type": "boolean",
+          "description": "Use adaptive row filtering."
+        },
+        "palette": {
+          "type": "boolean",
+          "description": "Quantise to a palette (lossy) to shrink flat-colour PNGs."
+        },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Palette quality when palette is enabled, 1-100."
+        }
+      }
+    },
+    "webpEncoderOptions": {
+      "type": "object",
+      "description": "Sharp WebP encoder overrides.",
+      "properties": {
+        "effort": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "description": "CPU effort, 0 (fastest) to 6 (slowest/smallest). Default: 6."
+        },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Quality, 1-100. Defaults to the render quality option."
+        },
+        "lossless": {
+          "type": "boolean",
+          "description": "Encode losslessly."
+        },
+        "nearLossless": {
+          "type": "boolean",
+          "description": "Encode near-losslessly."
+        }
+      }
+    },
+    "avifEncoderOptions": {
+      "type": "object",
+      "description": "Sharp AVIF encoder overrides.",
+      "properties": {
+        "effort": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "CPU effort, 0 (fastest) to 9 (slowest/smallest). Default: 6."
+        },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Quality, 1-100. Defaults to the render quality option."
+        },
+        "lossless": {
+          "type": "boolean",
+          "description": "Encode losslessly."
         }
       }
     }

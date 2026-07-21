@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Output optimization pipeline** (`src/optimize.ts`) wired into the renderer and raster conversion path, configured via a new `optimize` config section (`schemas/diagramkit-config.v1.json`). `optimize.svg` runs SVGO with an accessibility-preserving, deterministic configuration on every rendered SVG before it is written (and before it is rasterised), and prunes unused CSS rules from Mermaid `<style>` blocks; it defaults to `true` (opt out with `optimize: { svg: false }`). Preserves `viewBox`, `width`/`height`, `role`/`aria-*`/`<title>`/`<desc>`, used `<style>` rules, and IDs referenced by `url(#…)`/CSS/`<use>`.
+- **Sharp encoder tuning** via `optimize.png` / `optimize.webp` / `optimize.avif` (and the matching `png`/`webp`/`avif` fields on `ConvertOptions`). Raster encoders now default to the smallest tuned output — PNG `{ compressionLevel: 9, effort: 10 }`, WebP/AVIF `{ effort: 6 }` — and callers may override any knob. New `PngEncoderOptions`, `WebpEncoderOptions`, `AvifEncoderOptions`, `OptimizeOptions` types.
+- **`diagramkit skills install`** (`cli/skills-install.ts`) — a first-party, idempotent installer that writes versioned-pointer skill stubs to `.agents/skills/diagramkit-*` plus thin mirrors under each detected/requested harness (`.claude`, `.cursor`, `.codex`, `.continue`). Stubs never copy the skill body — they point at the version-pinned original in `node_modules/diagramkit/skills/`. Supports `--dir`, `--harness`, `--only`, `--check` (CI drift detection), `--dry-run`, and `--json`; re-runs sweep orphaned stubs within the managed `diagramkit-*` namespace.
+- **`diagramkit validate` scoping + severity policy** (`cli/validate-policy.ts`): `--scope-dir <name>` restricts a directory scan to SVGs under a directory segment named `<name>`; `--fail-on <CODE,...>` promotes specific issue codes to fatal; `--fail-on-severity <warn|error>` fails on any issue at or above the threshold. The JSON envelope gains a `policy`/`promoted`/`failed` shape, documented in the new `schemas/diagramkit-cli-validate.v1.json` (added to package `exports`).
+- **`scopeDir` batch/render option** (`BatchOptions`) mirroring `validate --scope-dir`: `diagramkit render --scope-dir <name>` (and `renderAll({ scopeDir })`) renders only sources under a directory segment named `<name>`. Orphan cleanup still runs against the full discovered set so out-of-scope outputs are preserved.
+- **`scripts/validate-build.ts` gates**: cross-file "skills install" consistency (`llms.txt`/`llms-full.txt`/`README.md`/`REFERENCE.md` must all mention it), `package.json` version ↔ `CHANGELOG.md` heading discipline, and a fixture-consumer `diagramkit skills install --check` end-to-end test.
+
+### Changed
+
+- **`@pagesmith/docs` bumped to 0.10.0** (from 0.9.9). Added runtime deps `css-tree` + `svgo` (and devDep `@types/css-tree`) for the new SVG optimization pipeline.
+- **Manifest records a render-pipeline signature** (`optimizeKey` on each `ManifestEntry`, `src/manifest.ts`). Staleness now treats a changed `optimize` config — or upgrading into the optimization pipeline from a pre-`optimize` diagramkit — as stale, so existing consumers re-render once on upgrade and pick up the smaller optimized SVGs without needing `--force`. A new `pipeline_changed` reason surfaces in `render --plan --json`.
+
+### Fixed
+
+- **`diagramkit validate` no longer descends into vendored/build directories** by default when recursing (`node_modules`, `.git`, `gh-pages`, `dist`, `.next`, `.temp`, `out`, `.cache`; `.diagramkit` outputs are still scanned). Prevents false positives from content-hashed copies under `gh-pages/**` and third-party SVGs under `node_modules/**`. Override with the `ignoreDirs` API option.
+- **`skills install` canonical stub pointer** now resolves relative to the _resolved_ diagramkit package root instead of a hardcoded `../../../node_modules/diagramkit` string, so pointers stay correct in hoisted monorepos (`cli/skills-install.ts`).
+- **Browser launch robustness** (`src/pool.ts`): the pool pins `chromium.launch()` to the same regular-Chromium binary `diagramkit doctor` validates (falling back to Playwright's default, or an explicit `DIAGRAMKIT_CHROMIUM_EXECUTABLE_PATH`), so a missing `chrome-headless-shell` variant no longer makes every render fail while doctor reports healthy.
+
+## [0.3.3] - 2026-04-20
+
+### Added
+
+- **Mermaid aspect-ratio layout rebalance** (`src/mermaid-layout.ts`) exposed through a new `mermaidLayout` config section (`{ mode, targetAspectRatio, tolerance }`). When enabled the renderer measures the rendered SVG aspect ratio and warns (`ASPECT_RATIO_EXTREME`) or auto-flips / ELK-rebalances flowcharts that fall outside the tolerance band. Schema (`schemas/diagramkit-config.v1.json`) and `docs/reference/diagramkit/{config,types}` updated to match.
+- **Expanded SVG validation** (`src/validate.ts`) with additional issue codes and edge-case coverage, surfaced through the CLI `validate` command (`cli/bin.ts`) and the validation API.
+
+### Changed
+
+- **`.github/workflows/publish.yml`** restructured into a parallel dependency graph mirroring `cicd.yml` — `prepare` bakes the release version into the manifests, every quality gate runs against the synced artifact, and `publish` → `tag-and-release` run only after all gates pass. Dependabot config added (`.github/dependabot.yml`).
+- **`@pagesmith/docs` bumped to 0.9.9**, picking up the image-zoom modal HTML and asset-emission caps; the shared `rehype-asset-transform` now rewrites `data-zoom-src*` attributes alongside `src`/`srcset`.
+
+## [0.3.2] - 2026-04-19
+
+### Added
+
+- **Pagesmith docs skill pointers** — thin `pagesmith-docs-*` and `pagesmith-generate-docs` pointer skills under `.agents/skills/` (with `.claude/`/`.cursor/` mirrors) that delegate to the version-matched `@pagesmith/docs` originals in `node_modules`.
+- **GitHub issue templates** — structured bug-report, feature-request, and docs-report forms plus an updated `config.yml`.
+
+### Changed
+
+- **`scripts/validate-pagesmith.ts`** reworked to feature-detect the upstream `validateDocs` export and degrade gracefully against older `@pagesmith/docs` versions.
+- **Docs expansion** — JS-API guide, Mermaid guide, and the `config`/`types` reference pages gained worked examples; `llms.txt`/`llms-full.txt` and `REFERENCE.md` refreshed. CI (`cicd.yml`, `publish.yml`, `setup` composite action) tuned alongside.
+
 ## [0.3.1] - 2026-04-17
 
 ### Changed

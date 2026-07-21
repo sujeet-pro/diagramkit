@@ -371,21 +371,51 @@ export function validateSvgFile(
 }
 
 /**
+ * Directories skipped by default when recursing in {@link validateSvgDirectory}.
+ *
+ * These hold vendored third-party SVGs (`node_modules`), version-control
+ * internals (`.git`), or content-hashed *copies* of the rendered outputs
+ * (`gh-pages`, `dist`, build/export dirs). Validating them re-introduces the
+ * false positives that consumer walkers (pagesmith's `render-diagrams.ts`,
+ * sujeet.pro's `validate-diagrams.ts`) previously had to post-filter away.
+ *
+ * Note: the diagramkit output dir (`.diagramkit`) is deliberately NOT skipped —
+ * it holds the rendered SVGs that are the whole point of the scan.
+ */
+export const DEFAULT_VALIDATE_IGNORE_DIRS: readonly string[] = [
+  'node_modules',
+  '.git',
+  'gh-pages',
+  'dist',
+  '.next',
+  '.temp',
+  'out',
+  '.cache',
+]
+
+/**
  * Validate all SVG files in a directory (non-recursive by default).
+ *
+ * When recursing, directories in {@link DEFAULT_VALIDATE_IGNORE_DIRS} are
+ * skipped (extend/replace via `ignoreDirs`) so vendored and copied SVGs under
+ * `node_modules`/`gh-pages`/build output do not count toward the results or a
+ * `--fail-on` policy. Pass `ignoreDirs: []` to disable skipping entirely.
  */
 export function validateSvgDirectory(
   dir: string,
-  options: { recursive?: boolean } & SvgValidateOptions = {},
+  options: { recursive?: boolean; ignoreDirs?: readonly string[] } & SvgValidateOptions = {},
 ): SvgValidationResult[] {
-  const { recursive, ...validateOptions } = options
+  const { recursive, ignoreDirs, ...validateOptions } = options
+  const ignore = new Set(ignoreDirs ?? DEFAULT_VALIDATE_IGNORE_DIRS)
   const results: SvgValidationResult[] = []
 
   function walk(d: string) {
     if (!existsSync(d)) return
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = join(d, entry.name)
-      if (entry.isDirectory() && recursive) {
-        walk(full)
+      if (entry.isSymbolicLink()) continue
+      if (entry.isDirectory()) {
+        if (recursive && !ignore.has(entry.name)) walk(full)
       } else if (entry.name.endsWith('.svg')) {
         results.push(validateSvgFile(full, validateOptions))
       }

@@ -23,7 +23,9 @@ Prefer SVG unless the destination explicitly needs raster (email, Confluence).
 diagramkit render <file-or-dir> [options]            Render diagram file(s) to images
 diagramkit <file-or-dir> [options]                   Alias for "diagramkit render"
 diagramkit validate <file-or-dir> [--recursive]      Validate generated SVGs (img-tag compatibility)
-                                  [--json]
+                                  [--json] [--scope-dir <name>]
+                                  [--fail-on <CODE,...>] [--fail-on-severity <warn|error>]
+diagramkit skills install [options]                  Install versioned-pointer skill stubs
 diagramkit warmup                                    Pre-install Playwright chromium
 diagramkit doctor [--json]                           Validate runtime dependencies
 diagramkit init [--ts] [--yes]                       Create config file
@@ -32,15 +34,32 @@ diagramkit --interactive / -i                        Force interactive wizard (T
 diagramkit --no-interactive / --yes / -y             Disable interactive wizard (CI / agents)
 diagramkit --version / --help / --agent-help
 
-Project skills are NOT installed by the diagramkit CLI. Use the standalone
-"skills" CLI (https://github.com/vercel-labs/skills) so any agent
-(Claude/Cursor/Codex/Continue/OpenCode/...) gets diagramkit-* skills:
+Project skills: the default install path is the CLI itself —
+
+  npx diagramkit skills install                     # writes/refreshes .agents/skills +
+                                                      # harness mirrors, auto-detects harnesses
+  npx diagramkit skills install --harness claude,cursor
+  npx diagramkit skills install --only mermaid --only review
+  npx diagramkit skills install --check --json      # CI drift gate
+  npx diagramkit skills install --dry-run
+
+It writes thin pointer SKILL.md files at .agents/skills/diagramkit-* (with
+mirrors under .claude/skills/, .cursor/skills/, .codex/skills/, .continue/skills/
+for detected harnesses) that defer to the bundled SKILL.md files shipped at
+node_modules/diagramkit/skills/. Re-runs are idempotent; stubs left by removed
+skills are swept.
+
+Alternative (GitHub-published skills that update independently of the
+installed diagramkit, via the standalone "skills" CLI,
+https://github.com/vercel-labs/skills):
 
   npx skills add sujeet-pro/diagramkit              # all skills
   npx skills add sujeet-pro/diagramkit -a cursor    # target specific agent
   npx skills add sujeet-pro/diagramkit \
     -s diagramkit-setup -s diagramkit-mermaid       # specific skills only
   npx skills update sujeet-pro/diagramkit           # refresh later
+
+Pick one mechanism per repo so skills don't drift against each other.
 ```
 
 ### Render Options
@@ -82,13 +101,34 @@ diagramkit validate .diagramkit/                # all SVGs in a folder
 diagramkit validate .diagramkit/ --recursive    # recurse into subfolders
 diagramkit validate output.svg                  # single file
 diagramkit validate . --recursive --json        # JSON output for CI
+diagramkit validate . --recursive --scope-dir diagrams          # only SVGs under diagrams/ folders
+diagramkit validate . --recursive --fail-on LOW_CONTRAST_TEXT   # promote a warning code to fatal
+diagramkit validate . --recursive --fail-on-severity warn       # fail on any warning or error
 ```
 
 The `validate` command checks each `.svg` for missing `xmlns`, missing dimensions,
 embedded `<script>`, broken `<foreignObject>`, external resource references,
-WCAG 2.2 AA contrast violations (`LOW_CONTRAST_TEXT`), and extreme aspect ratios
-(`ASPECT_RATIO_EXTREME`, default band `[1:1.9, 3.3:1]`) — issues that silently
+WCAG 2.2 AA contrast violations (`LOW_CONTRAST_TEXT`), extreme aspect ratios
+(`ASPECT_RATIO_EXTREME`, default band `[1:1.9, 3.3:1]`), and overly wide viewBoxes
+(`SVG_VIEWBOX_TOO_WIDE`, disable with `--no-max-width`) — issues that silently
 degrade in `<img>`-based markdown embeds or harm readability when scaled.
+
+Policy flags:
+
+```
+--scope-dir <name>              Only consider SVGs under a directory named <name>
+                                 (e.g. diagrams), skipping hand-authored assets elsewhere.
+--fail-on <CODE,...>            Promote issue codes to fatal (nonzero exit when present).
+--fail-on-severity <warn|error> Fail if any issue at or above this severity exists.
+--max-width <px>                SVG_VIEWBOX_TOO_WIDE threshold (default: ~500px column,
+                                 up to 1.5x downscale).
+--no-max-width                  Disable the SVG_VIEWBOX_TOO_WIDE check (hero banners, etc.).
+```
+
+`--json` returns a versioned envelope (`schemaVersion: 1`) with `target`, `policy`
+(the effective `scopeDir`/`failOnCodes`/`failOnSeverity`), `promoted` (warnings
+elevated to fatal), `failed`, and `results`. Schema:
+`diagramkit/schemas/diagramkit-cli-validate.v1.json`.
 
 ### Examples
 
@@ -122,7 +162,7 @@ Config file: `diagramkit.config.json5` or `diagramkit.config.ts`
 Global: `~/.config/diagramkit/config.json5`
 Merge order: defaults → global → env vars (DIAGRAMKIT_*) → local → CLI flags
 
-Key options: outputDir, manifestFile, useManifest, sameFolder, defaultFormats, defaultTheme, outputPrefix, outputSuffix, extensionMap, overrides (per-file settings), mermaidLayout (mermaid aspect-ratio rebalance: { mode: 'off' | 'warn' | 'flip' | 'elk' | 'auto', targetAspectRatio: 4/3, tolerance: 2.5 }).
+Key options: outputDir, manifestFile, useManifest, sameFolder, defaultFormats, defaultTheme, outputPrefix, outputSuffix, extensionMap, overrides (per-file settings), mermaidLayout (mermaid aspect-ratio rebalance: { mode: 'off' | 'warn' | 'flip' | 'elk' | 'auto', targetAspectRatio: 4/3, tolerance: 2.5 }), optimize (SVGO + Mermaid CSS pruning + sharp encoder tuning, see below).
 
 JSON Schema (for IDE autocomplete in `diagramkit.config.json5` / `.json`):
 
@@ -136,6 +176,29 @@ JSON Schema (for IDE autocomplete in `diagramkit.config.json5` / `.json`):
 
 `diagramkit init` writes the `$schema` reference for you. The schema also ships at
 `diagramkit/schemas/diagramkit-config.v1.json` as a package export.
+
+### `optimize` — output optimization
+
+```json5
+{
+  optimize: {
+    svg: true,           // SVGO + Mermaid CSS pruning before write. Default: true.
+    png: { compressionLevel: 9, effort: 10 },  // sharp PNG encoder overrides
+    webp: { effort: 6 },                       // sharp WebP encoder overrides
+    avif: { effort: 6 },                       // sharp AVIF encoder overrides
+  },
+}
+```
+
+`svg: true` (default) runs SVGO with an accessibility-preserving configuration
+(preserves `viewBox`, `width`/`height`, `role`/`aria-*`/`<title>`/`<desc>`, used
+`<style>` rules, and every id referenced by `url(#…)`/CSS selectors/`<use>`) and
+additionally prunes unused Mermaid `<style>` rules by reference analysis — both
+run once per SVG, before it is written and before rasterization, so PNG/WebP/AVIF
+derive from the same optimized source. `png`/`webp`/`avif` are merged on top of
+diagramkit's tuned defaults and forwarded to sharp's encoder; any option `sharp()`
+accepts is passed through, not just the documented fields. Set `svg: false` to
+disable SVG optimization for hand-authored sources that need byte-exact output.
 
 Per-file overrides example:
 ```json5
@@ -183,7 +246,7 @@ Recommended repo bootstrap steps:
 - `npm add diagramkit` (always prefer the local install over a global one)
 - add `"render:diagrams": "diagramkit render ."` to `package.json`
 - create `diagramkit.config.json5` only when the repository needs non-default behavior (use `npx diagramkit init --yes` to wire the JSON Schema)
-- install diagramkit project skills via the standalone `skills` CLI so any agent works: `npx skills add sujeet-pro/diagramkit`
+- install diagramkit project skills with the CLI (default path): `npx diagramkit skills install`
 - run `npx diagramkit warmup` unless the repository is Graphviz-only
 
 ### Copy-paste agent prompt (bootstrap)
@@ -196,7 +259,7 @@ Set up diagramkit in this repo:
 3. npx diagramkit warmup        # skip if Graphviz-only
 4. npx diagramkit init --yes    # only if non-default behavior is needed
 5. Add "render:diagrams": "diagramkit render ." to package.json
-6. npx skills add sujeet-pro/diagramkit   # installs diagramkit-* agent skills
+6. npx diagramkit skills install   # installs diagramkit-* agent skills
 7. npx diagramkit render .
 ```
 
@@ -204,7 +267,7 @@ Set up diagramkit in this repo:
 
 ```text
 Use the diagramkit-* skills in this repo (installed via
-`npx skills add sujeet-pro/diagramkit`) to create a [TOPIC] diagram. Read
+`npx diagramkit skills install`) to create a [TOPIC] diagram. Read
 node_modules/diagramkit/REFERENCE.md first to anchor on the locally installed
 diagramkit version. Use diagramkit-auto to choose the engine, then the
 matching engine skill. Save the source under `diagrams/`. Render to multiple
@@ -228,9 +291,11 @@ import {
 
 See `llms-full.txt` (or `diagramkit --agent-help`) for full type signatures and examples for every export above.
 
-`--json` returns a versioned envelope (`schemaVersion: 1`) with nested `result`.
+`--json` returns a versioned envelope (`schemaVersion: 1`) with nested `result`
+(render) or top-level `policy`/`promoted`/`failed`/`results` (validate).
 JSON schemas (exported from the npm package):
 - `diagramkit/schemas/diagramkit-cli-render.v1.json` — CLI render JSON output envelope
+- `diagramkit/schemas/diagramkit-cli-validate.v1.json` — CLI validate JSON output envelope
 - `diagramkit/schemas/diagramkit-config.v1.json` — `diagramkit.config.{json5,json}` config file
 
 Exit codes: `0` = success, `1` = error (render failure, unknown command, etc.).

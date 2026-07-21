@@ -31,6 +31,23 @@ function toRenderFailure(
   return { code: 'RENDER_FAILED', message: JSON.stringify(err) }
 }
 
+/**
+ * True when `filePath` lives under a directory segment named `scopeDir`.
+ * Segment comparison (not substring) so `--scope-dir diagrams` matches
+ * `content/x/diagrams/y.mermaid` but not `content/my-diagrams-notes/y.mermaid`.
+ * Mirrors the `--scope-dir` semantics in `diagramkit validate`.
+ */
+export function isPathUnderScopeDir(filePath: string, scopeDir: string): boolean {
+  if (!scopeDir) return true
+  const segments = filePath.split(/[\\/]+/).filter(Boolean)
+  // The final segment is the file name itself, so a directory match must occur
+  // before the last segment.
+  for (let i = 0; i < segments.length - 1; i++) {
+    if (segments[i] === scopeDir) return true
+  }
+  return false
+}
+
 async function runWithConcurrency<T>(
   items: T[],
   limit: number,
@@ -66,14 +83,24 @@ export async function renderAll(opts: BatchOptions = {}): Promise<RenderAllResul
   const countsByType: Partial<Record<DiagramType, { rendered: number; failed: number }>> = {}
 
   const allFiles = findDiagramFiles(contentDir, config)
+  // `scopeDir` narrows the render set to sources under a directory named <name>,
+  // mirroring `diagramkit validate --scope-dir`. Orphan cleanup below still runs
+  // against the full `allFiles` set so out-of-scope outputs are never swept.
+  const scopedFiles = opts.scopeDir
+    ? allFiles.filter((f) => isPathUnderScopeDir(f.path, opts.scopeDir!))
+    : allFiles
 
-  if (allFiles.length === 0) {
-    cleanOrphans([], config, [contentDir])
-    logger.info('No diagram files found.')
+  if (scopedFiles.length === 0) {
+    cleanOrphans(allFiles, config, [contentDir])
+    logger.info(
+      opts.scopeDir
+        ? `No diagram files found under "${opts.scopeDir}".`
+        : 'No diagram files found.',
+    )
     return result
   }
 
-  let filtered = allFiles
+  let filtered = scopedFiles
   if (opts.type) {
     filtered = filterByType(filtered, opts.type, config)
   }

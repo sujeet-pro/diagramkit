@@ -32,16 +32,21 @@ export async function convertSvg(svg: Buffer | string, options: ConvertOptions):
 
   switch (options.format) {
     case 'png':
-      pipeline = pipeline.png()
+      // PNG is lossless, so `quality` does not apply; tune the deflate compression
+      // and CPU effort for the smallest output. Callers may override either knob.
+      pipeline = pipeline.png({ compressionLevel: 9, effort: 10, ...options.png })
       break
     case 'jpeg':
       pipeline = pipeline.jpeg({ quality })
       break
     case 'webp':
-      pipeline = pipeline.webp({ quality })
+      // effort 6 (max) is the smallest WebP; quality follows the render option.
+      pipeline = pipeline.webp({ quality, effort: 6, ...options.webp })
       break
     case 'avif':
-      pipeline = pipeline.avif({ quality })
+      // effort 6 balances the smallest AVIF against encode time; quality follows
+      // the render option.
+      pipeline = pipeline.avif({ quality, effort: 6, ...options.avif })
       break
     default: {
       const _exhaustive: never = options.format

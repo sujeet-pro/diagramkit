@@ -26,12 +26,12 @@ Recommended setup steps:
 1. `npm add diagramkit`.
 2. Add `"render:diagrams": "diagramkit render ."` to `package.json`.
 3. Create `diagramkit.config.json5` only if the repository needs non-default behavior (`npx diagramkit init --yes` wires up the JSON Schema for editor autocomplete).
-4. Install the diagramkit-* agent skills with the standalone [`skills`](https://github.com/vercel-labs/skills) CLI (works for Claude Code, Cursor, Codex, Continue, OpenCode, ...):
-   `npx skills add sujeet-pro/diagramkit`
-   The CLI also accepts agent-targeting flags (`-a claude-code -a cursor`) and skill-targeting flags (`-s diagramkit-setup -s diagramkit-mermaid`).
+4. Install the diagramkit-* agent skills — default path is the CLI itself:
+   `npx diagramkit skills install`
+   It writes thin pointer SKILL.md files at `.agents/skills/diagramkit-*` (with mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/` for detected harnesses) that defer to the bundled originals — version-pinned, idempotent, sweeps orphaned stubs. Flags: `--dir <path>`, `--harness <list>`, `--only <name>...`, `--check`, `--dry-run`, `--json`.
 5. Run `npx diagramkit warmup` unless the repository is Graphviz-only.
 
-> The diagramkit npm package no longer ships its own `--install-skill` flag; skill installation is delegated to `npx skills` so it can target any agent and stay current via `npx skills update`.
+> The diagramkit npm package no longer ships its own `--install-skill` flag; the default skill installer is now the `diagramkit skills install` subcommand (see [Skills Install Command](#skills-install-command) below). The standalone [`skills`](https://github.com/vercel-labs/skills) CLI (`npx skills add sujeet-pro/diagramkit`) remains supported as an alternative when you specifically want skills that update independently of the installed `diagramkit`, and stay current via `npx skills update`.
 
 ## CLI Reference
 
@@ -41,7 +41,11 @@ Recommended setup steps:
 diagramkit render <file-or-dir> [options]            Render diagram file(s) to images
 diagramkit <file-or-dir> [options]                   Alias for "diagramkit render"
 diagramkit validate <file-or-dir> [--recursive]      Validate generated SVGs for img-tag compatibility
-                                  [--json]
+                                  [--json] [--scope-dir <name>]
+                                  [--fail-on <CODE,...>] [--fail-on-severity <warn|error>]
+diagramkit skills install [options]                  Install versioned-pointer skill stubs
+                                                      (.agents/skills + harness mirrors)
+diagramkit skills                                    Show skills subcommand help
 diagramkit warmup                                    Pre-install Playwright chromium browser
 diagramkit doctor [--json]                           Validate runtime dependencies and environment
 diagramkit init [--ts] [--yes]                       Create config file (JSON5 or TypeScript)
@@ -91,6 +95,7 @@ diagramkit --yes / -y                                Alias for --no-interactive
 
 ```
 diagramkit validate <file-or-dir> [--recursive] [--json]
+                     [--scope-dir <name>] [--fail-on <CODE,...>] [--fail-on-severity <warn|error>]
 ```
 
 Validates generated SVG files for structural correctness, `<img>`-tag
@@ -105,15 +110,109 @@ renderability, and WCAG 2.2 AA text contrast. Checks every `.svg` in scope for:
 - 50 MB size warning (likely renders slowly)
 - low-contrast text (`LOW_CONTRAST_TEXT`, warning) — text/background pairs that fall below the WCAG 2.2 AA threshold of 4.5:1 (normal) or 3:1 (large text)
 - extreme aspect ratio (`ASPECT_RATIO_EXTREME`, warning) — rendered SVG width/height ratio outside `[1:1.9, 3.3:1]` (default band; configurable via `SvgValidateOptions.aspectRatio`). Diagrams overflowing typical doc widths (~650–800 px) lose ~39% text legibility when scaled down. Suggestion includes engine-specific fixes: flip Mermaid directives, set `mermaidLayout: { mode: 'auto' }`, split into multiple diagrams, or swap engine.
+- overly wide viewBox (`SVG_VIEWBOX_TOO_WIDE`, warning) — calibrated for a ~500px content column with up to 1.5x downscale; disable with `--no-max-width` or raise the threshold with `--max-width <px>`.
 
 Without `--recursive`, only files in the top level of the target directory are
-scanned. With `--json`, the command emits `{ files, valid, invalid, results: [...] }`
-suitable for CI parsing. Exits non-zero when any file fails. The same checks run
-automatically as a post-render gate inside `diagramkit render`.
+scanned. Exits non-zero when any file fails (or when a policy flag below promotes
+a warning to fatal). The same checks run automatically as a post-render gate
+inside `diagramkit render`.
+
+**Policy flags** — narrow scope or promote issues to fatal, layered on top of the
+baseline (any `error`-severity issue always fails):
+
+```
+--scope-dir <name>              Only consider SVGs under a directory named <name> (e.g.
+                                 diagrams), skipping hand-authored assets elsewhere in the
+                                 tree. No-op when the target is a single file.
+--fail-on <CODE,...>            Promote specific issue codes to fatal. Unknown/misspelled
+                                 codes are dropped with a warning, not a hard failure.
+--fail-on-severity <warn|error> Fail if any issue at or above this severity exists
+                                 ("warn" also accepts "warning").
+```
+
+Known issue codes (case-insensitive on `--fail-on`): `EMPTY_FILE`, `MISSING_SVG_TAG`,
+`MISSING_SVG_CLOSE`, `MISSING_WIDTH`, `MISSING_HEIGHT`, `NO_VISUAL_ELEMENTS`,
+`CONTAINS_SCRIPT`, `CONTAINS_FOREIGN_OBJECT`, `MISSING_XMLNS`, `EXTERNAL_RESOURCE`,
+`INVALID_VIEWBOX`, `SVG_TOO_LARGE`, `LOW_CONTRAST_TEXT`, `ASPECT_RATIO_EXTREME`,
+`SVG_VIEWBOX_TOO_WIDE`.
+
+With `--json`, the command emits a **versioned envelope** (`schemaVersion: 1`):
+
+```json
+{
+  "schemaVersion": 1,
+  "command": "validate",
+  "target": { "kind": "file|directory", "path": "/abs/path" },
+  "files": 12,
+  "valid": 10,
+  "invalid": 2,
+  "policy": { "scopeDir": null, "failOnCodes": [], "failOnSeverity": null },
+  "promoted": [{ "code": "LOW_CONTRAST_TEXT", "severity": "warning", "count": 1 }],
+  "failed": true,
+  "results": [{ "file": "...", "valid": false, "issues": [] }]
+}
+```
+
+`policy` echoes the effective flags for this run; `promoted` lists warning-severity
+issues that a `--fail-on`/`--fail-on-severity` flag elevated to fatal (errors are
+never listed here — they already fail via the baseline); `failed` is the overall
+exit disposition. JSON schema: `diagramkit/schemas/diagramkit-cli-validate.v1.json`
+(exported from the npm package).
 
 Exit codes: `0` = success, `1` = error (render failure, unknown command, etc.)
 
-JSON schema shipped at `diagramkit/schemas/diagramkit-cli-render.v1.json` and exported from the npm package.
+JSON schema for `render --json` shipped at `diagramkit/schemas/diagramkit-cli-render.v1.json` and exported from the npm package.
+
+### Skills Install Command
+
+```
+diagramkit skills install [--dir <path>] [--harness <list>] [--only <name>...]
+                           [--check] [--dry-run] [--json]
+diagramkit skills                                    Show help (no subcommand)
+```
+
+Writes versioned-pointer skill stubs into a repo. For every skill shipped at
+`node_modules/diagramkit/skills/<name>/SKILL.md` it writes a canonical pointer at
+`.agents/skills/<name>/SKILL.md` plus thin mirrors under each detected/requested
+harness (`.claude/skills`, `.cursor/skills`, `.codex/skills`, `.continue/skills`).
+Stubs never copy the skill body — they point at the version-pinned original in
+`node_modules`, so every agent reads the skill matching the installed diagramkit.
+The stub carries an HTML-comment version marker
+(`<!-- diagramkit-skill-pointer: pkg=diagramkit version=<v> generator=diagramkit@<v> -->`)
+so re-runs are idempotent (`created`/`updated`/`unchanged`) and drift is detectable.
+
+```
+--dir <path>              Target repo directory (default: current directory)
+--harness <list>          claude,cursor,codex,continue (repeatable or comma-separated;
+                           default: auto-detect from existing .claude/.cursor/.codex/.continue
+                           dirs — .agents is always written)
+--only <name>...          Restrict to specific skills (repeatable or comma-separated);
+                           names match with or without the "diagramkit-" prefix
+--check                   Verify only — exit nonzero on any missing/stale/orphaned stub,
+                           write nothing
+--dry-run                 Show what would change without writing
+--json                    Emit a machine-readable result ({ schemaVersion: 1,
+                           command: "skills-install", packageRoot, version, mode,
+                           harnesses, skills, actions, ok })
+```
+
+Orphan sweep: a managed stub (`diagramkit-*` namespace, carries the marker) whose
+skill no longer ships is reported as `orphaned` under `--check` and deleted under
+plain `install` — but only within the `diagramkit-*` namespace, and only stubs the
+tool actually generated (a hand-authored `diagramkit-custom/` without the marker,
+or any non-namespaced skill like `prj-foo/`, is never touched).
+
+```bash
+npx diagramkit skills install                       # install/refresh
+npx diagramkit skills install --harness claude,cursor
+npx diagramkit skills install --only mermaid --only review
+npx diagramkit skills install --dry-run
+npx diagramkit skills install --check --json         # CI drift gate
+```
+
+Programmatic equivalents are not part of the package's public `exports` map;
+`installSkills()` and friends live in the diagramkit repo's own `cli/skills-install.ts`
+and back this subcommand only.
 
 ### Examples
 
@@ -499,8 +598,54 @@ interface ConvertOptions {
   format: 'png' | 'jpeg' | 'webp' | 'avif'
   scale?: number         // Scale multiplier for SVG rasterization. Default: 2
   quality?: number       // JPEG/WebP/AVIF quality 1-100. Default: 90
+  png?: PngEncoderOptions    // Sharp PNG encoder overrides, merged on { compressionLevel: 9, effort: 10 }
+  webp?: WebpEncoderOptions  // Sharp WebP encoder overrides, merged on { effort: 6 }
+  avif?: AvifEncoderOptions  // Sharp AVIF encoder overrides, merged on { effort: 6 }
 }
 ```
+
+### OptimizeOptions
+
+```ts
+interface OptimizeOptions {
+  // Run SVGO + Mermaid CSS pruning on every rendered SVG before it is written.
+  // Preserves viewBox, width/height, role/aria-*/<title>/<desc>, used <style>
+  // rules, and IDs referenced by url(#…)/CSS selectors/<use>. Deterministic.
+  svg?: boolean          // Default: true
+  png?: PngEncoderOptions
+  webp?: WebpEncoderOptions
+  avif?: AvifEncoderOptions
+}
+
+interface PngEncoderOptions {
+  // Any option accepted by sharp(...).png() is forwarded; these are the common knobs.
+  compressionLevel?: number    // 0 (fastest/largest) – 9 (slowest/smallest). Default: 9.
+  effort?: number              // 1 (fastest) – 10 (slowest/smallest). Default: 10.
+  adaptiveFiltering?: boolean  // Adaptive row filtering.
+  palette?: boolean            // Quantise to a palette (lossy) to shrink flat-colour PNGs.
+  quality?: number             // Palette quality when palette is enabled, 1-100.
+}
+
+interface WebpEncoderOptions {
+  effort?: number         // 0 (fastest) – 6 (slowest/smallest). Default: 6.
+  quality?: number        // 1-100. Defaults to the render `quality` option.
+  lossless?: boolean
+  nearLossless?: boolean
+}
+
+interface AvifEncoderOptions {
+  effort?: number         // 0 (fastest) – 9 (slowest/smallest). Default: 6.
+  quality?: number        // 1-100. Defaults to the render `quality` option.
+  lossless?: boolean
+}
+```
+
+The SVGO + Mermaid CSS-pruning pass is an internal pipeline step (`src/optimize.ts`,
+not part of the package's public `exports`) wired automatically into
+`renderDiagramFileToDisk()` via `config.optimize.svg`; there is no standalone
+importable `optimizeSvg()` in this release. It never throws: on a pathological
+document, an SVGO failure falls back to the (possibly CSS-pruned) input rather
+than losing the render.
 
 ### FileOverride
 
@@ -540,6 +685,7 @@ interface DiagramkitConfig {
   inputDirs?: string[]           // Directories to scan (relative to project root). Default: scan entire tree
   overrides?: Record<string, FileOverride>    // Per-file render overrides
   mermaidLayout?: MermaidLayoutOptions        // Mermaid aspect-ratio rebalance options
+  optimize?: OptimizeOptions                  // SVGO + Mermaid CSS pruning + sharp encoder tuning. Default: { svg: true }
 }
 ```
 
@@ -602,6 +748,37 @@ export default defineConfig({
 3. Environment variables: DIAGRAMKIT_FORMAT, DIAGRAMKIT_THEME, DIAGRAMKIT_OUTPUT_DIR, DIAGRAMKIT_NO_MANIFEST
 4. Local: diagramkit.config.json5 or .ts (walks up directory tree) — or explicit --config path
 5. CLI flags / programmatic overrides
+
+`optimize` is deep-merged like `mermaidLayout` — a partial override (just `svg`, or
+just `png`) keeps the rest of the defaults; each layer is validated independently,
+so a malformed `optimize.png` value warns and falls back rather than dropping the
+whole `optimize` block.
+
+### Output Optimization (`optimize`)
+
+```json5
+{
+  optimize: {
+    svg: true,                                 // SVGO + Mermaid CSS pruning. Default: true.
+    png: { compressionLevel: 9, effort: 10 },  // sharp PNG encoder overrides
+    webp: { effort: 6 },                       // sharp WebP encoder overrides
+    avif: { effort: 6 },                       // sharp AVIF encoder overrides
+  },
+}
+```
+
+`svg: true` (the default) runs a curated, accessibility-preserving SVGO pass
+(preserves `viewBox`, `width`/`height`, `role`/`aria-*`/`<title>`/`<desc>`, kept
+`<style>` rules, and every id referenced by `url(#…)`/CSS/`<use>`; disables
+`cleanupIds`, `inlineStyles`, `removeUnknownsAndDefaults`, `removeDesc`,
+usage-based CSS removal) plus a reference-aware pruning pass for Mermaid's
+`<style>` boilerplate (Mermaid embeds ~21 KB of classes per SVG, most matching
+nothing in that particular diagram). Both run once, before the SVG is written to
+disk and before it is rasterized, so PNG/WebP/AVIF are converted from the same
+optimized source. `png`/`webp`/`avif` merge on top of diagramkit's tuned sharp
+defaults; any option `sharp(...).png()/.webp()/.avif()` accepts is forwarded, not
+just the documented fields. Set `svg: false` to skip SVG optimization entirely
+(e.g. hand-authored sources that need byte-exact passthrough).
 
 ### Extension Aliases
 

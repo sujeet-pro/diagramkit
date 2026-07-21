@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx diagramkit *)",
+      "Bash(npm run check*)",
+      "Bash(npm run test*)",
+      "Bash(npm run validate*)"
+    ]
+  }
+}

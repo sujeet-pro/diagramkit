@@ -7,6 +7,7 @@ import { engineRenderers } from './render-engines'
 import { getAllExtensions, getDiagramType, getExtensionMap } from './extensions'
 import { ensureDiagramsDir } from './manifest'
 import { defaultMermaidDarkTheme } from './mermaid-theme'
+import { optimizeSvg } from './optimize'
 import { writeRenderResult } from './output'
 import { getPool } from './pool'
 import {
@@ -65,10 +66,14 @@ export async function render(
     // Convert to raster if needed (via sharp, dynamically imported)
     if (format !== 'svg') {
       const { convertSvg } = await import('./convert')
+      const optimizeCfg = options.config?.optimize
       const convertOpts = {
         format: format as 'png' | 'jpeg' | 'webp' | 'avif',
         scale: options.scale,
         quality: options.quality,
+        png: optimizeCfg?.png,
+        webp: optimizeCfg?.webp,
+        avif: optimizeCfg?.avif,
       }
 
       const light = lightSvg ? await convertSvg(lightSvg, convertOpts) : undefined
@@ -166,6 +171,20 @@ export async function renderDiagramFileToDisk(
   // Always render SVG first (the core pipeline produces SVG)
   const svgResult = await renderFile(file.path, { ...options, format: 'svg' })
 
+  // Optimize the rendered SVG once, before both writing and rasterization, so the
+  // written SVG and every raster derived from it share the smaller, pruned source.
+  const optimizeCfg = options.config?.optimize
+  if (optimizeCfg?.svg !== false && (svgResult.light || svgResult.dark)) {
+    const type = getDiagramType(basename(file.path), getExtensionMap(options.config?.extensionMap))
+    const optimizeOpts = { svg: true, type: type ?? undefined }
+    if (svgResult.light) {
+      svgResult.light = Buffer.from(optimizeSvg(svgResult.light.toString('utf-8'), optimizeOpts))
+    }
+    if (svgResult.dark) {
+      svgResult.dark = Buffer.from(optimizeSvg(svgResult.dark.toString('utf-8'), optimizeOpts))
+    }
+  }
+
   const allWritten: string[] = []
   const outputMeta: OutputMetadata[] = []
 
@@ -188,6 +207,9 @@ export async function renderDiagramFileToDisk(
         format: fmt as 'png' | 'jpeg' | 'webp' | 'avif',
         scale: options.scale,
         quality: options.quality,
+        png: optimizeCfg?.png,
+        webp: optimizeCfg?.webp,
+        avif: optimizeCfg?.avif,
       }
       result = {
         light: svgResult.light ? await doConvert!(svgResult.light, convertOpts) : undefined,

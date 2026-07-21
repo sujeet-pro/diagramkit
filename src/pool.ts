@@ -156,7 +156,35 @@ export class BrowserPool {
   private async launch(): Promise<void> {
     try {
       const { chromium } = await import('playwright')
-      this.browser = await chromium.launch()
+
+      // Playwright's default headless launch resolves to the `chrome-headless-shell`
+      // binary variant, which a `playwright install chromium` may not have fetched
+      // (or may have fetched a mismatched revision of) even when the regular
+      // Chromium build is present. `doctor` validates `chromium.executablePath()`
+      // (the regular build), so pin the launch to that same binary to keep doctor
+      // and the actual launch consistent. An explicit override wins over both.
+      const override = process.env.DIAGRAMKIT_CHROMIUM_EXECUTABLE_PATH?.trim()
+      let executablePath: string | undefined = override || undefined
+      if (!executablePath) {
+        try {
+          const resolved = chromium.executablePath()
+          if (resolved && existsSync(resolved)) executablePath = resolved
+        } catch {
+          /* executablePath can throw if the browser is not registered — fall back to default */
+        }
+      }
+
+      try {
+        this.browser = await chromium.launch(executablePath ? { executablePath } : {})
+      } catch (launchErr: unknown) {
+        // If pinning to the resolved binary failed, retry once with Playwright's
+        // default resolution before surfacing the error.
+        if (executablePath && !override) {
+          this.browser = await chromium.launch()
+        } else {
+          throw launchErr
+        }
+      }
       // Required to inject IIFE bundles and mermaid scripts. Pages must never navigate to external URLs.
       this.context = await this.browser.newContext({ bypassCSP: true })
       // Defense-in-depth: block all external network requests from browser pages

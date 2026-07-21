@@ -4,6 +4,15 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DiagramType, DiagramkitConfig, OutputFormat, Theme } from '../src/types'
+import type { SvgIssueCode } from '../src/validate'
+import {
+  type FailOnSeverity,
+  type ValidatePolicy,
+  evaluatePolicy,
+  filterResultsByScope,
+  parseFailOnCodes,
+  parseFailOnSeverity,
+} from './validate-policy'
 
 const args = process.argv.slice(2)
 
@@ -19,6 +28,8 @@ Usage:
   diagramkit render [--interactive]         Interactive render wizard (seeded from diagramkit.config.*)
   diagramkit <file-or-dir> [options]        Alias for "diagramkit render"
   diagramkit validate <file-or-dir> [--recursive] [--json] [--max-width N | --no-max-width]
+                                    [--scope-dir <name>] [--fail-on <CODE,...>] [--fail-on-severity <warn|error>]
+  diagramkit skills install [--dir <path>] [--harness <list>] [--only <name>...] [--check] [--dry-run] [--json]
   diagramkit warmup
   diagramkit doctor
   diagramkit init [--ts] [--yes]
@@ -29,6 +40,7 @@ Usage:
 Commands:
   render <file-or-dir>     Render diagram file(s) to images
   validate <file-or-dir>   Validate generated SVG file(s) for correctness and img-tag compatibility
+  skills install           Install versioned-pointer skill stubs (.agents/skills + harness mirrors)
   warmup                   Pre-install Playwright chromium browser
   doctor                   Validate runtime dependencies and environment
   init [--ts] [--yes]      Create config file (interactive by default, --yes for defaults)
@@ -44,6 +56,8 @@ Render options:
   --no-contrast                       Disable dark SVG contrast optimization
   --type <mermaid|excalidraw|drawio|graphviz> Filter to specific diagram type
   --output <dir>                      Custom output directory (all outputs go here)
+  --scope-dir <name>                  Only render sources under a directory named <name> (e.g. diagrams),
+                                      skipping diagram sources elsewhere in the tree. Segment match.
   --dry-run                           Show what would be rendered without rendering
   --plan                              Show stale plan with reasons (directory mode)
 
@@ -67,6 +81,22 @@ Validate options:
                                       Calibrated for a ~500px content column with up to 1.5× downscale.
                                       Raise this for repos with wider columns; lower it for narrower ones.
   --no-max-width                      Disable the SVG_VIEWBOX_TOO_WIDE check (use for hero banners).
+  --scope-dir <name>                  Only consider SVGs under a directory named <name> (e.g. diagrams),
+                                      skipping hand-authored assets elsewhere. Combine with --recursive.
+  --fail-on <CODE,...>                Promote issue codes to fatal (nonzero exit when present). Codes:
+                                      EMPTY_FILE, MISSING_SVG_TAG, MISSING_SVG_CLOSE, MISSING_WIDTH,
+                                      MISSING_HEIGHT, NO_VISUAL_ELEMENTS, CONTAINS_SCRIPT,
+                                      CONTAINS_FOREIGN_OBJECT, MISSING_XMLNS, EXTERNAL_RESOURCE,
+                                      INVALID_VIEWBOX, SVG_TOO_LARGE, LOW_CONTRAST_TEXT,
+                                      ASPECT_RATIO_EXTREME, SVG_VIEWBOX_TOO_WIDE.
+  --fail-on-severity <warn|error>     Fail if any issue at or above this severity exists.
+
+Skills options (diagramkit skills install):
+  --dir <path>                        Target repo directory (default: current directory)
+  --harness <list>                    claude,cursor,codex,continue (default: auto-detect; .agents always)
+  --only <name>...                    Restrict to specific skills (repeatable / comma-separated)
+  --check                             Verify only — nonzero exit on missing/stale/orphaned stubs
+  --dry-run                           Show planned changes without writing
 
 Output options:
   --quiet                             Suppress informational output, only show errors
@@ -101,16 +131,23 @@ Examples:
   diagramkit validate . --recursive                    # Validate SVGs recursively
   diagramkit validate . --recursive --max-width 1200   # Wider threshold for a wide-column site
   diagramkit validate ./hero.svg --no-max-width        # Skip the width check for an intentional banner
+  diagramkit validate . --recursive --scope-dir diagrams          # Only SVGs under diagrams/ folders
+  diagramkit validate . --recursive --fail-on LOW_CONTRAST_TEXT   # Fail CI on low-contrast text
+  diagramkit validate . --recursive --fail-on-severity warn       # Fail on any warning or error
+  diagramkit skills install                            # Install/refresh skill pointers
+  diagramkit skills install --check --json             # CI drift check, machine-readable
 
 Project skills (Claude/Cursor/Codex/Continue/...):
   Skills ship inside the npm package at node_modules/diagramkit/skills/.
-  Recommended install: have your agent follow
-    node_modules/diagramkit/skills/diagramkit-setup/SKILL.md
+  Recommended install (primary):
+    npx diagramkit skills install
   It writes thin pointer SKILL.md files at .agents/skills/diagramkit-* (with
-  mirrors under .claude/skills/, .cursor/skills/, .codex/skills/ for the
-  harnesses you use) that defer to the bundled SKILL.md files. Skills:
-  setup, auto, mermaid, excalidraw, draw-io, graphviz, review (validation
-  + WCAG 2.2 AA contrast).
+  mirrors under .claude/skills/, .cursor/skills/, .codex/skills/, .continue/skills/
+  for the harnesses you use) that defer to the bundled SKILL.md files. Re-runs are
+  idempotent and sweep stubs left by removed skills. Skills: setup, auto, mermaid,
+  excalidraw, draw-io, graphviz, review (validation + WCAG 2.2 AA contrast).
+  Fallback (manual, agent-driven): have your agent follow
+    node_modules/diagramkit/skills/diagramkit-setup/SKILL.md
   Alternative (GitHub-published skills via the standalone "skills" CLI):
     npx skills add sujeet-pro/diagramkit
   See https://github.com/vercel-labs/skills for agent targeting flags.
@@ -195,6 +232,12 @@ const FLAGS_REQUIRING_VALUE = new Set([
   'output-suffix',
   'max-type-lanes',
   'log-level',
+  'scope-dir',
+  'fail-on',
+  'fail-on-severity',
+  'dir',
+  'harness',
+  'only',
 ])
 
 export function getFlagValue(
@@ -375,6 +418,9 @@ export function warnUnknownFlags(argv: string[] = args) {
     'recursive',
     'max-width',
     'no-max-width',
+    'scope-dir',
+    'fail-on',
+    'fail-on-severity',
   ])
   const knownShortFlags = new Set(Object.keys(SHORT_FLAGS))
 
@@ -726,10 +772,78 @@ function buildRenderJsonEnvelope(input: {
   }
 }
 
+/**
+ * Parse the `--scope-dir` / `--fail-on` / `--fail-on-severity` flags into an
+ * effective {@link ValidatePolicy}. Unknown `--fail-on` codes are dropped with
+ * a warning (mirrors `--format`); an invalid `--fail-on-severity` exits 1.
+ */
+function resolveValidatePolicy(argv: string[] = args): ValidatePolicy {
+  const scopeDir = getFlagValue('scope-dir', argv)
+
+  const rawFailOn = getFlagValue('fail-on', argv)
+  let failOnCodes: SvgIssueCode[] = []
+  if (rawFailOn) {
+    const parsed = parseFailOnCodes(rawFailOn)
+    failOnCodes = parsed.codes
+    if (parsed.unknown.length > 0) {
+      console.warn(
+        `Warning: ignoring unknown --fail-on code(s): ${parsed.unknown.join(', ')}. ` +
+          'Run "diagramkit --help" for the valid issue codes.',
+      )
+    }
+  }
+
+  const rawFailOnSeverity = getFlagValue('fail-on-severity', argv)
+  let failOnSeverity: FailOnSeverity | undefined
+  try {
+    failOnSeverity = parseFailOnSeverity(rawFailOnSeverity)
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err))
+    process.exit(1)
+  }
+
+  return { scopeDir, failOnCodes, failOnSeverity }
+}
+
+function buildValidateJsonEnvelope(input: {
+  targetPath: string
+  kind: 'file' | 'directory'
+  results: import('../src/validate').SvgValidationResult[]
+  policy: ValidatePolicy
+  evaluation: import('./validate-policy').PolicyEvaluation
+}): Record<string, unknown> {
+  const valid = input.results.filter((r) => r.valid).length
+  return {
+    schemaVersion: 1,
+    command: 'validate',
+    target: { kind: input.kind, path: input.targetPath },
+    files: input.results.length,
+    valid,
+    invalid: input.results.length - valid,
+    policy: {
+      scopeDir: input.policy.scopeDir ?? null,
+      failOnCodes: input.policy.failOnCodes,
+      failOnSeverity: input.policy.failOnSeverity ?? null,
+    },
+    promoted: input.evaluation.promoted,
+    failed: input.evaluation.failed,
+    results: input.results.map((r) => ({
+      file: r.file,
+      valid: r.valid,
+      issues: r.issues,
+    })),
+  }
+}
+
 async function commandValidate() {
   let target = '.'
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!
+    if (arg.startsWith('--')) {
+      const name = arg.slice(2)
+      if (FLAGS_REQUIRING_VALUE.has(name)) i++ // skip the value too
+      continue
+    }
     if (arg.startsWith('-')) continue
     target = arg
     break
@@ -750,21 +864,44 @@ async function commandValidate() {
     : rawMaxWidth
       ? validatePositiveNumber(rawMaxWidth, 'max-width')
       : undefined
+  const policy = resolveValidatePolicy()
   const { validateSvgFile, validateSvgDirectory, formatValidationResult } =
     await import('../src/validate')
 
   const validateOptions = maxWidthOpt === undefined ? {} : { maxWidth: maxWidthOpt }
 
   const stat = statSync(resolvedTarget)
-  const results = stat.isFile()
+  const kind: 'file' | 'directory' = stat.isFile() ? 'file' : 'directory'
+  let results = stat.isFile()
     ? [validateSvgFile(resolvedTarget, validateOptions)]
     : validateSvgDirectory(resolvedTarget, { recursive, ...validateOptions })
 
+  // `--scope-dir` narrows a directory scan to SVGs under a directory named
+  // <name> (e.g. diagrams), skipping hand-authored assets elsewhere. It is a
+  // no-op for a single explicitly-named file target.
+  if (kind === 'directory') {
+    results = filterResultsByScope(results, policy.scopeDir)
+  } else if (policy.scopeDir && !jsonOutput) {
+    console.warn('Note: --scope-dir is ignored when validating a single file.')
+  }
+
+  const evaluation = evaluatePolicy(results, policy)
+
   if (results.length === 0) {
     if (jsonOutput) {
-      emitJson({ files: 0, valid: 0, invalid: 0, results: [] })
+      emitJson(
+        buildValidateJsonEnvelope({
+          targetPath: target,
+          kind,
+          results,
+          policy,
+          evaluation,
+        }),
+      )
     } else {
-      console.log('No SVG files found.')
+      console.log(
+        policy.scopeDir ? `No SVG files found under "${policy.scopeDir}".` : 'No SVG files found.',
+      )
     }
     return
   }
@@ -773,16 +910,15 @@ async function commandValidate() {
   const invalid = results.filter((r) => !r.valid)
 
   if (jsonOutput) {
-    emitJson({
-      files: results.length,
-      valid: valid.length,
-      invalid: invalid.length,
-      results: results.map((r) => ({
-        file: r.file,
-        valid: r.valid,
-        issues: r.issues,
-      })),
-    })
+    emitJson(
+      buildValidateJsonEnvelope({
+        targetPath: target,
+        kind,
+        results,
+        policy,
+        evaluation,
+      }),
+    )
   } else {
     for (const result of results) {
       console.log(formatValidationResult(result))
@@ -791,9 +927,14 @@ async function commandValidate() {
     console.log(
       `Validated ${results.length} SVG file(s): ${valid.length} passed, ${invalid.length} failed`,
     )
+    if (policy.scopeDir) console.log(`  scope: files under "${policy.scopeDir}/"`)
+    if (evaluation.promoted.length > 0) {
+      const promotedSummary = evaluation.promoted.map((p) => `${p.code} (${p.count})`).join(', ')
+      console.log(`  promoted to fatal: ${promotedSummary}`)
+    }
   }
 
-  if (invalid.length > 0) {
+  if (evaluation.failed) {
     process.exitCode = 1
   }
 }
@@ -810,6 +951,138 @@ async function commandDoctor(jsonOutput: boolean): Promise<void> {
     }
   }
   if (!result.ok) process.exitCode = 1
+}
+
+/* ── Skills install ── */
+
+const VALID_HARNESSES = ['claude', 'cursor', 'codex', 'continue'] as const
+
+function printSkillsHelp() {
+  console.log(`
+diagramkit skills — install versioned-pointer skill stubs into a repo
+
+Usage:
+  diagramkit skills install [options]     Write/refresh .agents/skills + harness mirrors
+  diagramkit skills                        Show this help
+
+Install options:
+  --dir <path>                 Target repo directory (default: current directory)
+  --harness <list>             Harnesses to mirror into: claude,cursor,codex,continue
+                               (default: auto-detect from existing .claude/.cursor/... dirs;
+                               .agents is always written)
+  --only <name>...             Restrict to specific skills (repeatable or comma-separated);
+                               names match with or without the "diagramkit-" prefix
+  --check                      Verify only — exit nonzero on any missing/stale/orphaned stub,
+                               write nothing
+  --dry-run                    Show what would change without writing
+  --json                       Emit a machine-readable result
+
+What it does:
+  For every skill shipped at node_modules/diagramkit/skills/<name>/SKILL.md it writes a
+  canonical pointer at .agents/skills/<name>/SKILL.md plus thin mirrors under each
+  detected/requested harness (.claude/skills, .cursor/skills, .codex/skills, .continue/skills).
+  Stubs never copy the skill body — they point at the version-pinned original so agents always
+  read the skill matching the installed diagramkit. Re-runs are idempotent (created/updated/
+  unchanged); stubs left behind by removed skills are swept within the diagramkit-* namespace.
+
+Examples:
+  npx diagramkit skills install
+  npx diagramkit skills install --harness claude,cursor
+  npx diagramkit skills install --only mermaid --only review
+  npx diagramkit skills install --check --json
+  npx diagramkit skills install --dir ./packages/app --dry-run
+`)
+}
+
+/** Collect a repeatable + comma-separated flag (e.g. --harness a,b --harness c). */
+function collectFlagValues(name: string, argv: string[] = args): string[] {
+  const out: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== `--${name}`) continue
+    const value = argv[i + 1]
+    if (!value || value.startsWith('-')) continue
+    for (const part of value.split(',')) {
+      const token = part.trim()
+      if (token) out.push(token)
+    }
+  }
+  return out
+}
+
+async function commandSkills() {
+  const sub = args[1]
+  if (!sub || sub.startsWith('-')) {
+    printSkillsHelp()
+    return
+  }
+  if (sub !== 'install') {
+    console.error(`Unknown skills subcommand: "${sub}". Try "diagramkit skills install".`)
+    process.exit(1)
+  }
+
+  const dir = resolve(getFlagValue('dir') ?? process.cwd())
+  const check = args.includes('--check')
+  const dryRun = args.includes('--dry-run')
+  const jsonOutput = args.includes('--json')
+
+  const rawHarness = collectFlagValues('harness')
+  const only = collectFlagValues('only')
+  const harnesses =
+    rawHarness.length > 0
+      ? rawHarness.map((h) => validateEnum(h, VALID_HARNESSES, 'harness'))
+      : undefined
+
+  const { installSkills, unknownOnlyNames, resolveDiagramkitPackageRoot } =
+    await import('./skills-install')
+
+  try {
+    const packageRoot = resolveDiagramkitPackageRoot(dir)
+    if (only.length > 0) {
+      const unknown = unknownOnlyNames(packageRoot, only)
+      if (unknown.length > 0) {
+        console.warn(`Warning: --only matched no shipped skill: ${unknown.join(', ')}`)
+      }
+    }
+    const result = installSkills({
+      cwd: dir,
+      harnesses,
+      only: only.length > 0 ? only : undefined,
+      check,
+      dryRun,
+      packageRoot,
+    })
+
+    if (jsonOutput) {
+      emitJson({ schemaVersion: 1, command: 'skills-install', ...result })
+    } else {
+      printSkillsResult(result)
+    }
+    if (!result.ok) process.exitCode = 1
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (jsonOutput) {
+      emitJson({ schemaVersion: 1, command: 'skills-install', ok: false, error: message })
+    } else {
+      console.error(message)
+    }
+    process.exit(1)
+  }
+}
+
+function printSkillsResult(result: import('./skills-install').SkillsInstallResult): void {
+  const label =
+    result.mode === 'check' ? 'check' : result.mode === 'dry-run' ? 'dry-run' : 'install'
+  console.log(
+    `diagramkit skills ${label} (diagramkit v${result.version}) — ${result.skills.length} skill(s), ` +
+      `harnesses: ${['agents', ...result.harnesses].join(', ')}`,
+  )
+  for (const action of result.actions) {
+    const where = action.kind === 'orphan' ? 'orphan' : (action.harness ?? 'agents')
+    console.log(`  [${action.status}] ${action.path} (${where})`)
+  }
+  if (result.mode === 'check') {
+    console.log(result.ok ? 'Stubs are up to date.' : 'Stubs are out of date (see above).')
+  }
 }
 
 async function commandRender() {
@@ -873,6 +1146,7 @@ async function commandRender() {
   const maxTypeLanes = maxTypeLanesRaw
     ? Math.max(1, Math.min(4, validatePositiveNumber(maxTypeLanesRaw, 'max-type-lanes')))
     : undefined
+  const scopeDir = getFlagValue('scope-dir')
 
   const configOverrides: Partial<import('../src/types').DiagramkitConfig> = {}
   if (outputDir) configOverrides.outputDir = outputDir
@@ -943,6 +1217,7 @@ async function commandRender() {
       maxTypeLanes,
       strictConfig,
       strict,
+      scopeDir,
       logLevel,
     })
   }
@@ -1126,6 +1401,7 @@ interface DirectoryOpts {
   maxTypeLanes?: number
   strictConfig?: boolean
   strict?: boolean
+  scopeDir?: string
   logLevel: import('../src/types').LogLevel
 }
 
@@ -1135,7 +1411,9 @@ async function renderDirectory(opts: DirectoryOpts) {
   if (opts.dryRun || opts.plan) {
     const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/discovery')
     const { filterStaleFiles, planStaleFiles } = await import('../src/manifest')
+    const { isPathUnderScopeDir } = await import('../src/render-all')
     let files = findDiagramFiles(target, resolvedConfig)
+    if (opts.scopeDir) files = files.filter((f) => isPathUnderScopeDir(f.path, opts.scopeDir!))
     if (opts.type) files = filterByTypeFn(files, opts.type, resolvedConfig)
     const stale = filterStaleFiles(files, opts.force, formats, resolvedConfig, opts.theme)
     const stalePlan = planStaleFiles(files, opts.force, formats, resolvedConfig, opts.theme)
@@ -1174,8 +1452,11 @@ async function renderDirectory(opts: DirectoryOpts) {
   const { findDiagramFiles, filterByType: filterByTypeFn } = await import('../src/discovery')
   const { filterStaleFiles } = await import('../src/manifest')
   const { getDiagramType: getType, getExtensionMap } = await import('../src/extensions')
+  const { isPathUnderScopeDir } = await import('../src/render-all')
   const extensionMap = getExtensionMap(resolvedConfig.extensionMap)
   let discoveredFiles = findDiagramFiles(target, resolvedConfig)
+  if (opts.scopeDir)
+    discoveredFiles = discoveredFiles.filter((f) => isPathUnderScopeDir(f.path, opts.scopeDir!))
   if (opts.type) discoveredFiles = filterByTypeFn(discoveredFiles, opts.type, resolvedConfig)
   const staleFiles = filterStaleFiles(
     discoveredFiles,
@@ -1224,6 +1505,7 @@ async function renderDirectory(opts: DirectoryOpts) {
       maxConcurrentLanes: opts.maxTypeLanes,
       includeMetrics: true,
       strict: opts.strict,
+      scopeDir: opts.scopeDir,
     })
   } finally {
     if (!opts.watchMode) {
@@ -1668,11 +1950,14 @@ async function main() {
     console.error(
       'The --install-skill flag was removed in v0.3.\n' +
         'diagramkit skills now ship inside the npm package at node_modules/diagramkit/skills/.\n' +
-        'Have your agent follow node_modules/diagramkit/skills/diagramkit-setup/SKILL.md —\n' +
-        'it writes thin pointer SKILL.md files at .agents/skills/diagramkit-* (with mirrors\n' +
-        'under .claude/skills/, .cursor/skills/, .codex/skills/) that defer to the bundled\n' +
-        'SKILL.md files. Skills: setup, auto, mermaid, excalidraw, draw-io, graphviz, review\n' +
-        '(validation + WCAG 2.2 AA contrast).\n' +
+        'Primary install:\n' +
+        '  npx diagramkit skills install\n' +
+        'It writes thin pointer SKILL.md files at .agents/skills/diagramkit-* (with mirrors\n' +
+        'under .claude/skills/, .cursor/skills/, .codex/skills/, .continue/skills/) that defer\n' +
+        'to the bundled SKILL.md files, idempotently. Skills: setup, auto, mermaid, excalidraw,\n' +
+        'draw-io, graphviz, review (validation + WCAG 2.2 AA contrast).\n' +
+        'Fallback (agent-driven): have your agent follow\n' +
+        '  node_modules/diagramkit/skills/diagramkit-setup/SKILL.md\n' +
         'Alternative (GitHub-published skills): npx skills add sujeet-pro/diagramkit\n' +
         'See https://github.com/vercel-labs/skills for agent targeting flags.',
     )
@@ -1693,7 +1978,7 @@ async function main() {
   if (
     args.length > 0 &&
     !args[0]!.startsWith('-') &&
-    !['render', 'validate', 'warmup', 'doctor', 'init'].includes(args[0]!)
+    !['render', 'validate', 'warmup', 'doctor', 'init', 'skills'].includes(args[0]!)
   ) {
     const maybePath = resolve(args[0]!)
     if (existsSync(maybePath)) {
@@ -1715,6 +2000,11 @@ async function main() {
 
   if (command === 'init') {
     await commandInit()
+    return
+  }
+
+  if (command === 'skills') {
+    await commandSkills()
     return
   }
 

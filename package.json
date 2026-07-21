@@ -80,7 +80,9 @@
       "types": "./dist/validate.d.mts",
       "import": "./dist/validate.mjs"
     },
+    "./package.json": "./package.json",
     "./schemas/diagramkit-cli-render.v1.json": "./schemas/diagramkit-cli-render.v1.json",
+    "./schemas/diagramkit-cli-validate.v1.json": "./schemas/diagramkit-cli-validate.v1.json",
     "./schemas/diagramkit-config.v1.json": "./schemas/diagramkit-config.v1.json",
     "./ai-guidelines/*": "./ai-guidelines/*",
     "./llms": "./llms.txt",
@@ -123,16 +125,19 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@viz-js/viz": "^3.26.0",
     "chokidar": "^5.0.0",
+    "css-tree": "^3.2.1",
     "jiti": "^2.6.1",
     "json5": "^2.2.3",
     "mermaid": "^11.14.0",
     "playwright": "^1.59.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "rolldown": "^1.0.0-rc.17"
+    "rolldown": "^1.0.0-rc.17",
+    "svgo": "^4.0.2"
   },
   "devDependencies": {
     "@pagesmith/docs": "^0.10.0",
+    "@types/css-tree": "^2.3.11",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "4.1.4",
     "sharp": "^0.34.5",

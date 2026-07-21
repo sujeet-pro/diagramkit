@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
@@ -235,5 +235,72 @@ describe('renderAll', () => {
 
     const total = result.rendered.length + result.skipped.length + result.failed.length
     expect(total).toBe(2)
+  })
+
+  describe('scopeDir', () => {
+    it('renders only sources under a directory named scopeDir', async () => {
+      mkdirSync(join(dir, 'diagrams'), { recursive: true })
+      mkdirSync(join(dir, 'assets'), { recursive: true })
+      writeFileSync(join(dir, 'diagrams', 'in-scope.mermaid'), 'graph TD; A-->B')
+      writeFileSync(join(dir, 'assets', 'out-of-scope.mermaid'), 'graph TD; C-->D')
+      writeFileSync(join(dir, 'root.mermaid'), 'graph TD; E-->F')
+
+      const { renderAll } = await import('./render-all')
+      const result = await renderAll({
+        dir,
+        logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        force: true,
+        scopeDir: 'diagrams',
+      })
+
+      expect(result.rendered).toHaveLength(1)
+      expect(result.rendered[0]).toContain('in-scope.mermaid')
+      expect(result.rendered.join('\n')).not.toContain('out-of-scope.mermaid')
+      expect(result.rendered.join('\n')).not.toContain('root.mermaid')
+    })
+
+    it('matches directory segments, not substrings', async () => {
+      mkdirSync(join(dir, 'my-diagrams-notes'), { recursive: true })
+      writeFileSync(join(dir, 'my-diagrams-notes', 'x.mermaid'), 'graph TD; A-->B')
+
+      const { renderAll } = await import('./render-all')
+      const result = await renderAll({
+        dir,
+        logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        force: true,
+        scopeDir: 'diagrams',
+      })
+
+      expect(result.rendered).toHaveLength(0)
+      expect(result.skipped).toHaveLength(0)
+    })
+
+    it('returns empty result when nothing is under scopeDir', async () => {
+      writeFileSync(join(dir, 'root.mermaid'), 'graph TD; A-->B')
+      const logger = { log: vi.fn(), warn: vi.fn(), error: vi.fn() }
+
+      const { renderAll } = await import('./render-all')
+      const result = await renderAll({ dir, logger, force: true, scopeDir: 'diagrams' })
+
+      expect(result.rendered).toHaveLength(0)
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('diagrams'))
+    })
+  })
+
+  describe('isPathUnderScopeDir', () => {
+    it('matches a mid-path directory segment', async () => {
+      const { isPathUnderScopeDir } = await import('./render-all')
+      expect(isPathUnderScopeDir('content/x/diagrams/y.mermaid', 'diagrams')).toBe(true)
+    })
+
+    it('does not match a substring of a segment', async () => {
+      const { isPathUnderScopeDir } = await import('./render-all')
+      expect(isPathUnderScopeDir('content/my-diagrams-notes/y.mermaid', 'diagrams')).toBe(false)
+    })
+
+    it('does not match when the scope name is only the file basename', async () => {
+      const { isPathUnderScopeDir } = await import('./render-all')
+      expect(isPathUnderScopeDir('content/diagrams', 'diagrams')).toBe(false)
+    })
   })
 })

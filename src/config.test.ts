@@ -61,6 +61,9 @@ describe('config loading', () => {
         targetAspectRatio: 4 / 3,
         tolerance: 2.5,
       },
+      optimize: {
+        svg: true,
+      },
     })
   })
 
@@ -228,6 +231,9 @@ describe('config loading', () => {
         mode: 'warn',
         targetAspectRatio: 4 / 3,
         tolerance: 2.5,
+      },
+      optimize: {
+        svg: true,
       },
     })
   })
@@ -440,6 +446,82 @@ describe('mermaidLayout config', () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+/**
+ * User scenario:
+ * A team keeps SVG optimization on by default but wants to disable it for one build,
+ * or tune the sharp encoders for their raster targets.
+ *
+ * What this file verifies:
+ * - optimize defaults (svg on) are stable and merge like other config sections
+ * - partial overrides keep the rest of the section
+ * - malformed values fall back to defaults (warn) or throw (strict)
+ */
+describe('optimize config', () => {
+  it('exposes the documented defaults via getDefaultConfig', () => {
+    expect(getDefaultConfig().optimize).toEqual({ svg: true })
+  })
+
+  it('layers a partial per-call override on top of defaults', () => {
+    const config = loadConfig({ optimize: { svg: false } })
+    expect(config.optimize).toEqual({ svg: false })
+  })
+
+  it('keeps svg default when only encoder options are overridden', () => {
+    const config = loadConfig({ optimize: { png: { compressionLevel: 6 } } })
+    expect(config.optimize).toEqual({ svg: true, png: { compressionLevel: 6 } })
+  })
+
+  it('merges encoder overrides from local config with per-call svg toggle', () => {
+    const root = mkdtempSync(join(tmpdir(), 'diagramkit-optimize-'))
+    try {
+      writeFileSync(
+        join(root, 'diagramkit.config.json5'),
+        `{ optimize: { webp: { effort: 3 }, avif: { quality: 55 } } }`,
+      )
+      const config = loadConfig({ optimize: { svg: false } }, root)
+      expect(config.optimize).toEqual({
+        svg: false,
+        webp: { effort: 3 },
+        avif: { quality: 55 },
+      })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('falls back to the default svg value when given a non-boolean', () => {
+    const warn = vi.fn()
+    const config = loadConfig(
+      { optimize: { svg: 'yes' as unknown as boolean } },
+      undefined,
+      undefined,
+      { warn },
+    )
+    expect(config.optimize?.svg).toBe(true)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('optimize.svg'))
+  })
+
+  it('ignores a non-object encoder override and warns', () => {
+    const warn = vi.fn()
+    const config = loadConfig(
+      { optimize: { png: 9 as unknown as Record<string, never> } },
+      undefined,
+      undefined,
+      { warn },
+    )
+    expect(config.optimize).toEqual({ svg: true })
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('optimize.png'))
+  })
+
+  it('throws in strict mode for an invalid optimize.svg', () => {
+    expect(() =>
+      loadConfig({ optimize: { svg: 1 as unknown as boolean } }, undefined, undefined, {
+        strict: true,
+      }),
+    ).toThrow(DiagramkitError)
   })
 })
 
