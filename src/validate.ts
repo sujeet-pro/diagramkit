@@ -2,9 +2,11 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import {
   WCAG_AA_LARGE,
+  WCAG_AA_NON_TEXT,
   WCAG_AA_NORMAL,
   defaultBackgroundForFile,
   findSvgContrastIssues,
+  findSvgVisibilityIssues,
 } from './color/wcag'
 import { parseSvgViewBoxDimensions, parseSvgViewBoxRatio } from './mermaid-layout'
 
@@ -33,6 +35,8 @@ export type SvgIssueCode =
   | 'INVALID_VIEWBOX'
   | 'SVG_TOO_LARGE'
   | 'LOW_CONTRAST_TEXT'
+  | 'LOW_CONTRAST_SHAPE'
+  | 'LOW_CONTRAST_STROKE'
   | 'ASPECT_RATIO_EXTREME'
   | 'SVG_VIEWBOX_TOO_WIDE'
 
@@ -335,6 +339,64 @@ export function validateSvg(
             'Required ratios: ' +
             `${WCAG_AA_NORMAL}:1 for normal text, ${WCAG_AA_LARGE}:1 for large text (>=18px / 14px bold). ` +
             'Avoid white-on-pastel and grey-on-grey combinations.',
+        })
+      }
+    }
+
+    // Non-text visibility (WCAG 2.2 AA 1.4.11): boxes/shapes and lines/arrows
+    // that are effectively invisible against their backdrop. This catches the
+    // failure the text scan cannot — e.g. an edge whose stroke matches the
+    // canvas, or a node whose fill and border both blend into the background —
+    // so "are the boxes, lines, and arrows visible?" is enforced, not just
+    // "is the text readable?".
+    const visibilityIssues = findSvgVisibilityIssues(svg, { defaultBackground: background })
+    if (visibilityIssues.length > 0) {
+      // Group by (role, color, backdrop) so a diagram with 40 identical
+      // low-contrast edges collapses into one actionable finding.
+      const grouped = new Map<
+        string,
+        {
+          role: 'shape' | 'line'
+          paint: 'fill' | 'stroke'
+          color: string
+          bg: string
+          ratio: number
+          count: number
+        }
+      >()
+      for (const issue of visibilityIssues) {
+        const key = `${issue.role}|${issue.paint}|${issue.color}|${issue.backgroundColor}`
+        const existing = grouped.get(key)
+        if (existing) existing.count++
+        else
+          grouped.set(key, {
+            role: issue.role,
+            paint: issue.paint,
+            color: issue.color,
+            bg: issue.backgroundColor,
+            ratio: issue.ratio,
+            count: 1,
+          })
+      }
+
+      for (const group of grouped.values()) {
+        const isShape = group.role === 'shape'
+        const noun = isShape ? 'shape/box' : 'line/edge/arrow'
+        issues.push({
+          code: isShape ? 'LOW_CONTRAST_SHAPE' : 'LOW_CONTRAST_STROKE',
+          severity: 'warning',
+          message:
+            `${group.count} ${noun}${group.count === 1 ? '' : 's'} paint ${group.paint} ${group.color} ` +
+            `on ${group.bg} with contrast ratio ${group.ratio.toFixed(2)}:1, ` +
+            `below the WCAG 2.2 AA non-text threshold of ${WCAG_AA_NON_TEXT}:1 — ` +
+            `${isShape ? 'the box/shape is effectively invisible against its background' : 'the line/edge/arrow is effectively invisible against its background'}.`,
+          suggestion: isShape
+            ? 'Give the shape a fill (or a visible border) that clears 3:1 against the canvas — ' +
+              'use a diagramkit mid-tone palette color, not a near-canvas fill. ' +
+              'Common cause: an unstyled shape falling back to the theme/canvas color, or a start/end marker left at the default fill on the dark canvas.'
+            : 'Give the line/arrow a stroke that clears 3:1 against the canvas ' +
+              '(e.g. #333 on light, #ccc on dark — the diagramkit lineColor defaults). ' +
+              'Common cause: an edge or arrowhead left at a near-canvas stroke color.',
         })
       }
     }

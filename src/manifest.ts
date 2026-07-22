@@ -252,8 +252,15 @@ export function hashFile(filePath: string): string {
  *   glyph fills (luminance < 0.15). Fixes Mermaid gantt/timeline axis-tick
  *   labels, which hardcode `fill="#000"` (no theme variable overrides them) and
  *   were invisible on the dark canvas.
+ * - 5: edge-label backdrops are pinned to the theme's `edgeLabelBackground` via
+ *   injected `themeCSS` (Mermaid `htmlLabels:false` neo look emits
+ *   `<path class="background">` with no fill → solid black bar burying the dark
+ *   label text on the light canvas), and dark post-processing now also lightens
+ *   near-black *strokes* incl. the named colour `black` (Mermaid timeline/axis
+ *   connectors). Forces a one-time re-render so existing consumers pick up the
+ *   readable output.
  */
-const RENDER_PIPELINE_VERSION = 4
+const RENDER_PIPELINE_VERSION = 5
 
 /**
  * Derive a stable signature for the effective optimization profile so that a

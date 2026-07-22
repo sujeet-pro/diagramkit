@@ -62,6 +62,23 @@ Errors block the review from completing. Phase 5 must report zero errors before 
   - **Draw.io**: update `fillColor=` and matching `fontColor=` in the cell `style=` string.
   - **Graphviz**: update `fillcolor=` and pair `fontcolor="#ffffff"` (AA palette) or `fontcolor="#1a1a1a"` (pastel palette). Never pair white text with the pastel palette.
 - **Always re-validate after a swap** — palette changes can cascade if `classDef`/`style` is reused across diagrams.
+- **Occlusion variant**: this code also fires when the text is legible on its own but sits on an opaque backdrop that is itself the wrong colour — most commonly a Mermaid `htmlLabels:false` edge-label bar (`<path class="background">`) that renders black because no fill rule targets it. The scanner reports the text against the black bar (e.g. `#333333 on #000000`). Fix by re-rendering with a current diagramkit (its pipeline pins the edge-label backdrop to the theme's `edgeLabelBackground`); if you see it on a stale SVG, `render --force`.
+
+### `LOW_CONTRAST_SHAPE`
+
+- **Means**: a box / node / marker is effectively invisible against the page canvas — neither its fill nor its border clears the visibility floor. Answers "are the boxes visible?" (WCAG 2.2 AA 1.4.11 family, calibrated as an invisibility floor so the accepted corpus is clean).
+- **Fix**:
+  - **Mermaid**: give the node a fill or border from the WCAG palette in [`audit-checklist.md`](./audit-checklist.md#cross-engine-wcag-22-aa-palette-use-for-white-text) — never a near-canvas fill with no border. A start/end state marker left at the default fill on the dark canvas is the classic case; re-render with a current diagramkit.
+  - **Excalidraw / Draw.io / Graphviz**: set an explicit `fill`/`fillColor`/`fillcolor` (or a visible `stroke`) that clears 3:1 against the canvas.
+- **Note**: the static scanner only judges resolvable paint; a shape whose fill is a gradient or attribute-selector rule is left to the light/dark render eyeball (see SKILL.md § Light + dark visual confirmation).
+
+### `LOW_CONTRAST_STROKE`
+
+- **Means**: a line / edge / connector / arrow stroke is effectively invisible against the canvas (e.g. a `#000` dashed connector on the `#111` dark canvas). Answers "are the lines and arrows visible?"
+- **Fix**:
+  - **Mermaid**: edges track `lineColor` (`#333` light / `#ccc` dark) — a hardcoded near-canvas stroke on a `linkStyle`/`classDef` is the cause; drop the override or re-render with a current diagramkit (the dark pipeline lightens near-black line strokes).
+  - **Graphviz**: set `edge [color="#333333"]` (light) / a light stroke for dark renders.
+  - **Draw.io / Excalidraw**: set the connector `strokeColor` to a value that clears 3:1 against the canvas.
 
 ### `SVG_VIEWBOX_TOO_WIDE`
 

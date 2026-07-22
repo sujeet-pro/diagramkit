@@ -12,6 +12,7 @@ import {
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, BrowserContext, Page } from 'playwright'
+import { mermaidLabelBackdropCSS } from './mermaid-theme'
 import { DiagramkitError, type Logger, type MermaidThemeVariables } from './types'
 
 const IDLE_TIMEOUT_MS = 5_000
@@ -260,10 +261,14 @@ export class BrowserPool {
       timeout: 15_000,
     })
 
-    // Initialize with theme — securityLevel prevents crafted diagrams from executing JS
+    // Initialize with theme — securityLevel prevents crafted diagrams from executing JS.
+    // themeCSS pins the edge-label backdrop fill (Mermaid's neo look leaves it
+    // unset → black bar over dark label text on the light canvas). See
+    // {@link mermaidLabelBackdropCSS}.
+    const themeCSS = mermaidLabelBackdropCSS(theme === 'base' ? 'dark' : 'light', themeVariables)
     const config = themeVariables
-      ? { theme, themeVariables, startOnLoad: false, securityLevel: 'strict' }
-      : { theme, startOnLoad: false, securityLevel: 'strict' }
+      ? { theme, themeVariables, themeCSS, startOnLoad: false, securityLevel: 'strict' }
+      : { theme, themeCSS, startOnLoad: false, securityLevel: 'strict' }
 
     await page.evaluate((cfg) => {
       ;(globalThis as any).mermaid.initialize(cfg)

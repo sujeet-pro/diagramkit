@@ -264,9 +264,16 @@ async function validateDocsContrast(): Promise<void> {
   }
   const { validateSvgDirectory } = (await import(distValidate)) as typeof import('../src/validate')
   const results = validateSvgDirectory(docsDir, { recursive: true })
+  // Text readability plus non-text visibility (boxes/lines/arrows): all three
+  // are readability regressions the docs site must not ship.
+  const READABILITY_CODES = new Set([
+    'LOW_CONTRAST_TEXT',
+    'LOW_CONTRAST_SHAPE',
+    'LOW_CONTRAST_STROKE',
+  ])
   let contrastFailures = 0
   for (const r of results) {
-    const lowContrast = r.issues.filter((i) => i.code === 'LOW_CONTRAST_TEXT')
+    const lowContrast = r.issues.filter((i) => READABILITY_CODES.has(i.code))
     if (lowContrast.length === 0) continue
     contrastFailures += lowContrast.length
     for (const issue of lowContrast) {
@@ -274,7 +281,7 @@ async function validateDocsContrast(): Promise<void> {
     }
   }
   if (contrastFailures === 0) {
-    info(`Docs contrast scan: ${results.length} SVG(s) checked, all pass WCAG 2.2 AA`)
+    info(`Docs readability scan: ${results.length} SVG(s) checked, all pass WCAG 2.2 AA`)
   }
 }
 

@@ -18,6 +18,29 @@ export const WCAG_AA_LARGE = 3.0
 export const WCAG_AA_NON_TEXT = 3.0
 
 /**
+ * Contrast below which a non-text graphical object (box / line / arrow) counts as
+ * effectively **invisible** against the page canvas — the threshold used by
+ * {@link findSvgVisibilityIssues}.
+ *
+ * This is deliberately *far lower* than WCAG 2.2 AA 1.4.11's 3:1 "meaningful UI
+ * object" bar — it is an **invisibility** floor, not a comfort bar. Calibrated
+ * against the full ~2,600-SVG rendered corpus:
+ *   - diagramkit's dark theme intentionally uses subtle boxes (`#2d2d2d` on the
+ *     `#111111` canvas ≈ 1.37:1) the project accepts, and neo-look nodes carry a
+ *     gradient border the static CSS parser cannot resolve, so their resolvable
+ *     fill sits at ≈ 1.17:1 while they render perfectly visibly — a 3:1 (or even
+ *     1.25:1) gate would flag the entire accepted corpus;
+ *   - a genuine regression — e.g. a black dashed connector arrow on the dark
+ *     canvas — sits at ≈ 1.11:1.
+ * 1.15 sits in that gap: it trips only on objects essentially the same colour as
+ * the canvas (no visible fill *and* no visible border), and never on accepted
+ * output. The subtler band (1.15–3:1, dominated by unresolvable gradient borders)
+ * is deliberately left to the skill's light/dark render eyeball — the static gate
+ * stays merge-blocking and false-positive-free.
+ */
+export const VISIBILITY_MIN_CONTRAST = 1.15
+
+/**
  * Compute the WCAG 2.x contrast ratio between two RGB colors.
  * Returns a value in [1, 21]. 1 = identical, 21 = black/white.
  */
@@ -122,6 +145,8 @@ function tokenize(svg: string): Tag[] {
 interface CssRule {
   fill?: string
   color?: string
+  stroke?: string
+  strokeWidth?: string
 }
 
 interface ParsedCss {
@@ -203,11 +228,24 @@ function parseStyleClasses(svg: string): ParsedCss {
         const [propRaw, valRaw] = decl.split(':')
         if (!propRaw || !valRaw) continue
         const prop = propRaw.trim().toLowerCase()
-        const val = valRaw.replace(/!important/i, '').trim()
+        // A value can itself contain ':' (none of ours do, but be defensive) —
+        // rejoin everything after the first ':' rather than trusting split[1].
+        const val = decl
+          .slice(decl.indexOf(':') + 1)
+          .replace(/!important/i, '')
+          .trim()
         if (prop === 'fill') decls.fill = val
         else if (prop === 'color') decls.color = val
+        else if (prop === 'stroke') decls.stroke = val
+        else if (prop === 'stroke-width') decls.strokeWidth = val
       }
-      if (decls.fill === undefined && decls.color === undefined) continue
+      if (
+        decls.fill === undefined &&
+        decls.color === undefined &&
+        decls.stroke === undefined &&
+        decls.strokeWidth === undefined
+      )
+        continue
       for (const selector of selectorList.split(',')) {
         // Strip leading `#scope ` (Mermaid scopes everything by graph id).
         const stripped = selector.replace(/^\s*#[A-Za-z_][\w-]*\s+/, '').trim()
@@ -489,6 +527,184 @@ function resolveFill(
   return { color: null, source: null }
 }
 
+/**
+ * Resolve the *raw declared value* of a paint property (`fill` / `stroke` /
+ * `stroke-width`) for an element, walking the same cascade as {@link resolveFill}
+ * but — crucially — returning the declared value verbatim even when it is a
+ * non-painting keyword (`none` / `transparent`). {@link resolveFill} only reports
+ * *resolvable colours* (it silently skips `fill:none`), which loses the
+ * distinction between "fill is unset" (→ the SVG initial value, **black**, which
+ * still paints) and "fill:none" (→ nothing paints). The visibility scanner and
+ * the unstyled-black backdrop rule need that distinction, so they use this.
+ *
+ * Returns `undefined` when the property is not declared anywhere in the reachable
+ * cascade (inline → attr → scoped descendant-class → class → descendant-tag →
+ * `.ancestor tag` → tag). Attribute/pseudo/id selectors are skipped by the CSS
+ * parser, so values set only through e.g. `[id$=-barbEnd]{fill:…}` are invisible
+ * here — the skill's light/dark render is the backstop for those.
+ */
+function resolveDeclaredValue(
+  pick: (r: CssRule) => string | undefined,
+  inlineProp: string,
+  attrName: string,
+  tag: string,
+  attrs: Record<string, string>,
+  parsed: ParsedCss,
+  ancestorClasses: ReadonlySet<string>,
+): string | undefined {
+  const inline = readStyleProp(attrs.style, inlineProp)
+  if (inline !== undefined) return inline
+  if (attrs[attrName] !== undefined) return attrs[attrName]
+
+  const ownClasses = attrs.class ? attrs.class.split(/\s+/).filter(Boolean) : []
+  const ownClassSet = new Set(ownClasses)
+
+  let bestScoped: string | undefined
+  let bestScopedN = -1
+  for (const d of parsed.descendantClasses) {
+    const v = pick(d.rule)
+    if (v === undefined) continue
+    if (!d.classes.every((c) => ownClassSet.has(c))) continue
+    if (!d.ancestors.every((c) => ancestorClasses.has(c))) continue
+    const specificity = d.ancestors.length + d.classes.length
+    if (specificity > bestScopedN) {
+      bestScopedN = specificity
+      bestScoped = v
+    }
+  }
+  if (bestScoped !== undefined) return bestScoped
+
+  for (const cls of ownClasses) {
+    const v = pick(parsed.classes.get(cls) ?? {})
+    if (v !== undefined) return v
+  }
+
+  const tagLower = tag.toLowerCase()
+  let bestMulti: string | undefined
+  let bestMultiN = -1
+  for (const d of parsed.descendantTags) {
+    if (d.tag !== tagLower) continue
+    const v = pick(d.rule)
+    if (v === undefined) continue
+    if (!d.ancestors.every((c) => ancestorClasses.has(c))) continue
+    if (d.ancestors.length > bestMultiN) {
+      bestMultiN = d.ancestors.length
+      bestMulti = v
+    }
+  }
+  if (bestMulti !== undefined) return bestMulti
+
+  const ancestorList = [...ancestorClasses]
+  for (let i = ancestorList.length - 1; i >= 0; i--) {
+    const v = pick(parsed.tagInClass.get(`${ancestorList[i]}>${tagLower}`) ?? {})
+    if (v !== undefined) return v
+  }
+
+  const v = pick(parsed.tags.get(tagLower) ?? {})
+  return v
+}
+
+const fillPick = (r: CssRule): string | undefined => r.fill
+const strokePick = (r: CssRule): string | undefined => r.stroke
+const strokeWidthPick = (r: CssRule): string | undefined => r.strokeWidth
+
+/** Elements that draw geometry. `line`/`polyline` are stroke-only line shapes. */
+function paintsGeometry(tag: string, attrs: Record<string, string>): boolean {
+  switch (tag) {
+    case 'rect': {
+      const w = parseFloat(attrs.width ?? '')
+      const h = parseFloat(attrs.height ?? '')
+      return Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0
+    }
+    case 'path':
+      return typeof attrs.d === 'string' && attrs.d.trim().length > 0
+    case 'circle': {
+      const r = parseFloat(attrs.r ?? '')
+      return Number.isFinite(r) && r > 0
+    }
+    case 'ellipse': {
+      const rx = parseFloat(attrs.rx ?? '')
+      const ry = parseFloat(attrs.ry ?? '')
+      return Number.isFinite(rx) && rx > 0 && Number.isFinite(ry) && ry > 0
+    }
+    case 'polygon':
+    case 'polyline':
+      return typeof attrs.points === 'string' && attrs.points.trim().length > 0
+    case 'line':
+      return true
+    default:
+      return false
+  }
+}
+
+/** `display:none` / `visibility:hidden` / `opacity:0` → the element paints nothing. */
+function isHidden(attrs: Record<string, string>): boolean {
+  const style = attrs.style
+  if (style && /(?:^|;)\s*display\s*:\s*none/i.test(style)) return true
+  if (attrs.display === 'none') return true
+  if (style && /(?:^|;)\s*visibility\s*:\s*hidden/i.test(style)) return true
+  const op = readStyleProp(style, 'opacity') ?? attrs.opacity
+  if (op !== undefined && parseFloat(op) === 0) return true
+  return false
+}
+
+function opacityZero(
+  attrs: Record<string, string>,
+  prop: 'fill-opacity' | 'stroke-opacity',
+): boolean {
+  const v = readStyleProp(attrs.style, prop) ?? attrs[prop]
+  return v !== undefined && parseFloat(v) === 0
+}
+
+/** The colour a shape's stroke paints, or `null` if unset (SVG default `none`) / non-painting. */
+function effectiveStrokeColor(
+  tag: string,
+  attrs: Record<string, string>,
+  parsed: ParsedCss,
+  ancestorClasses: ReadonlySet<string>,
+): string | null {
+  if (opacityZero(attrs, 'stroke-opacity')) return null
+  const raw = resolveDeclaredValue(
+    strokePick,
+    'stroke',
+    'stroke',
+    tag,
+    attrs,
+    parsed,
+    ancestorClasses,
+  )
+  if (raw === undefined) return null
+  return normalizeColor(raw)
+}
+
+function effectiveStrokeWidth(
+  tag: string,
+  attrs: Record<string, string>,
+  parsed: ParsedCss,
+  ancestorClasses: ReadonlySet<string>,
+): number {
+  const raw = resolveDeclaredValue(
+    strokeWidthPick,
+    'stroke-width',
+    'stroke-width',
+    tag,
+    attrs,
+    parsed,
+    ancestorClasses,
+  )
+  if (raw === undefined) return 1
+  const n = parseFloat(raw)
+  return Number.isFinite(n) ? n : 1
+}
+
+/**
+ * Mermaid's label-backdrop convention: edge/node/cluster label backgrounds are
+ * emitted as `<path class="background">` / `<rect class="background">`. These are
+ * the only elements that legitimately sit directly behind label text as an
+ * erase/halo — and the ones the `htmlLabels:false` bug leaves unfilled (→ black).
+ */
+const BACKGROUND_CLASS_RE = /(?:^|[-\s])background(?:$|[-\s])/i
+
 /** Shape tags whose fill can act as the painted block behind descendant text. */
 const BLOCK_SHAPE_TAGS = ['rect', 'path', 'circle', 'ellipse', 'polygon'] as const
 
@@ -705,21 +921,63 @@ export function findSvgContrastIssues(
       const ownFontSize = resolveFontSize(t.attrs)
       const ownFontWeight = resolveFontWeight(t.attrs)
 
+      // SVG's initial fill is black: a painted shape with NO fill declared
+      // anywhere (no inline/attr/class rule) still paints solid black and thus
+      // occludes any text drawn on top of it. resolveFill() reports only
+      // *resolvable colours* — it returns null for such an element — so a black
+      // backdrop like Mermaid's `<path class="background">` edge-label bar was
+      // invisible to the walker, and the label was (wrongly) scored against the
+      // page canvas instead of the black bar it actually sits on. Consult the
+      // raw declared value to tell "unset → black (paints)" apart from
+      // "fill:none → nothing paints".
+      let bgFill = ownFill
+      let bgFillExplicit = ownFillExplicit
+      // Restrict the unstyled-black backdrop to Mermaid's label-backdrop
+      // convention (`class="background"`). Those are the elements meant to sit
+      // *directly behind label text* as an erase/halo, and the ones the
+      // `htmlLabels:false` bug leaves unfilled → solid black. Other unstyled
+      // shapes that happen to render black — a timeline axis line, a flowchart
+      // arrowhead, a gantt tick — are graphical marks drawn ON the canvas, not
+      // backdrops for the text near them; assuming black there produced
+      // black-on-black false positives for text that actually sits on the canvas.
+      if (
+        !bgFill &&
+        BACKGROUND_CLASS_RE.test(t.attrs.class ?? '') &&
+        SIBLING_BG_TAGS.has(t.name) &&
+        paintsGeometry(t.name, t.attrs) &&
+        !isHidden(t.attrs) &&
+        !opacityZero(t.attrs, 'fill-opacity')
+      ) {
+        const declared = resolveDeclaredValue(
+          fillPick,
+          'fill',
+          'fill',
+          t.name,
+          t.attrs,
+          parsed,
+          ancestorClasses,
+        )
+        if (declared === undefined) {
+          bgFill = '#000000'
+          bgFillExplicit = false
+        }
+      }
+
       // Sibling-shape: update the *current* frame's localBg so subsequent text
       // siblings (within the same container) compute against this shape's fill.
       // An *explicit* own-fill always wins. An *implicit* fill (derived from a
-      // descendant CSS rule like `.node rect { fill: ... }`) only counts when
-      // we haven't already locked in a more-specific sibling fill — that lets
-      // a `<path style="fill: ...">` (the visible node body) keep its color
-      // even when an inner placeholder `<rect>` would otherwise inherit a
-      // generic `.node rect` rule.
-      if (SIBLING_BG_TAGS.has(t.name) && ownFill) {
-        if (ownFillExplicit) {
-          parent.localBg = ownFill
+      // descendant CSS rule like `.node rect { fill: ... }`, or the unstyled
+      // black default above) only counts when we haven't already locked in a
+      // more-specific sibling fill — that lets a `<path style="fill: ...">`
+      // (the visible node body) keep its color even when an inner placeholder
+      // `<rect>` would otherwise inherit a generic `.node rect` rule.
+      if (SIBLING_BG_TAGS.has(t.name) && bgFill) {
+        if (bgFillExplicit) {
+          parent.localBg = bgFill
           parent.localBgExplicit = true
           parent.localBgPainted = true
         } else if (!parent.localBgExplicit) {
-          parent.localBg = ownFill
+          parent.localBg = bgFill
           parent.localBgPainted = true
         }
       }
@@ -795,6 +1053,269 @@ export function findSvgContrastIssues(
       }
     } else if (t.kind === 'close') {
       if (stack.length > 1) stack.pop()
+    }
+  }
+
+  return issues
+}
+
+/* ── Public scanner: non-text visibility (WCAG 2.2 AA 1.4.11) ── */
+
+/** What kind of graphical object a visibility issue is about. */
+export type SvgVisibilityRole = 'shape' | 'line'
+
+export interface SvgVisibilityIssue {
+  /** `shape` = a filled box/node/marker; `line` = an edge/connector/arrow stroke. */
+  role: SvgVisibilityRole
+  /** Which paint failed against the backdrop. */
+  paint: 'fill' | 'stroke'
+  /** The element tag (`rect`, `path`, `line`, …) for human identification. */
+  tag: string
+  /** Resolved paint color in `#rrggbb`. */
+  color: string
+  /** Effective backdrop color in `#rrggbb`. */
+  backgroundColor: string
+  /** Computed contrast ratio (rounded to 2 decimals). */
+  ratio: number
+  /** Threshold this combination failed (non-text 1.4.11 = 3.0). */
+  required: number
+}
+
+export interface SvgVisibilityOptions {
+  /** Effective page/canvas background when no ancestor/sibling shape has painted. */
+  defaultBackground: string
+  /** Minimum contrast for a graphical object to count as visible (default 3.0). */
+  minContrast?: number
+}
+
+/**
+ * Scan an SVG for **non-text** graphical objects — filled shapes (boxes, nodes,
+ * markers) and stroked lines (edges, connectors, arrows) — that are effectively
+ * invisible against the page canvas. This complements {@link findSvgContrastIssues}
+ * (which only judges text) and directly answers "are the boxes / lines / arrows
+ * clearly visible?".
+ *
+ * Design (learned from calibrating against a 2,600-SVG corpus — the naive
+ * per-element-vs-nearest-sibling model produced ~1,300 false positives):
+ *
+ * 1. **Backdrop is always the page canvas.** Diagram objects are meant to read
+ *    against the diagram background. Judging a shape against an arbitrary
+ *    preceding sibling produced self-matches (a marker ring compared against its
+ *    own concentric fill → ratio 1.0) — pure artifacts. Cluster/container tints
+ *    are subtle enough that canvas is the honest reference.
+ * 2. **Shapes are judged per _visual unit_, not per element.** A node or an
+ *    end-state marker is drawn as several stacked shapes (fill body + border ring
+ *    + centre dot); individually some sub-shapes are low-contrast, but the unit
+ *    reads fine because at least one part shows. A unit (`<g class="node">`,
+ *    `statediagram-state`, `actor`, `cluster`, …) is invisible only when *every*
+ *    shape in it is below threshold; then it is reported once.
+ * 3. **Edges/connectors are judged individually on their stroke** (they are not
+ *    part of a node unit): a `line`/`polyline`, or a path carrying an edge class
+ *    (`transition`, `edge`, `relation`, `flowchart-link`, `messageLine…`).
+ * 4. Only canvas-painted geometry is judged — `<defs>`/`<marker>`/`<symbol>`/…
+ *    contents are skipped (templates, and their paint is often set by
+ *    `[id$=-barbEnd]`-style attribute selectors the CSS parser cannot resolve).
+ * 5. Backdrop/erase and text-container shapes (`background`, `label-container`,
+ *    `edgeLabel`) are skipped — their canvas-contrast is intentional and their
+ *    text is judged by the text scanner.
+ *
+ * The default threshold (`minContrast`) is calibrated so the existing, visually
+ * accepted corpus produces zero findings — the gate fires on genuine regressions
+ * (an object essentially the same colour as the canvas), not on subtle-by-design
+ * dark-theme nodes. Render-divergent cases the static parser can't see
+ * (attribute-selector fills, gradients, filters) are the province of the skill's
+ * light/dark render eyeball.
+ */
+export function findSvgVisibilityIssues(
+  svg: string,
+  options: SvgVisibilityOptions,
+): SvgVisibilityIssue[] {
+  const minContrast = options.minContrast ?? VISIBILITY_MIN_CONTRAST
+  const parsed = parseStyleClasses(svg)
+  const tokens = tokenize(svg)
+  const canvas = normalizeColor(options.defaultBackground) ?? '#ffffff'
+  const issues: SvgVisibilityIssue[] = []
+  const dedupe = new Set<string>()
+
+  const pushIssue = (
+    role: SvgVisibilityRole,
+    paint: 'fill' | 'stroke',
+    tag: string,
+    color: string,
+    ratio: number,
+  ): void => {
+    const key = `${role}|${paint}|${color}`
+    if (dedupe.has(key)) return
+    dedupe.add(key)
+    issues.push({
+      role,
+      paint,
+      tag,
+      color,
+      backgroundColor: canvas,
+      ratio: Math.round(ratio * 100) / 100,
+      required: minContrast,
+    })
+  }
+
+  const SHAPE_TAGS = new Set(['rect', 'path', 'circle', 'ellipse', 'polygon'])
+  const LINE_TAGS = new Set(['line', 'polyline'])
+  const NON_CANVAS_TAGS = new Set(['defs', 'marker', 'symbol', 'pattern', 'mask', 'clipPath'])
+  // Backdrop / erase / text-container / band / grid shapes we never flag for
+  // their own visibility. Their canvas-contrast is intentional (Gantt/timeline
+  // `.section` bands are deliberately faint alternating tints — e.g. white at
+  // 20% opacity; grid/tick lines are meant to be subtle), and their text is
+  // judged by the text scanner.
+  const SKIP_CLASS_RE =
+    /(?:^|[-\s])background(?:$|[-\s])|label-container|edgeLabel|(?:^|\s)section(?:\s|$)|(?:^|\s)(grid|tick|today|exclude|weekend)(?:\s|$)/i
+  // Classes identifying a connector/edge, judged individually on its stroke.
+  const EDGE_CLASS_RE =
+    /(?:^|\s)(edge|edgePath|transition|relation|flowchart-link|messageLine\d*|link|dependency|activation|lineWrapper|line)(?:\s|$)/i
+  // Container classes that bound one *flaggable* visual unit (node / marker).
+  const UNIT_CLASS_RE =
+    /(?:^|\s)(node|statediagram-state|actor|classGroup|entityBox|attributeBoxes|stateGroup)(?:\s|$)/i
+  // Grouping / label containers that bound a *non-flaggable* unit. Subgraph
+  // clusters are intentionally subtle grouping tints (e.g. `#e3f2fd` on white);
+  // edge/node label wrappers hold an "erase" backdrop behind their text (e.g. a
+  // white path on the light canvas) that is meant to be invisible. Opening these
+  // as non-flaggable units keeps their own backdrop shapes from being flagged as
+  // loose shapes, while real nodes nested inside still get their own (flaggable)
+  // unit and their text is judged by the text scanner.
+  const CLUSTER_CLASS_RE =
+    /(?:^|\s)(cluster|statediagram-cluster|rootLabel|edgeLabel|labelGroup|nodeLabel|label)(?:\s|$)/i
+
+  /** One visual unit (a node / marker / grouping box) accumulates its shapes. */
+  interface Unit {
+    maxVis: number
+    rep: { paint: 'fill' | 'stroke'; tag: string; color: string } | null
+    painted: boolean
+    /** Cluster/grouping units aggregate their tint but are never reported. */
+    flaggable: boolean
+  }
+  interface Frame {
+    ancestorClasses: Set<string>
+    nonCanvasDepth: number
+    /** The unit this element opened (finalized on its close), or null. */
+    unit: Unit | null
+  }
+  const unitStack: Unit[] = []
+  const stack: Frame[] = [{ ancestorClasses: new Set(), nonCanvasDepth: 0, unit: null }]
+  const top = () => stack[stack.length - 1]!
+  const activeUnit = (): Unit | null => (unitStack.length ? unitStack[unitStack.length - 1]! : null)
+
+  const finalizeUnit = (u: Unit): void => {
+    if (u.flaggable && u.painted && u.rep && u.maxVis + 1e-6 < minContrast) {
+      pushIssue('shape', u.rep.paint, u.rep.tag, u.rep.color, u.maxVis)
+    }
+  }
+
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]!
+    if (t.kind === 'open') {
+      const parent = top()
+      const ownClasses = t.attrs.class ? t.attrs.class.split(/\s+/).filter(Boolean) : []
+      const ancestorClasses = new Set(parent.ancestorClasses)
+      for (const c of ownClasses) ancestorClasses.add(c)
+      const cls = t.attrs.class ?? ''
+
+      const isShape = SHAPE_TAGS.has(t.name)
+      const isLine = LINE_TAGS.has(t.name)
+
+      if (
+        (isShape || isLine) &&
+        parent.nonCanvasDepth === 0 &&
+        paintsGeometry(t.name, t.attrs) &&
+        !isHidden(t.attrs) &&
+        !SKIP_CLASS_RE.test(cls)
+      ) {
+        const declaredFill = resolveDeclaredValue(
+          fillPick,
+          'fill',
+          'fill',
+          t.name,
+          t.attrs,
+          parsed,
+          ancestorClasses,
+        )
+        // A shape whose fill is *unset* (declaredFill === undefined) renders at
+        // the SVG default of black — but on the dark canvas that would false-
+        // positive en masse, because such shapes are overwhelmingly painted by
+        // `[data-look=neo]` / `[id$=-barbEnd]`-style attribute-selector rules the
+        // CSS parser cannot resolve. So the visibility scanner judges a shape
+        // only on *explicitly resolvable* paint; an unset fill contributes
+        // nothing (unknown), and the skill's render eyeball is the backstop.
+        const fillNorm =
+          opacityZero(t.attrs, 'fill-opacity') || declaredFill === undefined
+            ? null
+            : normalizeColor(declaredFill)
+        // A fill painted the *exact* canvas colour is an intentional erase/halo
+        // (e.g. a state-end marker's outer disc punching the ring gap, or a
+        // label backdrop), never a regressed object — treat it as no fill so it
+        // neither flags nor counts as the unit's visible paint.
+        const fillColor = fillNorm === canvas ? null : fillNorm
+        const strokeColor = effectiveStrokeColor(t.name, t.attrs, parsed, ancestorClasses)
+        const strokeW = effectiveStrokeWidth(t.name, t.attrs, parsed, ancestorClasses)
+        const fillC = fillColor ? contrastRatioHex(fillColor, canvas) : null
+        const strokeC =
+          strokeColor && strokeW > 0 && !opacityZero(t.attrs, 'stroke-opacity')
+            ? contrastRatioHex(strokeColor, canvas)
+            : null
+
+        if (isLine || EDGE_CLASS_RE.test(cls)) {
+          // Edge / connector / arrow — judged on its stroke against the canvas.
+          if (strokeColor !== null && strokeC !== null && strokeC + 1e-6 < minContrast) {
+            pushIssue('line', 'stroke', t.name, strokeColor, strokeC)
+          }
+        } else {
+          // Shape — a part of the enclosing visual unit. Its "visibility" is the
+          // better of its fill and its border; the unit is invisible only if no
+          // part clears the threshold.
+          const vis = Math.max(fillC ?? -1, strokeC ?? -1)
+          const rep =
+            fillColor && (fillC ?? -1) >= (strokeC ?? -1)
+              ? { paint: 'fill' as const, tag: t.name, color: fillColor }
+              : strokeColor
+                ? { paint: 'stroke' as const, tag: t.name, color: strokeColor }
+                : fillColor
+                  ? { paint: 'fill' as const, tag: t.name, color: fillColor }
+                  : null
+          if (rep && vis >= 0) {
+            const u = activeUnit()
+            if (u) {
+              u.painted = true
+              if (vis > u.maxVis) {
+                u.maxVis = vis
+                u.rep = rep
+              }
+            } else if (vis + 1e-6 < minContrast) {
+              // Loose shape with no enclosing unit — its own unit of one.
+              pushIssue('shape', rep.paint, rep.tag, rep.color, vis)
+            }
+          }
+        }
+      }
+
+      if (!t.selfClosing) {
+        const flaggable = UNIT_CLASS_RE.test(cls)
+        const opensUnit = flaggable || CLUSTER_CLASS_RE.test(cls)
+        const unit: Unit | null = opensUnit
+          ? { maxVis: -1, rep: null, painted: false, flaggable }
+          : null
+        if (unit) unitStack.push(unit)
+        stack.push({
+          ancestorClasses,
+          nonCanvasDepth: parent.nonCanvasDepth + (NON_CANVAS_TAGS.has(t.name) ? 1 : 0),
+          unit,
+        })
+      }
+    } else if (t.kind === 'close') {
+      if (stack.length > 1) {
+        const frame = stack.pop()!
+        if (frame.unit) {
+          unitStack.pop()
+          finalizeUnit(frame.unit)
+        }
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test'
 import { hexToRgb, hslToHex, rgbToHsl } from './convert'
 import { relativeLuminance } from './luminance'
 import { postProcessDarkSvg } from './contrast'
+import { VISIBILITY_MIN_CONTRAST, findSvgVisibilityIssues } from './wcag'
 
 describe('hexToRgb', () => {
   it('parses 6-digit hex', () => {
@@ -221,5 +222,76 @@ describe('postProcessDarkSvg', () => {
     const svg = '<rect fill="#000000"/>'
     const result = postProcessDarkSvg(svg)
     expect(result).toContain('fill="#000000"')
+  })
+
+  it('lightens a near-black stroke (invisible line/connector on the dark canvas)', () => {
+    const result = postProcessDarkSvg('<path stroke="#000000" d="M0 0"/>')
+    expect(result).not.toContain('stroke="#000000"')
+    const [r, g, b] = hexToRgb(result.match(/stroke="(#[0-9a-f]{6})"/)![1])!
+    expect(relativeLuminance(r, g, b)).toBeGreaterThan(0.4)
+  })
+
+  it('lightens the named color "black" on a stroke (Mermaid timeline connector form)', () => {
+    // Mermaid emits `stroke="black"` on timeline droplines; it overrides the
+    // theme CSS and SVGO later normalises it to #000 — invisible on dark.
+    const result = postProcessDarkSvg('<line stroke="black" x1="0" y1="0" x2="0" y2="9"/>')
+    expect(result).toMatch(/stroke="#[0-9a-f]{6}"/)
+    expect(result).not.toMatch(/stroke="black"/)
+  })
+
+  it('lightens a near-black stroke inside style="" too', () => {
+    const result = postProcessDarkSvg('<path style="fill:none;stroke:#000" d="M0 0"/>')
+    expect(result).not.toMatch(/stroke:#000\b/)
+  })
+
+  it('preserves the dark theme’s own mid-tone strokes (#555 / #333)', () => {
+    // These are intentional dark-theme borders/edges — must not be lightened.
+    expect(postProcessDarkSvg('<rect stroke="#555555"/>')).toContain('stroke="#555555"')
+    expect(postProcessDarkSvg('<path stroke="#333333" d="M0 0"/>')).toContain('stroke="#333333"')
+  })
+
+  it('does not touch stroke-width / stroke-dasharray (only the stroke color)', () => {
+    const svg = '<path stroke="#000000" stroke-width="2" stroke-dasharray="5,5" d="M0 0"/>'
+    const result = postProcessDarkSvg(svg)
+    expect(result).toContain('stroke-width="2"')
+    expect(result).toContain('stroke-dasharray="5,5"')
+  })
+})
+
+describe('findSvgVisibilityIssues', () => {
+  it('exposes an invisibility floor below the WCAG non-text bar', () => {
+    // It is an "invisible" floor, not the 3:1 comfort bar — the accepted dark
+    // theme uses subtle boxes, so the gate must sit well below 3:1.
+    expect(VISIBILITY_MIN_CONTRAST).toBeLessThan(1.5)
+    expect(VISIBILITY_MIN_CONTRAST).toBeGreaterThan(1)
+  })
+
+  it('flags an edge whose stroke is the canvas color as a line issue', () => {
+    const svg = `<svg><path class="transition" style="fill:none;stroke:#000000" d="M0 0L10 10"/></svg>`
+    const issues = findSvgVisibilityIssues(svg, { defaultBackground: '#111111' })
+    expect(issues).toHaveLength(1)
+    expect(issues[0]?.role).toBe('line')
+    expect(issues[0]?.paint).toBe('stroke')
+  })
+
+  it('reports a filled box invisible against the canvas as a shape issue', () => {
+    const svg = `<svg><rect x="1" y="1" width="8" height="8" fill="#171717"/></svg>`
+    const issues = findSvgVisibilityIssues(svg, { defaultBackground: '#111111' })
+    expect(issues.map((i) => i.role)).toContain('shape')
+  })
+
+  it('treats a fill that exactly matches the canvas as an intentional erase (no issue)', () => {
+    const svg = `<svg><rect x="1" y="1" width="8" height="8" fill="#111111"/></svg>`
+    expect(findSvgVisibilityIssues(svg, { defaultBackground: '#111111' })).toHaveLength(0)
+  })
+
+  it('does not flag a node whose fill is low-contrast but border is visible', () => {
+    const svg = `<svg><g class="node"><rect x="1" y="1" width="8" height="8" fill="#2d2d2d" stroke="#cccccc"/></g></svg>`
+    expect(findSvgVisibilityIssues(svg, { defaultBackground: '#111111' })).toHaveLength(0)
+  })
+
+  it('ignores contents of <defs>/<marker> templates', () => {
+    const svg = `<svg><defs><marker><path d="M0 0h4v4H0z" fill="#111111"/></marker></defs></svg>`
+    expect(findSvgVisibilityIssues(svg, { defaultBackground: '#111111' })).toHaveLength(0)
   })
 })

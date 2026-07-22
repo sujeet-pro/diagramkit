@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { postProcessDarkSvg } from './color/contrast'
 import { WCAG_AA_NORMAL, contrastRatioHex } from './color/wcag'
-import { defaultMermaidDarkTheme, defaultMermaidLightTheme } from './mermaid-theme'
+import {
+  defaultMermaidDarkTheme,
+  defaultMermaidLightTheme,
+  mermaidLabelBackdropCSS,
+} from './mermaid-theme'
 
 /**
  * These tests PROVE — using the repo's own WCAG luminance/contrast utility — that
@@ -59,5 +63,37 @@ describe('injected mermaid theme contrast (WCAG 2.2 AA)', () => {
     expect(processed).toContain(`fill="${xy.xAxisLabelColor}"`)
     // And the resulting (unchanged) color still clears AA on the chart background.
     expect(ratio(xy.xAxisLabelColor!, xy.backgroundColor!)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL)
+  })
+})
+
+describe('mermaidLabelBackdropCSS', () => {
+  it('pins the light edge-label backdrop to white so labels erase the line cleanly', () => {
+    const css = mermaidLabelBackdropCSS('light', defaultMermaidLightTheme)
+    expect(css).toMatch(/\.edgeLabel[^{]*background[^{]*\{fill:#ffffff/)
+  })
+
+  it('uses only a pure-class descendant selector (no tag.class form that would leak scope)', () => {
+    // `.edgeLabel rect.background` / `path.background` drop their ancestor scope
+    // in the regex CSS resolver and leak fill onto every `.background` element.
+    const css = mermaidLabelBackdropCSS('light')
+    expect(css).not.toMatch(/(?:rect|path)\.background/)
+    expect(css).toMatch(/\.edgeLabel \.background\{/)
+  })
+
+  it('pins the dark edge-label backdrop to the theme edgeLabelBackground', () => {
+    const css = mermaidLabelBackdropCSS('dark', defaultMermaidDarkTheme)
+    // defaultMermaidDarkTheme.edgeLabelBackground === '#1e1e1e'
+    expect(css).toMatch(/fill:#1e1e1e/)
+  })
+
+  it('falls back to a safe per-variant default when no theme is given', () => {
+    expect(mermaidLabelBackdropCSS('light')).toMatch(/fill:#ffffff/)
+    expect(mermaidLabelBackdropCSS('dark')).toMatch(/fill:#1e1e1e/)
+  })
+
+  it('scopes only to edge labels (never node/cluster backdrops)', () => {
+    const css = mermaidLabelBackdropCSS('light')
+    expect(css).toMatch(/\.edgeLabel/)
+    expect(css).not.toMatch(/\.node\s|\.cluster\s/)
   })
 })

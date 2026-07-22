@@ -191,6 +191,98 @@ describe('validateSvg — WCAG contrast checks', () => {
   })
 })
 
+describe('validateSvg — unstyled-shape backdrop (black-bar occlusion)', () => {
+  // Regression for the site-wide Mermaid `htmlLabels:false` bug: the edge-label
+  // backdrop is emitted as `<path class="background">` with NO fill rule, so it
+  // paints solid black (the SVG default) and buries the label text. The old
+  // scanner scored the text against the page canvas (#333 on #fff → pass); it
+  // must now score it against the black bar it actually sits on.
+  it('flags label text sitting on an unstyled (default-black) backdrop path', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60">
+      <g class="edgeLabel"><g class="label">
+        <path class="background" d="M0 0h60v18H0z"/>
+        <text fill="#333333"><tspan>POST /rides</tspan></text>
+      </g></g>
+    </svg>`
+    const issue = validateSvg(svg, 'flow-light.svg').issues.find(
+      (i) => i.code === 'LOW_CONTRAST_TEXT',
+    )
+    expect(issue).toBeDefined()
+    expect(issue?.message).toMatch(/on #000000/)
+  })
+
+  it('does NOT treat an explicit fill:none shape as a black backdrop', () => {
+    // A stroked-only connector path (fill:none) must not be read as a black fill.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60">
+      <rect width="100" height="60" fill="#ffffff"/>
+      <path style="fill:none;stroke:#333" d="M0 0L100 60"/>
+      <text x="10" y="30" fill="#333333">label on white</text>
+    </svg>`
+    const issue = validateSvg(svg, 'flow-light.svg').issues.find(
+      (i) => i.code === 'LOW_CONTRAST_TEXT',
+    )
+    expect(issue).toBeUndefined()
+  })
+})
+
+describe('validateSvg — non-text visibility (shapes, lines, arrows)', () => {
+  const codes = (svg: string, file: string) => validateSvg(svg, file).issues.map((i) => i.code)
+
+  it('flags an edge/arrow whose stroke is nearly the canvas color', () => {
+    // Black dashed connector on the dark canvas — the real "invisible arrow" bug.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path class="transition" style="fill:none;stroke:#000000;stroke-width:2" d="M0 0L100 100"/></svg>`
+    expect(codes(svg, 'edge-dark.svg')).toContain('LOW_CONTRAST_STROKE')
+  })
+
+  it('flags a loose box whose fill is nearly the canvas color and has no border', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="60" fill="#171717"/></svg>`
+    expect(codes(svg, 'box-dark.svg')).toContain('LOW_CONTRAST_SHAPE')
+  })
+
+  it('does NOT flag a low-contrast node fill rescued by a visible border', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g class="node"><rect x="10" y="10" width="80" height="40" fill="#2d2d2d" stroke="#cccccc" stroke-width="1"/></g></svg>`
+    expect(codes(svg, 'node-dark.svg')).not.toContain('LOW_CONTRAST_SHAPE')
+  })
+
+  it('does NOT flag a composite marker whose halo is invisible but ring is visible', () => {
+    // Marker = an erase halo painted the canvas color + a visible ring. The unit
+    // reads fine because the ring shows; per-element checks would false-positive.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g class="node statediagram-state">
+      <path class="outer" fill="#111111" d="M40 40h20v20H40z"/>
+      <path class="ring" style="fill:none;stroke:#cccccc;stroke-width:2" d="M42 42h16v16H42z"/>
+    </g></svg>`
+    expect(codes(svg, 'marker-dark.svg')).not.toContain('LOW_CONTRAST_SHAPE')
+  })
+
+  it('does NOT flag a subgraph cluster tint (subtle by design)', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g class="cluster"><path d="M8 8h180v180H8z" style="fill:#e3f2fd"/></g></svg>`
+    expect(codes(svg, 'sub-light.svg')).not.toContain('LOW_CONTRAST_SHAPE')
+  })
+
+  it('does NOT flag a well-themed diagram (visible boxes and edges)', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+      <g class="node"><rect x="10" y="10" width="80" height="40" fill="#ececff" stroke="#9370db" stroke-width="1"/></g>
+      <path class="transition" style="fill:none;stroke:#333333;stroke-width:1" d="M90 30L190 30"/>
+    </svg>`
+    const c = codes(svg, 'ok-light.svg')
+    expect(c).not.toContain('LOW_CONTRAST_SHAPE')
+    expect(c).not.toContain('LOW_CONTRAST_STROKE')
+  })
+
+  it('new visibility codes are warnings (blocking is enforced via --fail-on)', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="60" fill="#171717"/></svg>`
+    const r = validateSvg(svg, 'box-dark.svg')
+    expect(r.valid).toBe(true)
+    expect(r.issues.find((i) => i.code === 'LOW_CONTRAST_SHAPE')?.severity).toBe('warning')
+  })
+
+  it('respects checkContrast:false to skip visibility scanning', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="60" fill="#171717"/></svg>`
+    const c = validateSvg(svg, 'box-dark.svg', { checkContrast: false }).issues.map((i) => i.code)
+    expect(c).not.toContain('LOW_CONTRAST_SHAPE')
+  })
+})
+
 describe('validateSvg — contrast background resolution for Mermaid layouts', () => {
   const low = (svg: string, file: string) =>
     validateSvg(svg, file).issues.filter((i) => i.code === 'LOW_CONTRAST_TEXT')

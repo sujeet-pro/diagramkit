@@ -230,6 +230,7 @@ diagramkit validate output.svg           # Single file
 diagramkit validate . --recursive --json # JSON report for CI
 diagramkit validate . -r --scope-dir diagrams          # Only SVGs under diagrams/ folders
 diagramkit validate . -r --fail-on LOW_CONTRAST_TEXT   # Promote a warning code to fatal
+diagramkit validate . -r --fail-on LOW_CONTRAST_TEXT,LOW_CONTRAST_SHAPE,LOW_CONTRAST_STROKE  # Text + box + line/arrow readability (light & dark)
 diagramkit validate . -r --fail-on-severity warn       # Fail on any warning or error
 diagramkit skills install                # Install/refresh skill pointers
 diagramkit skills install --check --json # CI drift gate, machine-readable

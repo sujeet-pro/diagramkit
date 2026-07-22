@@ -93,3 +93,37 @@ export const defaultMermaidDarkTheme: MermaidThemeVariables = {
 export const defaultMermaidLightTheme: MermaidThemeVariables = {
   sequenceNumberColor: '#333333',
 }
+
+/**
+ * Corrective CSS injected via Mermaid's `themeCSS` init field (scoped by Mermaid
+ * under the graph id, on top of the theme's generated stylesheet).
+ *
+ * Fixes the `htmlLabels:false` edge-label bug: with HTML labels off (required so
+ * diagrams render inside `<img>`), Mermaid's neo look draws each edge-label
+ * backdrop as `<path class="background">` (and `<rect class="background">`) with
+ * **no fill rule at all**, so it falls back to the SVG initial value of solid
+ * black — a black bar that buries the dark label text on the light canvas. Both
+ * theme stylesheets style the *rect*-based `.edgeLabel rect` background but never
+ * the neo `path.background`, so the fill never lands. We pin the edge-label
+ * backdrop to the theme's `edgeLabelBackground` (the canvas-matching "erase"
+ * colour) so the label reads on a clean backdrop in both themes.
+ *
+ * Scoped to `.edgeLabel` so node/cluster label backdrops (which are zero-size or
+ * intentionally tinted) are untouched.
+ */
+export function mermaidLabelBackdropCSS(
+  variant: 'light' | 'dark',
+  themeVariables?: MermaidThemeVariables,
+): string {
+  const raw = themeVariables?.edgeLabelBackground
+  const elBg = typeof raw === 'string' ? raw : variant === 'dark' ? '#1e1e1e' : '#ffffff'
+  // Use ONLY a pure-class descendant selector. `.edgeLabel .background` matches
+  // both the neo `<path class="background">` and the older `<rect class="background">`
+  // (descendant, tag-agnostic) AND stays correctly scoped: it applies only to a
+  // `background` element that is a descendant of `.edgeLabel`, never to the
+  // same-named zero-size backdrop rects inside *node* labels. (A `tag.class`
+  // form like `.edgeLabel rect.background` would drop its `.edgeLabel` scope in
+  // diagramkit's regex CSS resolver and leak the fill onto every `background`
+  // element — turning node label text into a white-on-white false positive.)
+  return `.edgeLabel .background{fill:${elBg};}`
+}
