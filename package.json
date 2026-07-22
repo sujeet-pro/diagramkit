@@ -140,13 +140,13 @@
     "@types/css-tree": "^2.3.11",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "4.1.4",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "typescript": "^6.0.3",
     "vite-plus": "^0.1.19",
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.19"
   },
   "peerDependencies": {
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5 || ^0.35.0"
   },
   "peerDependenciesMeta": {
     "sharp": {
@@ -155,10 +155,12 @@
   },
   "overrides": {
     "@excalidraw/mermaid-to-excalidraw": "^2.2.2",
+    "@hono/node-server": ">=2.0.5",
     "dompurify": ">=3.3.2",
     "lodash-es": ">=4.18.1",
     "nanoid": ">=3.3.8",
     "picomatch": ">=4.0.2",
+    "sharp": "^0.35.3",
     "uuid": ">=14.0.0",
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.19",
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.19"
