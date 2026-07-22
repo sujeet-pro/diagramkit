@@ -114,11 +114,12 @@
     "check:fix": "vp check --fix",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist gh-pages",
-    "cicd": "npm run check && npm run typecheck && npm run build:all && npm run test:unit && npm run test:e2e && node --experimental-strip-types --no-warnings ./scripts/validate-build.ts && npm run validate:pagesmith",
+    "cicd": "npm run check && npm run typecheck && npm run build:all && npm run test:unit && npm run test:e2e && node --experimental-strip-types --no-warnings ./scripts/validate-build.ts && npm run validate:pagesmith && npm run validate:skills",
     "validate": "npm run cicd",
     "validate:fast": "npm run check && npm run typecheck && npm run build:lib && npm run test:unit",
     "validate:pagesmith": "node --experimental-strip-types --no-warnings ./scripts/validate-pagesmith.ts",
-    "validate:pagesmith:full": "node --experimental-strip-types --no-warnings ./scripts/validate-pagesmith.ts --full"
+    "validate:pagesmith:full": "node --experimental-strip-types --no-warnings ./scripts/validate-pagesmith.ts --full",
+    "validate:skills": "pagesmith skills install --check"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",

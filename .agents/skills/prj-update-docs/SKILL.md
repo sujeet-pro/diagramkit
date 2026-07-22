@@ -12,6 +12,7 @@ Read the project implementation and update `docs/` to reflect the current state.
 
 1. [`references/docs-workflow.md`](references/docs-workflow.md) — docs conventions and AI-first writing rule.
 2. [`references/pagesmith-markdown.md`](references/pagesmith-markdown.md) — Pagesmith markdown features, code block meta, validators (was `.pagesmith/markdown-guidelines.md`).
+   Plus [`references/pagesmith-docs-extras.md`](references/pagesmith-docs-extras.md) — diagramkit-specific conventions to apply ON TOP of the installer-managed `pagesmith-*` skill stubs (which are overwritten on every `npx pagesmith skills install`).
 3. [`../prj-review-repo/references/project-context.md`](../prj-review-repo/references/project-context.md) — canonical API surface, CLI commands, config schema.
 4. `pagesmith.config.json5` — site config.
 5. `node_modules/@pagesmith/docs/ai-guidelines/*.md` — package usage guidance.

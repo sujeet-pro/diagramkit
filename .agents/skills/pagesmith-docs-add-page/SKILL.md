@@ -3,24 +3,15 @@ name: pagesmith-docs-add-page
 description: Add a new page (guide, reference, or home) to an existing @pagesmith/docs site with correct frontmatter, file placement, and sidebar ordering. Use when the user wants to write a new doc page, document a feature in their Pagesmith site, add a quickstart, or extend an existing docs section — even if they don't mention "Pagesmith" explicitly.
 ---
 
-# Pagesmith Docs — Add Page (pointer)
+<!-- pagesmith-skill-pointer: pkg=@pagesmith/docs version=0.11.0 generator=@pagesmith/docs@0.11.0 -->
 
-This is a **thin pointer**. The canonical, version-matched skill ships with `@pagesmith/docs` and lives at:
+# pagesmith-docs-add-page
 
-- Upstream skill: [`node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/SKILL.md`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/SKILL.md)
-- Sibling references: [`node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/references/`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/references/)
-- Schema: [`node_modules/@pagesmith/docs/schemas/docs-page-frontmatter.schema.json`](../../../node_modules/@pagesmith/docs/schemas/docs-page-frontmatter.schema.json)
-- Full reference: [`node_modules/@pagesmith/docs/REFERENCE.md`](../../../node_modules/@pagesmith/docs/REFERENCE.md)
+Canonical, version-matched skill body ships inside the installed `@pagesmith/docs` package. Read and follow it exactly — do not duplicate it here:
 
-Read and follow the upstream `SKILL.md` exactly. Do not duplicate its content here — re-installing or upgrading `@pagesmith/docs` keeps the upstream copy in sync with the installed version automatically.
+→ [`../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/SKILL.md`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/SKILL.md)
 
-## Diagramkit-specific extras
+Sibling references (if present): [`../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/references`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-page/references)
+Package reference: [`../../../node_modules/@pagesmith/docs/REFERENCE.md`](../../../node_modules/@pagesmith/docs/REFERENCE.md)
 
-After the upstream flow, also enforce these conventions:
-
-1. **Internal links must be `./path/README.md` form.** `validate:pagesmith` rejects bare paths like `./watch-mode` or `/guide/cli` — see [`scripts/lib/docs-rules.ts`](../../../scripts/lib/docs-rules.ts).
-2. **Diagram assets** referenced via `<picture>` or `![]()` must resolve under a sibling `.diagramkit/` directory; rerun `npm run render:docs` whenever you add or rename one.
-3. New pages in `docs/reference/diagramkit/**` must mirror the public surface in `src/index.ts`, `src/utils.ts`, and `src/types.ts` (see [`prj-update-docs`](../prj-update-docs/SKILL.md)).
-4. After authoring, run `npm run validate:pagesmith` to validate **markdown content + HTML output** (the upstream `validateDocs` covers both).
-
-For any other diagramkit-specific docs work see [`prj-update-docs`](../prj-update-docs/SKILL.md).
+The body auto-upgrades whenever `@pagesmith/docs` is reinstalled. Always anchor on the local install (`npx pagesmith ...`), never a global one.

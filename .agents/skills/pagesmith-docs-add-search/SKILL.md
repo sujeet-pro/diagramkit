@@ -3,16 +3,15 @@ name: pagesmith-docs-add-search
 description: Enable or customize Pagefind-powered full-text search in a @pagesmith/docs site — toggle it on, tune heading weights, scope the index, add a custom search trigger, or fix a broken search box. Use when the user asks about docs search, Pagefind, Cmd+K, or a missing search UI.
 ---
 
-# Pagesmith Docs — Add Search (pointer)
+<!-- pagesmith-skill-pointer: pkg=@pagesmith/docs version=0.11.0 generator=@pagesmith/docs@0.11.0 -->
 
-This is a **thin pointer**. The canonical, version-matched skill ships with `@pagesmith/docs` and lives at:
+# pagesmith-docs-add-search
 
-- Upstream skill: [`node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/SKILL.md`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/SKILL.md)
-- Sibling references: [`node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/references/`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/references/)
-- Full reference: [`node_modules/@pagesmith/docs/REFERENCE.md`](../../../node_modules/@pagesmith/docs/REFERENCE.md)
+Canonical, version-matched skill body ships inside the installed `@pagesmith/docs` package. Read and follow it exactly — do not duplicate it here:
 
-Read and follow the upstream `SKILL.md` exactly. Do not duplicate its content here.
+→ [`../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/SKILL.md`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/SKILL.md)
 
-## Diagramkit-specific extras
+Sibling references (if present): [`../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/references`](../../../node_modules/@pagesmith/docs/skills/pagesmith-docs-add-search/references)
+Package reference: [`../../../node_modules/@pagesmith/docs/REFERENCE.md`](../../../node_modules/@pagesmith/docs/REFERENCE.md)
 
-- diagramkit currently keeps `search.enabled: true` in [`pagesmith.config.json5`](../../../pagesmith.config.json5). When changing search options, validate the build with `npm run validate:pagesmith` so the upstream `validateDocs` confirms both content and HTML output still pass.
+The body auto-upgrades whenever `@pagesmith/docs` is reinstalled. Always anchor on the local install (`npx pagesmith ...`), never a global one.
