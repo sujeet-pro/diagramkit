@@ -136,7 +136,7 @@
     "svgo": "^4.0.2"
   },
   "devDependencies": {
-    "@pagesmith/docs": "^0.10.0",
+    "@pagesmith/docs": "^0.11.0",
     "@types/css-tree": "^2.3.11",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "4.1.4",

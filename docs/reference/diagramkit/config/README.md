@@ -34,12 +34,20 @@ interface DiagramkitConfig {
   inputDirs?: string[]
   overrides?: Record<string, FileOverride>
   mermaidLayout?: MermaidLayoutOptions
+  optimize?: OptimizeOptions
 }
 
 interface MermaidLayoutOptions {
   mode?: 'off' | 'warn' | 'flip' | 'elk' | 'auto' // Default: 'warn'
   targetAspectRatio?: number                       // Default: 4 / 3
   tolerance?: number                               // Default: 2.5
+}
+
+interface OptimizeOptions {
+  svg?: boolean                  // SVGO + Mermaid CSS pruning. Default: true
+  png?: PngEncoderOptions
+  webp?: WebpEncoderOptions
+  avif?: AvifEncoderOptions
 }
 ```
 
@@ -237,6 +245,69 @@ Only Mermaid renders are affected. Excalidraw, draw.io, and Graphviz outputs are
 ```
 
 The same options can be passed per render call via `RenderOptions.mermaidLayout`, layered on top of the project config.
+
+---
+
+### `optimize`
+
+| | |
+|:--|:--|
+| **Type** | `OptimizeOptions` |
+| **Default** | `{ svg: true }` |
+
+Output optimization: SVGO + Mermaid CSS pruning for SVG output, and `sharp` encoder tuning for raster output (PNG/JPEG/WebP/AVIF, converted from the optimized SVG).
+
+```ts
+interface OptimizeOptions {
+  svg?: boolean                  // Default: true
+  png?: PngEncoderOptions
+  webp?: WebpEncoderOptions
+  avif?: AvifEncoderOptions
+}
+
+interface PngEncoderOptions {
+  compressionLevel?: number      // 0–9. Default: 9
+  effort?: number                // 1–10. Default: 10
+  adaptiveFiltering?: boolean
+  palette?: boolean
+  quality?: number               // 1–100, palette quality when palette is enabled
+}
+
+interface WebpEncoderOptions {
+  effort?: number                // 0–6. Default: 6
+  quality?: number                // 1–100. Defaults to the render `quality` option
+  lossless?: boolean
+  nearLossless?: boolean
+}
+
+interface AvifEncoderOptions {
+  effort?: number                // 0–9. Default: 6
+  quality?: number                // 1–100. Defaults to the render `quality` option
+  lossless?: boolean
+}
+```
+
+| Field | Type | Default | Notes |
+|:------|:-----|:--------|:------|
+| `svg` | `boolean` | `true` | Runs a curated, accessibility-preserving SVGO pass plus reference-aware Mermaid `<style>` pruning on every rendered SVG before it is written to disk (and before rasterization, so PNG/WebP/AVIF derive from the same optimized source). Preserves `viewBox`, `width`/`height`, `role`/`aria-*`/`<title>`/`<desc>`, kept `<style>` rules, and every id referenced by `url(#…)`/CSS selectors/`<use>`. Deterministic — identical input yields byte-identical output. Set `false` to disable for hand-authored sources that need byte-exact passthrough. |
+| `png` | `PngEncoderOptions` | `{ compressionLevel: 9, effort: 10 }` | Merged on top of the tuned defaults and forwarded to `sharp(...).png(...)`. Any option `sharp` accepts is passed through, not just the fields above. |
+| `webp` | `WebpEncoderOptions` | `{ effort: 6 }` | Merged on top of the tuned defaults; `quality` follows the render `quality` option unless overridden here. |
+| `avif` | `AvifEncoderOptions` | `{ effort: 6 }` | Merged on top of the tuned defaults; `quality` follows the render `quality` option unless overridden here. |
+
+Mermaid boilerplate pruning is conservative: a `<style>` rule is dropped only when every selector in it can be confidently evaluated and none matches a class/id/tag present in the rendered document; selectors with attribute selectors, functional pseudo-classes (`:not()`, `:has()`, …), or unparsable preludes are always kept, as are `@media`/`@supports` blocks. `@keyframes`/`@font-face` at-rules are kept only when referenced by a kept rule. Optimization never throws — if SVGO fails on a pathological document, the (possibly CSS-pruned) input is returned so a render is never lost to optimization.
+
+```json5
+{
+  optimize: {
+    svg: true,
+    png: { compressionLevel: 9, effort: 10 },
+    webp: { effort: 6 },
+    avif: { effort: 6 },
+  },
+}
+```
+
+Like `mermaidLayout`, `optimize` is deep-merged across config layers — a partial override (just `svg`, or just `png`) keeps the rest of the defaults, and each sub-object is validated independently so a malformed value falls back to its default with a warning instead of dropping the whole block.
 
 ## Environment Variables
 

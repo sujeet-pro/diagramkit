@@ -32,15 +32,15 @@ skills as local pointers into node_modules:
    version-pinned contract for the CLI/API surface you just installed — do
    NOT use a globally installed `diagramkit` or rely on older training data.
 
-3. Follow node_modules/diagramkit/skills/diagramkit-setup/SKILL.md end to
-   end. It will:
-     - run `npx diagramkit warmup` (skip if the repo is Graphviz-only),
+3. Run:
+     - `npx diagramkit warmup` (skip if the repo is Graphviz-only),
      - wire `"render:diagrams": "diagramkit render ."` into package.json
        (use the repo's existing script naming convention if it has one),
      - create diagramkit.config.json5 ONLY if the repo needs non-default
        behavior (`npx diagramkit init --yes`),
      - render any existing diagrams once with `npx diagramkit render .`,
-     - and write thin pointer SKILL.md files for every skill shipped at
+     - and run `npx diagramkit skills install` to write thin pointer
+       SKILL.md files for every skill shipped at
        node_modules/diagramkit/skills/diagramkit-<name>/, at:
          .agents/skills/diagramkit-<name>/SKILL.md    (always)
          .claude/skills/diagramkit-<name>/SKILL.md    (if .claude/ exists)
@@ -51,11 +51,12 @@ skills as local pointers into node_modules:
        the bundled SKILL.md) plus a single "follow
        node_modules/diagramkit/skills/diagramkit-<name>/SKILL.md"
        instruction, so every agent reads the skill version pinned to the
-       installed diagramkit.
+       installed diagramkit. The command is idempotent — re-running it
+       reports created/updated/unchanged per stub.
        Skills installed: setup, auto, mermaid, excalidraw, draw-io,
        graphviz, review (validation + WCAG 2.2 AA contrast).
-     - never overwrite an existing pointer or existing config file
-       without explicit confirmation.
+     - never overwrite an existing config file without explicit
+       confirmation.
 
 4. Commit the pointer SKILL.md files along with any package.json / config
    changes. List the created/skipped pointers in your summary.

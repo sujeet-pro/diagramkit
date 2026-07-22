@@ -121,6 +121,13 @@ interface DiagramkitConfig {
    * See [`MermaidLayoutOptions`](#mermaidlayoutoptions) below.
    */
   mermaidLayout?: MermaidLayoutOptions
+
+  /**
+   * Output optimization: SVGO + Mermaid CSS pruning for SVG output, and sharp
+   * encoder tuning for raster output. Default: `{ svg: true }`.
+   * See [`OptimizeOptions`](#optimizeoptions) below.
+   */
+  optimize?: OptimizeOptions
 }
 ```
 
@@ -265,6 +272,59 @@ interface MermaidLayoutOptions {
 
 Only `flowchart`/`graph` diagrams are rebalance-eligible. Sequence, gantt, journey, state, ER, class, mindmap, sankey, gitGraph diagrams degrade to `warn`-only behaviour.
 
+### `OptimizeOptions`
+
+```ts
+interface OptimizeOptions {
+  /** Run SVGO + Mermaid CSS pruning on every rendered SVG before it is written. Default: true. */
+  svg?: boolean
+  /** Sharp PNG encoder overrides, merged on top of `{ compressionLevel: 9, effort: 10 }`. */
+  png?: PngEncoderOptions
+  /** Sharp WebP encoder overrides, merged on top of `{ effort: 6 }`. */
+  webp?: WebpEncoderOptions
+  /** Sharp AVIF encoder overrides, merged on top of `{ effort: 6 }`. */
+  avif?: AvifEncoderOptions
+}
+```
+
+`svg: true` (the default) preserves `viewBox`, `width`/`height`, `role`/`aria-*`/`<title>`/`<desc>`, kept `<style>` rules, and every id referenced by `url(#…)`/CSS selectors/`<use>` — deterministic, so identical input always yields byte-identical output. It never throws: an SVGO failure on a pathological document falls back to the (possibly Mermaid-CSS-pruned) input rather than losing the render.
+
+### `PngEncoderOptions` / `WebpEncoderOptions` / `AvifEncoderOptions`
+
+```ts
+interface PngEncoderOptions {
+  /** 0 (fastest/largest) – 9 (slowest/smallest). Default: 9. */
+  compressionLevel?: number
+  /** 1 (fastest) – 10 (slowest/smallest). Default: 10. */
+  effort?: number
+  /** Adaptive row filtering. */
+  adaptiveFiltering?: boolean
+  /** Quantise to a palette (lossy) to shrink flat-colour PNGs. */
+  palette?: boolean
+  /** Palette quality when `palette` is enabled, 1–100. */
+  quality?: number
+}
+
+interface WebpEncoderOptions {
+  /** 0 (fastest) – 6 (slowest/smallest). Default: 6. */
+  effort?: number
+  /** 1–100. Defaults to the render `quality` option. */
+  quality?: number
+  lossless?: boolean
+  nearLossless?: boolean
+}
+
+interface AvifEncoderOptions {
+  /** 0 (fastest) – 9 (slowest/smallest). Default: 6. */
+  effort?: number
+  /** 1–100. Defaults to the render `quality` option. */
+  quality?: number
+  lossless?: boolean
+}
+```
+
+Any field accepted by the corresponding `sharp(...).png()/.webp()/.avif()` call is forwarded, not just the ones documented above — these interfaces list the common knobs, not the full sharp surface.
+
 ### `RenderResult`
 
 ```ts
@@ -395,8 +455,14 @@ interface ConvertOptions {
   format: 'png' | 'jpeg' | 'webp' | 'avif'
   /** Scale multiplier for SVG rasterization. Default: 2 */
   scale?: number
-  /** JPEG/WebP quality (1-100). Default: 90 */
+  /** JPEG/WebP/AVIF quality (1-100). Default: 90 */
   quality?: number
+  /** Sharp PNG encoder overrides, merged on top of `{ compressionLevel: 9, effort: 10 }`. */
+  png?: PngEncoderOptions
+  /** Sharp WebP encoder overrides, merged on top of `{ effort: 6 }`. */
+  webp?: WebpEncoderOptions
+  /** Sharp AVIF encoder overrides, merged on top of `{ effort: 6 }`. */
+  avif?: AvifEncoderOptions
 }
 ```
 
@@ -523,9 +589,12 @@ type SvgIssueCode =
   | 'SVG_TOO_LARGE'
   | 'LOW_CONTRAST_TEXT'
   | 'ASPECT_RATIO_EXTREME'
+  | 'SVG_VIEWBOX_TOO_WIDE'
 ```
 
 `ASPECT_RATIO_EXTREME` is emitted when the rendered SVG width/height ratio falls outside the readable band (default `[1:1.9, 3.3:1]` against a 4:3 target). Tunable per call via `SvgValidateOptions.aspectRatio` — see below.
+
+`SVG_VIEWBOX_TOO_WIDE` is emitted when the viewBox is wider than the CLI's `--max-width` threshold (calibrated for a ~500px content column with up to 1.5× downscale); disable via `diagramkit validate --no-max-width` or raise the threshold with `--max-width <px>`. Both `--fail-on` (to promote it to fatal) and `--scope-dir` (to restrict which SVGs are checked) compose with this check — see [CLI Reference → `validate` Options](../cli/README.md#validate-options).
 
 ### `SvgIssue`
 

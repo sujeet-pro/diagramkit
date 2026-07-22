@@ -21,7 +21,9 @@ node ./node_modules/diagramkit/dist/cli/bin.mjs --version
 |:--------|:------------|
 | `render <file-or-dir>` | Render diagram file(s) to images |
 | `<file-or-dir>` | Alias for `render <file-or-dir>` |
-| `validate <file-or-dir> [--recursive] [--json]` | Validate generated SVG file(s) for correctness and `<img>`-tag compatibility |
+| `validate <file-or-dir> [--recursive] [--json] [--scope-dir <name>] [--fail-on <CODE,...>] [--fail-on-severity <warn\|error>]` | Validate generated SVG file(s) for correctness and `<img>`-tag compatibility |
+| `skills install [options]` | Install versioned-pointer skill stubs (`.agents/skills` + harness mirrors) |
+| `skills` | Show skills subcommand help |
 | `warmup` | Pre-install Playwright Chromium browser |
 | `doctor [--json]` | Validate runtime dependencies and environment |
 | `init [--ts] [--yes]` | Create config file (`--yes` accepts defaults; `--ts` writes a TypeScript config with `defineConfig()`) |
@@ -35,7 +37,13 @@ node ./node_modules/diagramkit/dist/cli/bin.mjs --version
 Bare `diagramkit` on a TTY launches the top-level interactive picker; on non-TTY (CI, scripts) it prints help. Bare `diagramkit render` on a TTY launches the render wizard.
 
 > [!IMPORTANT]
-> **The diagramkit CLI does not install agent skills.** The previous `diagramkit --install-skill` flag was removed in v0.3. Skills now ship inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The recommended install is the **local pointer pattern** written by `diagramkit-setup` — thin SKILL.md files at `.agents/skills/diagramkit-*` (with mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`) that defer to the bundled originals. The standalone [`skills`](https://github.com/vercel-labs/skills) CLI is supported as an alternative when you specifically want skills that update independently of the installed `diagramkit`:
+> **Project skills are installed by `diagramkit skills install`, not by any other CLI flag.** The previous `diagramkit --install-skill` flag was removed in v0.3. Skills ship inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The default install is:
+>
+> ```bash
+> npx diagramkit skills install
+> ```
+>
+> It writes thin pointer SKILL.md files at `.agents/skills/diagramkit-*` (with mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/` for detected or `--harness`-selected harnesses) that defer to the bundled originals, idempotently. See [`skills install` Options](#skills-install-options) below. The `diagramkit-setup` skill documents the same pointer format as a prose fallback for non-CLI contexts. The standalone [`skills`](https://github.com/vercel-labs/skills) CLI is supported as an alternative when you specifically want skills that update independently of the installed `diagramkit`:
 >
 > ```bash
 > npx skills add sujeet-pro/diagramkit                              # all skills
@@ -44,7 +52,7 @@ Bare `diagramkit` on a TTY launches the top-level interactive picker; on non-TTY
 > npx skills update sujeet-pro/diagramkit                           # refresh later
 > ```
 >
-> Running the legacy `diagramkit --install-skill` exits with code 1 and prints a message pointing at `diagramkit-setup` and `npx skills`.
+> Running the legacy `diagramkit --install-skill` exits with code 1 and prints a message pointing at `diagramkit skills install` and `npx skills`.
 
 ## `render` Options
 
@@ -59,6 +67,7 @@ Bare `diagramkit` on a TTY launches the top-level interactive picker; on non-TTY
 | `--no-contrast` | `boolean` | `false` | Disable dark SVG contrast optimization |
 | `--type` | `mermaid`, `excalidraw`, `drawio`, `graphviz` | all | Filter by type |
 | `--output` | `string` | `.diagramkit/` sibling | Custom output dir (works for single files and directories; in directory mode, all outputs go to this folder and manifest tracking is disabled) |
+| `--scope-dir` | `string` | — | Only render sources under a directory segment named `<name>` (e.g. `diagrams`), skipping diagram sources elsewhere in the tree. Segment match, not substring. Orphan cleanup still runs against the full discovered set. Mirrors `validate --scope-dir`. |
 | `--output-dir` | `string` | `.diagramkit` | Output folder name |
 | `--manifest-file` | `string` | `manifest.json` | Manifest filename |
 | `--no-manifest` | `boolean` | `false` | Disable manifest tracking |
@@ -85,9 +94,31 @@ Bare `diagramkit` on a TTY launches the top-level interactive picker; on non-TTY
 | Flag | Type | Default | Description |
 |:-----|:-----|:--------|:------------|
 | `--recursive` | `boolean` | `false` | Recurse into subdirectories when target is a directory |
-| `--json` | `boolean` | `false` | Emit JSON `{ files, valid, invalid, results: [...] }` (no envelope) |
+| `--json` | `boolean` | `false` | Emit a versioned JSON envelope (`schemaVersion: 1`) |
+| `--max-width` | `number` | `~500px column` | `SVG_VIEWBOX_TOO_WIDE` threshold, calibrated for a content column with up to 1.5× downscale |
+| `--no-max-width` | `boolean` | `false` | Disable the `SVG_VIEWBOX_TOO_WIDE` check (use for hero banners) |
+| `--scope-dir <name>` | `string` | — | Only consider SVGs under a directory segment named `<name>` (e.g. `diagrams`), skipping hand-authored assets elsewhere in the tree. No-op for a single explicitly-named file target. |
+| `--fail-on <CODE,...>` | comma-separated `SvgIssueCode` | — | Promote specific issue codes to fatal (nonzero exit when present). Unknown/misspelled codes are dropped with a warning. |
+| `--fail-on-severity <warn\|error>` | `string` | — | Fail if any issue at or above this severity exists (`warn` also accepts `warning`) |
 
-`validate` exits with code 1 when any SVG fails validation. Without `--recursive`, only files in the top level of the target directory are inspected. JSON output is intentionally non-versioned (the schema is small and stable) — see `formatValidationResult()` for the human-readable variant.
+`validate` exits with code 1 when any SVG fails validation under the effective policy (any `error`-severity issue always fails; `--fail-on` / `--fail-on-severity` add extra fail conditions and mark the warnings they elevate as "promoted"). Without `--recursive`, only files in the top level of the target directory are inspected. See [JSON Envelope (validate)](#json-envelope--validate-v1) below; `formatValidationResult()` produces the human-readable variant.
+
+### Known Issue Codes
+
+`EMPTY_FILE`, `MISSING_SVG_TAG`, `MISSING_SVG_CLOSE`, `MISSING_WIDTH`, `MISSING_HEIGHT`, `NO_VISUAL_ELEMENTS`, `CONTAINS_SCRIPT`, `CONTAINS_FOREIGN_OBJECT`, `MISSING_XMLNS`, `EXTERNAL_RESOURCE`, `INVALID_VIEWBOX`, `SVG_TOO_LARGE`, `LOW_CONTRAST_TEXT`, `ASPECT_RATIO_EXTREME`, `SVG_VIEWBOX_TOO_WIDE`.
+
+## `skills install` Options
+
+| Flag | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `--dir <path>` | `string` | cwd | Target repo directory |
+| `--harness <list>` | comma-separated / repeatable | auto-detect | `claude`, `cursor`, `codex`, `continue`. Auto-detect looks for existing `.claude/`, `.cursor/`, `.codex/`, `.continue/` dirs; `.agents/` is always written |
+| `--only <name>...` | comma-separated / repeatable | all shipped skills | Restrict to specific skills; matches with or without the `diagramkit-` prefix |
+| `--check` | `boolean` | `false` | Verify only — exit nonzero on any missing/stale/orphaned stub, write nothing |
+| `--dry-run` | `boolean` | `false` | Show planned `created`/`updated`/`removed` actions without writing |
+| `--json` | `boolean` | `false` | Emit a machine-readable result (`schemaVersion: 1`, `command: "skills-install"`) |
+
+For every skill shipped at `node_modules/diagramkit/skills/<name>/SKILL.md`, writes a canonical pointer at `.agents/skills/<name>/SKILL.md` plus mirrors under each targeted harness. Stubs carry an HTML-comment version marker (`<!-- diagramkit-skill-pointer: pkg=diagramkit version=<v> ... -->`) so re-runs are idempotent and drift is detectable via `--check`. Orphan sweep: a managed stub whose skill no longer ships is reported `orphaned` under `--check` and deleted under plain `install` — scoped to the `diagramkit-*` namespace and only stubs the tool generated (marker present); hand-authored `diagramkit-*` folders and non-namespaced skills (e.g. `prj-*`) are never touched.
 
 ## Output Naming
 
@@ -149,7 +180,7 @@ When given a directory, `diagramkit render` recursively scans for supported exte
 
 Watch mode stays running until `Ctrl+C`.
 
-## JSON Envelope (v1)
+## JSON Envelope — `render` (v1)
 
 `--json` outputs a versioned envelope:
 
@@ -165,6 +196,25 @@ Watch mode stays running until `Ctrl+C`.
 ```
 
 JSON schema: `diagramkit/schemas/diagramkit-cli-render.v1.json` (exported from the npm package).
+
+## JSON Envelope — `validate` (v1)
+
+```json
+{
+  "schemaVersion": 1,
+  "command": "validate",
+  "target": { "kind": "directory", "path": "/abs/path" },
+  "files": 12,
+  "valid": 10,
+  "invalid": 2,
+  "policy": { "scopeDir": null, "failOnCodes": [], "failOnSeverity": null },
+  "promoted": [{ "code": "LOW_CONTRAST_TEXT", "severity": "warning", "count": 1 }],
+  "failed": true,
+  "results": [{ "file": "/abs/path/x.svg", "valid": false, "issues": [] }]
+}
+```
+
+`policy` echoes the effective `--scope-dir`/`--fail-on`/`--fail-on-severity` flags for this run. `promoted` lists warning-severity issues elevated to fatal by the policy (errors are never listed — they already fail via the baseline). `failed` is the overall exit disposition. JSON schema: `diagramkit/schemas/diagramkit-cli-validate.v1.json` (exported from the npm package).
 
 ### Breaking Change Note
 

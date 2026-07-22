@@ -94,6 +94,8 @@ Validate generated SVG file(s) for structural correctness and `<img>`-tag render
 
 ```bash
 diagramkit validate <file-or-dir> [--recursive] [--json]
+                     [--max-width <px> | --no-max-width]
+                     [--scope-dir <name>] [--fail-on <CODE,...>] [--fail-on-severity <warn|error>]
 ```
 
 Examples:
@@ -103,9 +105,20 @@ diagramkit validate .diagramkit/                # all SVGs in a folder (top leve
 diagramkit validate .diagramkit/ --recursive    # recurse into subfolders
 diagramkit validate output.svg                  # single file
 diagramkit validate . --recursive --json        # CI-friendly machine-readable output
+diagramkit validate . --recursive --scope-dir diagrams          # only SVGs under diagrams/ folders
+diagramkit validate . --recursive --fail-on LOW_CONTRAST_TEXT   # promote a warning to fatal
+diagramkit validate . --recursive --fail-on-severity warn       # fail on any warning or error
 ```
 
-Exits non-zero when any SVG fails. The directory render and single-file render commands also run this check automatically and surface results inline.
+Exits non-zero when any SVG fails validation under the effective policy. The directory render and single-file render commands also run this check automatically and surface results inline.
+
+**Policy flags** (compose with each other; the baseline — any `error`-severity issue — always fails):
+
+- `--scope-dir <name>` — only consider SVGs under a directory segment named `<name>` (e.g. `diagrams`), so hand-authored assets elsewhere in the tree stop producing false-positive warnings. No-op when the target is a single file.
+- `--fail-on <CODE,...>` — promote specific issue codes to fatal. Unknown codes are dropped with a warning rather than failing the command. Valid codes: `EMPTY_FILE`, `MISSING_SVG_TAG`, `MISSING_SVG_CLOSE`, `MISSING_WIDTH`, `MISSING_HEIGHT`, `NO_VISUAL_ELEMENTS`, `CONTAINS_SCRIPT`, `CONTAINS_FOREIGN_OBJECT`, `MISSING_XMLNS`, `EXTERNAL_RESOURCE`, `INVALID_VIEWBOX`, `SVG_TOO_LARGE`, `LOW_CONTRAST_TEXT`, `ASPECT_RATIO_EXTREME`, `SVG_VIEWBOX_TOO_WIDE`.
+- `--fail-on-severity <warn|error>` — fail if any issue at or above this severity exists.
+
+`--json` emits a versioned envelope (`schemaVersion: 1`) including the effective `policy`, any `promoted` warnings, and the overall `failed` disposition — see [CLI Reference → JSON Envelope — validate](../../reference/diagramkit/cli/README.md#json-envelope--validate-v1). Schema: `diagramkit/schemas/diagramkit-cli-validate.v1.json`.
 
 ### Interactive wizards
 
@@ -120,20 +133,28 @@ diagramkit render . --yes               # alias for --no-interactive (accept def
 
 `--interactive` falls back with a one-line warning when stdout is not a TTY (so CI logs stay clean).
 
-### Project skills (the diagramkit CLI does not install them)
+### Project skills (`diagramkit skills install`)
 
 > [!IMPORTANT]
-> The previous `diagramkit --install-skill` flag was removed in v0.3. Skills now ship inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The `diagramkit-setup` skill writes thin pointer SKILL.md files into your repo (`.agents/skills/diagramkit-*` plus harness mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`) that defer to those bundled originals — so every agent reads guidance pinned to the installed CLI version.
+> The previous `diagramkit --install-skill` flag was removed in v0.3. Skills now ship inside the npm package at `node_modules/diagramkit/skills/<name>/SKILL.md`. The default install is the `skills install` subcommand, which writes thin pointer SKILL.md files into your repo (`.agents/skills/diagramkit-*` plus harness mirrors under `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.continue/skills/`) that defer to those bundled originals — so every agent reads guidance pinned to the installed CLI version.
 
-Recommended (local pointers):
+Recommended (CLI installer):
 
 ```bash
 npm add diagramkit
-# Then have your agent follow:
-#   node_modules/diagramkit/skills/diagramkit-setup/SKILL.md
-# It writes pointer SKILL.md files for: setup, auto, mermaid, excalidraw,
+npx diagramkit skills install
+# Writes pointer SKILL.md files for: setup, auto, mermaid, excalidraw,
 # draw-io, graphviz, review (validation + WCAG 2.2 AA contrast).
 ```
+
+```bash
+diagramkit skills install --harness claude,cursor      # explicit harness set
+diagramkit skills install --only mermaid --only review # restrict to specific skills
+diagramkit skills install --dry-run                    # preview, write nothing
+diagramkit skills install --check --json               # CI drift gate, machine-readable
+```
+
+Re-runs are idempotent (`created`/`updated`/`unchanged` per stub) and sweep stubs left by a removed skill, scoped to the `diagramkit-*` namespace. See [CLI Reference → `skills install` Options](../../reference/diagramkit/cli/README.md#skills-install-options) for the full flag table. The `diagramkit-setup` skill documents the same pointer format as a prose fallback for contexts where the CLI can't run.
 
 Alternative (GitHub-published skills via the standalone [`skills`](https://github.com/vercel-labs/skills) CLI), when you want skills that update independently of the installed `diagramkit`:
 
@@ -144,7 +165,7 @@ npx skills add sujeet-pro/diagramkit -s diagramkit-setup -s diagramkit-review
 npx skills update sujeet-pro/diagramkit                            # refresh later
 ```
 
-Pick **one** mechanism per repo (local pointers OR `npx skills`) so they don't drift against each other.
+Pick **one** mechanism per repo (`diagramkit skills install` OR `npx skills`) so they don't drift against each other.
 
 ## Render Options
 
@@ -276,7 +297,7 @@ diagramkit --yes               # alias for --no-interactive (accept defaults)
 diagramkit -y                  # short form
 ```
 
-> Project skills are installed by the `diagramkit-setup` skill as **local pointers** into `node_modules/diagramkit/skills/` (default), or by the standalone `skills` CLI (`npx skills add sujeet-pro/diagramkit`) when the repo prefers GitHub-published skills. See [Project skills](#project-skills-the-diagramkit-cli-does-not-install-them).
+> Project skills are installed by `npx diagramkit skills install` (default) as **local pointers** into `node_modules/diagramkit/skills/`, or by the standalone `skills` CLI (`npx skills add sujeet-pro/diagramkit`) when the repo prefers GitHub-published skills. See [Project skills](#project-skills-diagramkit-skills-install).
 
 ## Examples
 
