@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: npm audit
         run: npm audit --audit-level=moderate
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: npm run typecheck
 
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Build library (vp pack)
         run: npm run build:lib
@@ -102,7 +102,7 @@ jobs:
     needs: [build-lib]
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Download dist artifact
         uses: actions/download-artifact@v8
@@ -118,7 +118,7 @@ jobs:
     needs: [build-lib]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Download dist artifact
         uses: actions/download-artifact@v8
@@ -133,7 +133,7 @@ jobs:
     needs: [build-lib]
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Download dist artifact
         uses: actions/download-artifact@v8
@@ -154,7 +154,7 @@ jobs:
     needs: [build-lib]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Download dist artifact
         uses: actions/download-artifact@v8
@@ -203,7 +203,7 @@ jobs:
     needs: [build-lib, docs-build]
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Download dist artifact
         uses: actions/download-artifact@v8
