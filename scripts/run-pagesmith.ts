@@ -24,7 +24,7 @@ let stopping = false
 
 function run(): void {
   attempts += 1
-  child = spawn('npx', ['--no-install', 'pagesmith-docs', mode, ...passthrough], {
+  child = spawn('npx', ['--no-install', 'pagesmith-presets', 'docs', mode, ...passthrough], {
     stdio: 'inherit',
     env: process.env,
   })
